@@ -78,3 +78,7 @@ To see a list of all available commands, simply run:
 ```bash
 python artisan
 ```
+
+## Example Application
+
+You can find a complete example of a Console application built with Fastapi Startkit in our [example repository](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/console-app).

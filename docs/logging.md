@@ -31,20 +31,20 @@ app: Application = Application(
 
 ## Usage
 
-Fastapi Startkit configures Python's global logging system. Once the `LogProvider` is booted, you can use the standard Python `logging` module throughout your application.
+The recommended way to log messages in Fastapi Startkit is using the `Logger` facade. The facade automatically includes the filename and line number where the log was triggered, providing better context in your logs.
 
 ```python
-import logging
+from fastapi_startkit.logging import Logger
 
-# Get a logger instance
-logger = logging.getLogger(__name__)
-
-# Log messages
-logger.debug("This is a debug message")
-logger.info("Application is starting...")
-logger.warning("Unusual activity detected")
-logger.error("An error occurred during processing")
-logger.critical("System failure!")
+# Log messages with different levels
+Logger.debug("This is a debug message")
+Logger.info("Application is starting...")
+Logger.notice("A formal notice")
+Logger.warning("Unusual activity detected")
+Logger.error("An error occurred during processing")
+Logger.critical("System failure!")
+Logger.alert("Immediate action required")
+Logger.emergency("System is unusable")
 ```
 
 ## Configuration
@@ -90,9 +90,7 @@ For more complex applications, it is recommended to use a dedicated configuratio
 
 ```python
 # config/logging.py
-from fastapi_startkit.environment import env
-
-DEFAULT = env('LOG_CHANNEL', 'single')
+DEFAULT = 'single'
 
 CHANNELS = {
     'single': {

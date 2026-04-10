@@ -7,6 +7,16 @@ title: FastAPI Integration
 
 Fastapi Startkit provides a seamless way to integrate and bootstrap FastAPI applications. By using the `FastAPIProvider`, you can maintain a clean separation between your application logic and the framework's configuration.
 
+## Installation
+
+To use FastAPI Integration, you need to install the `fastapi` extra:
+
+```bash
+uv add fastapi-startkit --extra fastapi
+# or
+pip install "fastapi-startkit[fastapi]"
+```
+
 ## Setup
 
 To enable FastAPI support, register the `FastAPIProvider` in your application providers list.
@@ -118,3 +128,7 @@ python artisan serve
 ```
 
 This command uses Uvicorn to start your application with reasonable defaults and reload capabilities.
+
+## Example Application
+
+You can find a complete example of a FastAPI application built with Fastapi Startkit in our [example repository](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/fastapi-app).
