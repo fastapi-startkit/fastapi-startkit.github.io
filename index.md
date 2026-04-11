@@ -3,7 +3,7 @@ layout: home
 
 hero:
     name: "FastAPI Starter Kit"
-    tagline: My great project tagline
+    tagline: The components needs to build a great Python application.
     actions:
         -   theme: brand
             text: Documentation
