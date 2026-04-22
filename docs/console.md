@@ -9,25 +9,35 @@ FastAPI Startkit uses [Cleo](https://cleo.readthedocs.io/en/latest/) to provide 
 
 ## Creating a Command
 
-To create a new console command, define a class that inherits from `cleo.commands.command.Command`. You should specify the `name` of the command and implement the `handle` method.
+To create a new console command, define a class that inherits from `cleo.commands.command.Command`. You should specify the `name`, `description`, and any `arguments` or `options`.
 
 ```python
 from cleo.commands.command import Command
+from cleo.helpers import argument
+from fastapi_startkit.logging import Logger
 
 class HelloCommand(Command):
-    """
-    Say hello from the console
-
-    hello
-    """
     name = "hello"
+    description = "Say hello from the console"
+
+    arguments = [
+        argument(
+            "name",
+            description="Who do you want to greet?",
+            optional=True
+        )
+    ]
 
     def handle(self):
-        self.line("<info>Hello Command</info>")
+        name = self.argument('name')
+        text = f"Hello {name}" if name else "Hello"
+        
+        # You can use the Logger facade within your commands
+        Logger.info(f"Greeting: {text}")
+        
+        self.line(f"<info>{text}</info>")
 ```
 
-> [!TIP]
-> You can also use docstrings to define the command's signature and description, which Cleo will automatically parse.
 
 ## Registering Commands
 
@@ -63,6 +73,20 @@ app = Application(
         ConsoleServiceProvider,
     ]
 )
+```
+
+### 3. Handle Commands in Entry Point
+
+In your CLI entry point (e.g., `artisan`), use the `handle_command()` method of the `Application` instance:
+
+```python
+#!/usr/bin/env python3
+import sys
+from bootstrap.application import app
+
+if __name__ == "__main__":
+    status = app.handle_command()
+    sys.exit(status if isinstance(status, int) else 0)
 ```
 
 ## Running the Command

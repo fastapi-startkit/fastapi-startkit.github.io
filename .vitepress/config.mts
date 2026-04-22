@@ -20,6 +20,16 @@ export default defineConfig({
                     {text: 'Logging', link: '/docs/logging'},
                     {text: 'Console Commands', link: '/docs/console'}
                 ]
+            },
+            {
+                text: 'Database',
+                items: [
+                    {text: 'Introduction', link: '/docs/database/'},
+                    {text: 'Models', link: '/docs/database/models'},
+                    {text: 'Migrations', link: '/docs/database/migrations'},
+                    {text: 'Seeds', link: '/docs/database/seeds'},
+                    {text: 'Relationships', link: '/docs/database/relationships'},
+                ]
             }
         ],
 

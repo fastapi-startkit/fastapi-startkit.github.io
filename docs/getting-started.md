@@ -5,9 +5,32 @@ title: Getting Started
 
 Fastapi Startkit is a modular, Laravel-inspired framework for building robust FastAPI applications with minimal boilerplate.
 
+## Prerequisites
+
+Before installing FastAPI Startkit, ensure you have the following installed:
+
+### 1. Python
+FastAPI Startkit requires **Python 3.12** or higher. You can download it from [python.org](https://www.python.org/downloads/), or if you have **uv** installed, simply run:
+
+```bash
+uv python install 3.12
+```
+
+### 2. uv (Recommended)
+We highly recommend using [uv](https://docs.astral.sh/uv/) for package management. It is an extremely fast Python package manager and resolver.
+
+**Installation:**
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
 ## Installation
 
-You can install the core framework using `uv` or `pip`:
+You can install the Fastapi start kit using `uv` or `pip`:
 
 ```bash
 uv add fastapi-startkit
@@ -23,8 +46,8 @@ For small projects or quick prototypes, you can define everything in a single fi
 
 ```python
 from pathlib import Path
-from fastapi_startkit.application import Application
-from fastapi_startkit.fastapi.providers import FastAPIProvider
+from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
 
 # Define providers
 providers = [
@@ -40,6 +63,7 @@ app: Application = Application(
 if __name__ == "__main__":
     app.handle_command()
 ```
+The `FastAPIProvider` handles the initialization of the FastAPI instance, binds it to the service container, and automatically registers essential CLI commands and application routes.
 
 ### Running the server
 This setup registers a `serve` command automatically. You can run it directly:
@@ -81,8 +105,8 @@ Initialize the application and register core providers.
 
 ```python
 from pathlib import Path
-from fastapi_startkit.application import Application
-from fastapi_startkit.fastapi.providers import FastAPIProvider
+from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
 
 app: Application = Application(
     base_path=str(Path(__file__).parent.parent),
