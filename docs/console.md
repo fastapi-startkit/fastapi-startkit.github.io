@@ -5,7 +5,7 @@ title: Console Commands
 
 # Console Commands
 
-FastAPI Startkit uses [Cleo](https://cleo.readthedocs.io/en/latest/) to provide a powerful command-line interface, inspired by Laravel's Artisan.
+Fastapi Startkit uses [Cleo](https://cleo.readthedocs.io/en/latest/) to provide a powerful command-line interface, inspired by Laravel's Artisan.
 
 ## Creating a Command
 

@@ -7,10 +7,10 @@ Fastapi Startkit is a modular, Laravel-inspired framework for building robust Fa
 
 ## Prerequisites
 
-Before installing FastAPI Startkit, ensure you have the following installed:
+Before installing Fastapi Startkit, ensure you have the following installed:
 
 ### 1. Python
-FastAPI Startkit requires **Python 3.12** or higher. You can download it from [python.org](https://www.python.org/downloads/), or if you have **uv** installed, simply run:
+Fastapi Startkit requires **Python 3.12** or higher. You can download it from [python.org](https://www.python.org/downloads/), or if you have **uv** installed, simply run:
 
 ```bash
 uv python install 3.12
@@ -30,7 +30,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 ## Installation
 
-You can install the Fastapi start kit using `uv` or `pip`:
+You can install Fastapi Startkit using `uv` or `pip`:
 
 ```bash
 uv add fastapi-startkit
@@ -109,7 +109,7 @@ from fastapi_startkit import Application
 from fastapi_startkit.fastapi import FastAPIProvider
 
 app: Application = Application(
-    base_path=str(Path(__file__).parent.parent),
+    base_path=str(Path().cwd()),
     providers=[FastAPIProvider]
 )
 ```

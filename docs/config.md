@@ -1,49 +1,104 @@
-### Environtment File
-Startkit loads the `.env` file in base directory by default, and Additional Environment Files
-Before loading your application's environment variables, Starter Kit determines if an APP_ENV environment variable has been externally provided or if the --env CLI argument has been specified. If so, Laravel will attempt to load an .env.[APP_ENV] file if it exists. If it does not exist, the default .env file will be loaded.
+---
+outline: deep
+title: Configuration
+---
 
-### Retrieving Environment Configuration
-The environment variables cab be accessed from `.env`, but be careful to access it before loading into the application, so `Application` loads the environemnt when doing bootstrap.
+# Configuration
 
-example:
+Fastapi Startkit provides a robust configuration system that handles everything from environment variables to global application settings.
+
+## Environment Files
+
+By default, Fastapi Startkit loads the `.env` file from your project's root directory.
+
+### Environment-Specific Files
+Before loading your application's environment variables, Fastapi Startkit checks if an `APP_ENV` environment variable is set (or if the `--env` CLI argument is specified). 
+
+If `APP_ENV` is set to `production`, it will attempt to load `.env.production`. If that file doesn't exist, it falls back to the default `.env`.
+
+### Retrieving Environment Values
+While you can use `os.getenv()`, we recommend using the `env()` helper which provides better handling for default values and common types (like booleans).
+
 ```python
-import os
+from fastapi_startkit.environment import env
 
-DATABASES = {
-    "default": "postgres",
-    "postgres": {
-        "driver": "postgres",
-        "host": os.getenv("DB_HOST", "127.0.0.1"),
-        "database": os.getenv("DB_DATABASE", "local"),
-        "user": os.getenv("DB_USERNAME", "local"),
-        "password": os.getenv("DB_PASSWORD", "secret"),
-        "port": os.getenv("DB_PORT", "5432"),
-        "prefix": "",
-        "options": {
-            "min_size": 1,
-            "max_size": 10,
-        },
-    },
-}
+debug = env("APP_DEBUG", False)
+db_port = env("DB_PORT", 5432)
 ```
 
-The recommended way to access environment through out the application is to use the `Config` class provided by `fastapi_startkit.config` module, so that the application can access environment variables in a type-safe and consistent manner. To do so, consider registering config to the service provider, which is typically done through `ServiceProvider`, if you are making any new service make a new service provider
+---
+
+## Global Application Settings
+
+You can pass a global configuration class (typically a dataclass) to the `Application` constructor. This class serves as the central hub for your application's settings.
+
+### 1. Define the Config Class
+Create a dataclass in `config/app.py`:
+
 ```python
-class RedisServiceProvider(Provider):
+from dataclasses import dataclass, field
+from fastapi_startkit.environment import env
+
+@dataclass
+class AppConfig:
+    name: str = field(default_factory=lambda: env("APP_NAME", "My App"))
+    debug: bool = field(default_factory=lambda: env("APP_DEBUG", False))
+    timezone: str = field(default_factory=lambda: env("APP_TIMEZONE", "UTC"))
+```
+
+### 2. Register with Application
+Pass the class to the `Application` instance during bootstrap:
+
+```python
+# bootstrap/application.py
+from config.app import AppConfig
+from fastapi_startkit import Application
+
+app = Application(
+    base_path=...,
+    config=AppConfig,
+    providers=[...]
+)
+```
+
+---
+
+## Accessing Configuration
+
+There are two primary ways to access your configuration values throughout the application.
+
+### 1. Resolving via Application
+If you have access to the `app` instance, you can retrieve the global config object directly:
+
+```python
+# Accessing global settings
+app_name = app.config.name
+is_debug = app.config.debug
+```
+
+### 2. Using the Config Facade
+The `Config` facade allows you to retrieve values from any registered configuration using a "dotted" path. This is especially useful for accessing configurations registered by different service providers (like database or logging).
+
+```python
+from fastapi_startkit.facades import Config
+
+# Accessing global app config
+app_name = Config.get("app.name")
+
+# Accessing other configurations (e.g., from DatabaseProvider)
+db_host = Config.get("database.connections.postgres.host")
+
+# Providing a default value
+secret = Config.get("services.stripe.secret", "default_secret")
+```
+
+### 3. Registering Custom Configs
+Service providers can merge their own configurations into the global config pool:
+
+```python
+class RedisProvider(Provider):
     def register(self):
         from config.redis import config
+        # Merges config into the 'redis' namespace
         self.merge_config_from(config, "redis")
-```
-
-and then you can access the config with
-```python
-Config.get('redis.host')
-Config.get('redis.database')
-```
-
-### Accessing Configuration Values
-```python
-from fastapi_startkit.config import Config
-
-app = Config.get('app.timezone')
 ```
