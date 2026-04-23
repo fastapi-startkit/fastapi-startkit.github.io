@@ -120,6 +120,24 @@ class LoggingConfig:
     })
 ```
 
+
+> [!WARNING]
+> The `LogProvider` does not automatically load the `LoggingConfig` from your config file. You must explicitly pass it as a tuple when registering the provider in your application's bootstrap process.
+
+```python
+# bootstrap/application.py
+from config.logging import LoggingConfig
+from fastapi_startkit.logging import LogProvider
+
+app = Application(
+    base_path=...,
+    providers=[
+        # ... other providers
+        (LogProvider, LoggingConfig),
+    ]
+)
+```
+
 The `LoggingConfig` class allows you to define your logging strategy using a type-safe dataclass:
 
 - **`default`**: Specifies the default channel used by the `Logger` facade. It defaults to the `LOG_CHANNEL` environment variable or `stack` if not set.
@@ -129,6 +147,7 @@ The `LoggingConfig` class allows you to define your logging strategy using a typ
     - **`terminal`**: Outputs logs directly to the console. You can configure the level via `LOG_TERMINAL_LEVEL`.
 
 This structure leverages the `env()` helper, allowing you to easily tune your logging environment via a `.env` file.
+
 
 ## Available Drivers
 
