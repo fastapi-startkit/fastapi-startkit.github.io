@@ -3,7 +3,7 @@ outline: deep
 title: Getting Started
 ---
 
-Fastapi Startkit is a modular, Laravel-inspired framework for building robust FastAPI applications with minimal boilerplate.
+Fastapi Startkit is a modular, Laravel-inspired framework for building robust FastAPI applications with minimal boilerplate. That said, **it doesn't enforce you to use FastAPI at all** — you can build completely CLI-only applications or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
 
 ## Prerequisites
 

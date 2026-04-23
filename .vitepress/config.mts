@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-    title: "Fastapi Start Kit",
+    title: "Fastapi Startkit",
     description: "A repositories of components that can used inside fastapi or console applications",
     themeConfig: {
         // https://vitepress.dev/reference/default-theme-config

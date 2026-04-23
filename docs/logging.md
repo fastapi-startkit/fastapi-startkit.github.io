@@ -17,8 +17,8 @@ To enable logging in your application, you need to register the `LogProvider` in
 
 ```python
 # bootstrap/application.py
-from fastapi_startkit.application import Application
-from fastapi_startkit.logging.providers import LogProvider
+from fastapi_startkit import Application
+from fastapi_startkit.logging import LogProvider
 
 app: Application = Application(
     base_path=...,
@@ -57,7 +57,7 @@ For simple setups or when you want to keep configuration close to the applicatio
 
 ```python
 # bootstrap/application.py
-from fastapi_startkit.logging.providers import LogProvider
+from fastapi_startkit.logging import LogProvider
 
 app: Application = Application(
     base_path=...,
@@ -86,33 +86,49 @@ app: Application = Application(
 
 ### Way 2: Config File (Recommended)
 
-For more complex applications, it is recommended to use a dedicated configuration file at `config/logging.py`. The `LogProvider` will automatically look for this file.
+For more complex applications, it is recommended to use a dedicated configuration file at `config/logging.py`. You can easily publish the default logging configuration file using the `artisan` command:
+
+```bash
+uv run python artisan provider:publish --provider=logging
+```
+
+This will create a `config/logging.py` file in your project with the default settings, which you can then customize.
 
 ```python
-# config/logging.py
-DEFAULT = 'single'
+import dataclasses
 
-CHANNELS = {
-    'single': {
-        'driver': 'single',
-        'level': 'debug',
-        'path': 'storage/logs/single.log'
-    },
-    'daily': {
-        'driver': 'daily',
-        'level': 'debug',
-        'path': 'storage/logs'
-    },
-    'terminal': {
-        'driver': 'terminal',
-        'level': 'info',
-    },
-    'stack': {
-        'driver': 'stack',
-        'channels': ['single', 'terminal']
-    }
-}
+from fastapi_startkit.environment import env
+from fastapi_startkit.logging.config import StackChannel, DailyChannel, TerminalChannel
+
+
+@dataclasses.dataclass
+class LoggingConfig:
+    default: str = dataclasses.field(default_factory=lambda: env('LOG_CHANNEL', 'stack'))
+
+    channels: dict = dataclasses.field(default_factory=lambda: {
+        'stack': StackChannel(
+            driver='stack',
+            channels=['daily', 'terminal']
+        ),
+        'daily': DailyChannel(
+            level=env('LOG_DAILY_LEVEL', 'debug'),
+            path=env('LOG_DAILY_PATH', 'storage/logs'),
+        ),
+        'terminal': TerminalChannel(
+            level=env('LOG_TERMINAL_LEVEL', 'info'),
+        ),
+    })
 ```
+
+The `LoggingConfig` class allows you to define your logging strategy using a type-safe dataclass:
+
+- **`default`**: Specifies the default channel used by the `Logger` facade. It defaults to the `LOG_CHANNEL` environment variable or `stack` if not set.
+- **`channels`**: A dictionary of available logging channels. Each channel uses a specific configuration class (e.g., `StackChannel`, `DailyChannel`, `TerminalChannel`):
+    - **`stack`**: Aggregates multiple channels. In the default config, it sends logs to both `daily` and `terminal`.
+    - **`daily`**: Logs to daily rotating files. You can configure the level and path via `LOG_DAILY_LEVEL` and `LOG_DAILY_PATH`.
+    - **`terminal`**: Outputs logs directly to the console. You can configure the level via `LOG_TERMINAL_LEVEL`.
+
+This structure leverages the `env()` helper, allowing you to easily tune your logging environment via a `.env` file.
 
 ## Available Drivers
 
