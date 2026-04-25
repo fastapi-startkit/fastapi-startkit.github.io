@@ -16,9 +16,19 @@ export default defineConfig({
                 text: 'Guide',
                 items: [
                     { text: 'Getting Started', link: '/docs/getting-started' },
+                    { text: 'Configuration', link: '/docs/configuration' },
                     { text: 'FastAPI', link: '/docs/fastapi' },
+                    { text: 'Exception Handling', link: '/docs/exception-handling' },
                     { text: 'Logging', link: '/docs/logging' },
                     { text: 'Console Commands', link: '/docs/console' }
+                ]
+            },
+            {
+                text: 'Frontend',
+                items: [
+                    { text: 'Introduction', link: '/docs/frontend/' },
+                    { text: 'Vite', link: '/docs/frontend/vite' },
+                    { text: 'Inertia', link: '/docs/frontend/inertia' },
                 ]
             },
             {
