@@ -67,7 +67,7 @@ Add your new provider to the `providers` list during application initialization 
 from app.providers.console_service_provider import ConsoleServiceProvider
 
 app = Application(
-    base_path=str(Path().cwd()),
+    base_path=Path(__file__).parent.parent,
     providers=[
         # ... other providers
         ConsoleServiceProvider,

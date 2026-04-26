@@ -56,7 +56,7 @@ providers = [
 
 # Initialize Application
 app: Application = Application(
-    base_path=str(Path().cwd()),
+    base_path=Path(__file__).parent.parent,
     providers=providers
 )
 
@@ -109,7 +109,7 @@ from fastapi_startkit import Application
 from fastapi_startkit.fastapi import FastAPIProvider
 
 app: Application = Application(
-    base_path=str(Path().cwd()),
+    base_path=Path(__file__).parent.parent,
     providers=[FastAPIProvider]
 )
 ```
