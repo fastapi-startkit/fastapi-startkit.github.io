@@ -10,14 +10,14 @@ fastapi-startkit uses environment variables as the source of truth for configura
 from fastapi_startkit import Application, Config
 from pathlib import Path
 
-app = Application(base_path=Path().cwd())
+app = Application(base_path=Path(__file__).parent.parent)
 # .env is already loaded at this point
 ```
 
 To target an environment-specific file, pass `env` to the constructor:
 
 ```python
-app = Application(base_path=Path().cwd(), env='production')
+app = Application(base_path=Path(__file__).parent.parent, env='production')
 ```
 
 `.env` is always loaded first. If an environment is set and `.env.<environment>` exists, it is loaded on top, overriding any matching keys:
@@ -64,6 +64,7 @@ env('SOME_VALUE', cast=False)  # always raw str
 Define your config as a plain dataclass. Each field uses `default_factory` so the value is read from the environment at the moment you instantiate it — not when the class is defined. Instantiate only after the application has booted:
 
 ```python
+# config/redis.py
 from dataclasses import dataclass, field
 from fastapi_startkit.environment import env
 
@@ -75,6 +76,15 @@ class RedisConfig:
     options: dict = field(default_factory=lambda: {
         'decode_responses': True
     })
+```
+
+Once defined, import and instantiate it anywhere — values are read from the active environment at that moment:
+```python
+from config.redis import RedisConfig
+
+RedisConfig().host     # str  — value of REDIS_HOST
+RedisConfig().port     # int  — auto-cast from REDIS_PORT
+RedisConfig().options  # {'decode_responses': True}
 ```
 
 ## Switching Environment at Runtime
@@ -94,18 +104,6 @@ RedisConfig().host  # 'host.testing'
 ```
 
 This is useful in scripts or test setups where you need to target a specific environment without restarting the process.
-
-## Reading Config
-
-For most cases, just instantiate the dataclass where you need it:
-
-```python
-RedisConfig().host     # 'host.testing'
-RedisConfig().port     # 6379
-RedisConfig().options  # {'decode_responses': True}
-```
-
-No service locator, no injection — just a plain Python object.
 
 ### Registering with Config
 
