@@ -40,6 +40,13 @@ export default defineConfig({
                     { text: 'Seeds', link: '/docs/database/seeds' },
                     { text: 'Relationships', link: '/docs/database/relationships' },
                 ]
+            },
+            {
+                text: 'Testing',
+                items: [
+                    { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
+                    { text: 'Database Testing', link: '/docs/testing/database' },
+                ]
             }
         ],
 
