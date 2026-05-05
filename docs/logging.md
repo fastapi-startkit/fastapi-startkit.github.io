@@ -187,5 +187,3 @@ Sends logs to the system logger.
 - `level`: Minimum logging level.
 
 ---
-
-

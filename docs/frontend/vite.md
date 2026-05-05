@@ -26,13 +26,29 @@ app = Application(
 )
 ```
 
-Publish the default config file:
+Publish the default config and asset files:
 
 ```bash
-python artisan vendor:publish --provider=vite
+python artisan provider:publish --provider=vite
 ```
 
-This creates `config/vite.py` in your project.
+This creates the following files in your project:
+
+- `config/vite.py`: FastAPI configuration for Vite.
+- `package.json`: Vite dependencies and scripts.
+- `vite.config.js`: Vite configuration with Tailwind CSS support.
+- `resources/js/app.js`: Main JavaScript entry point.
+- `resources/css/app.css`: Main CSS entry point.
+
+After publishing, install the frontend dependencies and start the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+> [!NOTE]
+> Ensure `APP_URL` in your `.env` matches your FastAPI server URL (e.g., `http://127.0.0.1:8000`) so that Vite's Hot Module Replacement (HMR) can correctly communicate with the backend.
 
 ---
 
