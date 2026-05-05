@@ -5,39 +5,78 @@ export default defineConfig({
     title: "Fastapi Startkit",
     description: "A repositories of components that can used inside fastapi or console applications",
     cleanUrls: true,
+    lastUpdated: true,
 
     transformHead: ({ pageData }) => {
         const title = pageData.frontmatter.title || pageData.title || 'Fastapi Startkit'
         const description = pageData.frontmatter.description || pageData.description || 'A repositories of components that can used inside fastapi or console applications'
         const url = `https://fastapi-startkit.github.io/${pageData.relativePath.replace(/\.md$/, '')}`
-
-        const head = [
+        const keywords = pageData.frontmatter.keywords || ''
+        const datePublished = pageData.frontmatter.date || new Date().toISOString()
+        const dateModified = pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : datePublished
+        
+        const head: any[] = [
+            ['link', { rel: 'canonical', href: url }],
             ['meta', { property: 'og:title', content: title }],
             ['meta', { property: 'og:description', content: description }],
             ['meta', { property: 'og:url', content: url }],
+            ['meta', { property: 'og:type', content: 'website' }],
+            ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
             ['meta', { name: 'twitter:title', content: title }],
             ['meta', { name: 'twitter:description', content: description }],
         ]
 
+        if (keywords) {
+            head.push(['meta', { name: 'keywords', content: keywords }])
+        }
+
+        // Generate Breadcrumbs
+        const pathParts = pageData.relativePath.split('/').filter(p => p && p !== 'index.md')
+        const breadcrumbs = [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://fastapi-startkit.github.io/"
+            },
+            ...pathParts.map((part, index) => {
+                const path = pathParts.slice(0, index + 1).join('/')
+                const name = part.replace(/-/g, ' ').replace(/\.md$/, '')
+                return {
+                    "@type": "ListItem",
+                    "position": index + 2,
+                    "name": name.charAt(0).toUpperCase() + name.slice(1),
+                    "item": `https://fastapi-startkit.github.io/${path.replace(/\.md$/, '')}`
+                }
+            })
+        ]
+
         // Custom JSON-LD from frontmatter or dynamic generation
-        let jsonLd = pageData.frontmatter.jsonLd
+        let jsonLd: any = pageData.frontmatter.jsonLd
 
         if (!jsonLd) {
-            const isBlog = pageData.relativePath.startsWith('docs') || pageData.frontmatter.layout === 'blog'
-
-            if (isBlog) {
-                jsonLd = {
-                    "@context": "https://schema.org",
-                    "@type": "BlogPosting",
-                    "headline": title,
-                    "description": description,
+            const isBlog = pageData.relativePath.startsWith('blog/') || pageData.frontmatter.layout === 'blog'
+            const isDoc = pageData.relativePath.startsWith('docs/')
+            
+            const graph: any[] = [
+                {
+                    "@type": "WebPage",
+                    "@id": `${url}#webpage`,
                     "url": url,
-                    "author": {
-                        "@type": "Person",
-                        "name": pageData.frontmatter.author || "Fastapi Startkit Team",
-                        "url": "https://github.com/fastapi-startkit"
-                    },
-                    "datePublished": pageData.frontmatter.date || new Date().toISOString(),
+                    "name": title,
+                    "isPartOf": { "@id": "https://fastapi-startkit.github.io/#website" },
+                    "description": description,
+                    "breadcrumb": { "@id": `${url}#breadcrumb` },
+                    "inLanguage": "en-US",
+                    "potentialAction": [{ "@type": "ReadAction", "target": [url] }]
+                },
+                {
+                    "@type": "WebSite",
+                    "@id": "https://fastapi-startkit.github.io/#website",
+                    "url": "https://fastapi-startkit.github.io/",
+                    "name": "Fastapi Startkit",
+                    "description": "Structured Data. Made Simple.",
+                    "inLanguage": "en-US",
                     "publisher": {
                         "@type": "Organization",
                         "name": "Fastapi Startkit",
@@ -45,20 +84,45 @@ export default defineConfig({
                             "@type": "ImageObject",
                             "url": "https://fastapi-startkit.github.io/logo.png"
                         }
-                    },
-                    "mainEntityOfPage": {
-                        "@type": "WebPage",
-                        "@id": url
                     }
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "@id": `${url}#breadcrumb`,
+                    "itemListElement": breadcrumbs
                 }
-            } else {
-                jsonLd = {
-                    "@context": "https://schema.org",
-                    "@type": "WebPage",
-                    "name": title,
+            ]
+
+            if (isBlog || isDoc) {
+                const type = isBlog ? "BlogPosting" : "TechArticle"
+                graph.push({
+                    "@type": type,
+                    "@id": `${url}#mainEntity`,
+                    "headline": title,
                     "description": description,
-                    "url": url
-                }
+                    "datePublished": datePublished,
+                    "dateModified": dateModified,
+                    "author": { "@id": "https://fastapi-startkit.github.io/#author" },
+                    "publisher": { "@id": "https://fastapi-startkit.github.io/#website" },
+                    "keywords": keywords,
+                    "mainEntityOfPage": { "@id": `${url}#webpage` }
+                })
+                graph.push({
+                    "@type": "Person",
+                    "@id": "https://fastapi-startkit.github.io/#author",
+                    "name": pageData.frontmatter.author || "Fastapi Startkit Team",
+                    "url": "https://github.com/fastapi-startkit"
+                })
+            }
+
+            jsonLd = {
+                "@context": "https://schema.org",
+                "@graph": graph
+            }
+        } else {
+            jsonLd = {
+                "@context": "https://schema.org",
+                "@graph": jsonLd["@graph"] || [jsonLd]
             }
         }
 

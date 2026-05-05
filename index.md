@@ -4,7 +4,6 @@ title: Fastapi Startkit - Modular Framework for FastAPI
 description: A modular, Laravel-inspired framework for building robust FastAPI applications with minimal boilerplate.
 keywords: fastapi, framework, python, starter kit, modular architecture
 jsonLd:
-  "@context": "https://schema.org"
   "@type": "SoftwareApplication"
   "name": "Fastapi Startkit"
   "operatingSystem": "Linux, macOS, Windows"

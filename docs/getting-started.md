@@ -4,12 +4,13 @@ title: Getting Started
 description: Get up and running with Fastapi Startkit in minutes.
 keywords: fastapi, starter, framework, python, tutorial
 jsonLd:
-  "@context": "https://schema.org"
-  "@type": "SoftwareApplication"
-  "name": "Fastapi Startkit"
-  "operatingSystem": "Linux, macOS, Windows"
-  "applicationCategory": "DeveloperApplication"
-  "description": "A modular, Laravel-inspired framework for building robust FastAPI applications."
+  "@type": "TechArticle"
+  "headline": "Getting Started with Fastapi Startkit"
+  "description": "A comprehensive guide to installing and setting up Fastapi Startkit for your next Python project."
+  "articleSection": "Guide"
+  "author":
+    "@type": "Organization"
+    "name": "Fastapi Startkit Team"
 ---
 
 Fastapi Startkit is a modular, Laravel-inspired framework for building robust FastAPI applications with minimal boilerplate. That said, **it doesn't enforce you to use FastAPI at all** — you can build completely CLI-only applications or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
