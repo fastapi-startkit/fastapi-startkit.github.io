@@ -1,6 +1,8 @@
 ---
 outline: deep
-title: FastAPI Integration
+title: FastAPI Provider
+description: Understanding the FastAPI provider and how it integrates with the service container.
+keywords: fastapi, dependency injection, service provider, container
 ---
 
 # FastAPI Integration

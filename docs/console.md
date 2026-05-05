@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: Console Commands
+description: Build powerful CLI applications and management commands using Fastapi Startkit's console component.
+keywords: cli, console, commands, automation, cleo
 ---
 
 # Console Commands

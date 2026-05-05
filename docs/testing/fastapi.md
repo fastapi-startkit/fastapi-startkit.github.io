@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: FastAPI Testing
+description: Learn how to write robust integration tests for your FastAPI endpoints using Fastapi Startkit.
+keywords: testing, fastapi, integration tests, pytest
 ---
 
 # FastAPI Testing

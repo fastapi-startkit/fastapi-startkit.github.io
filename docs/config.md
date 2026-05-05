@@ -1,6 +1,8 @@
 ---
 outline: deep
-title: Configuration
+title: Config Component
+description: Technical details of the Config component and environment variable management.
+keywords: config, environment, variables, pydantic, fastapi
 ---
 
 # Configuration

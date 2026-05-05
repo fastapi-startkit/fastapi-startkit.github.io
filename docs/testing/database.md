@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: Database Testing
+description: Test your database logic with automatic migrations and transactions in Fastapi Startkit.
+keywords: database testing, migrations, transactions, orm, pytest
 ---
 
 # Database Testing

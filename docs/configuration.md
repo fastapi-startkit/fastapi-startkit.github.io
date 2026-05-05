@@ -1,3 +1,10 @@
+---
+outline: deep
+title: Configuration
+description: Manage your application settings using Fastapi Startkit's flexible configuration system.
+keywords: configuration, environment, settings, fastapi
+---
+
 # Configuration
 
 fastapi-startkit uses environment variables as the source of truth for configuration. The application loads the appropriate `.env` file on boot, and config classes read from those variables when instantiated.

@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: Seeds
+description: Populate your database with test data using seeder files in Fastapi Startkit.
+keywords: database, seeding, test data, python, fastapi
 ---
 
 # Seeds

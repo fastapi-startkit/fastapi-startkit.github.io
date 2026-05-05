@@ -1,6 +1,8 @@
 ---
 outline: deep
-title: Database
+title: Database Overview
+description: Overview of the database layer in Fastapi Startkit, powered by Masonite ORM.
+keywords: database, orm, fastapi, python
 ---
 
 # Database

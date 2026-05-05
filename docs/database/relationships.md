@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: Relationships
+description: Define and manage database relationships (One-to-One, One-to-Many, Many-to-Many) using Fastapi Startkit's ORM.
+keywords: orm, relationships, database, foreign keys, fastapi
 ---
 
 # Relationships

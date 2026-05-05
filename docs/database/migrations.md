@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: Migrations
+description: Learn how to manage your database schema using version-controlled migration files in Fastapi Startkit.
+keywords: fastapi, database, migrations, schema, python, orm
 ---
 
 # Migrations

@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: Models
+description: Define your database models using the powerful Masonite ORM integrated into Fastapi Startkit.
+keywords: orm, models, database, fastapi, active record
 ---
 
 # Models

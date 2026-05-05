@@ -1,6 +1,8 @@
 ---
 outline: deep
 title: Logging
+description: Advanced logging configurations and channel management in Fastapi Startkit.
+keywords: logging, monitoring, debugging, fastapi
 ---
 
 # Logging

@@ -1,3 +1,9 @@
+---
+outline: deep
+title: Frontend Introduction
+description: Introduction to frontend development with Fastapi Startkit, including Vite and Inertia support.
+keywords: frontend, vite, inertia, fastapi
+---
 # Frontend
 Most Python backend frameworks treat the frontend as a completely separate concern — a different repo, a different team, a different deployment. That separation makes sense at scale, but it creates real friction when you are a solo developer or a small team trying to move fast.
 

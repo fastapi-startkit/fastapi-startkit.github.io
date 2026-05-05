@@ -1,3 +1,9 @@
+---
+outline: deep
+title: Exception Handling
+description: Robust exception handling and custom error responses in Fastapi Startkit.
+keywords: error handling, exceptions, fastapi, debugging
+---
 # Exception Handling
 
 The framework provides a centralized `ExceptionHandler` that handles reporting (logging) and rendering (HTTP responses) for exceptions across both web and CLI contexts.

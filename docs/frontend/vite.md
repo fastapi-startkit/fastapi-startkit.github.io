@@ -1,3 +1,10 @@
+---
+outline: deep
+title: Vite
+description: Integrate Vite for high-performance frontend development with Fastapi Startkit.
+keywords: vite, frontend, assets, fastapi, bundling
+---
+
 # Vite
 
 The `ViteProvider` integrates Vite asset bundling with your application. It supports both **HMR development mode** and **manifest-based production mode**, and injects `vite()`, `vite_asset()`, and `vite_react_refresh()` helpers into Jinja2 templates.

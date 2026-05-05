@@ -1,3 +1,9 @@
+---
+outline: deep
+title: Inertia
+description: Build modern single-page applications without the complexity of a separate API using Inertia.js and Fastapi Startkit.
+keywords: inertia, spa, frontend, fastapi, monolithic
+---
 # Inertia
 
 [Inertia.js](https://inertiajs.com) is a protocol that bridges your server and frontend, letting you build full-stack single-page applications without building a separate API. Instead of writing REST endpoints and consuming them with `fetch()`, you write controllers that return component names and props — Inertia takes care of the rest.
