@@ -10,7 +10,7 @@ export default defineConfig({
         hostname: 'https://fastapi-startkit.github.io'
     },
     head: [
-        ['meta', { name: 'google-site-verification', content: 'google3b7cbafc919db5aa' }]
+        ['meta', { name: 'google-site-verification', content: 'RpM5amadnjbR3TF0J4L4MXB4TWYVesPz0ssaXg7-jYM' }]
     ],
 
     transformHead: ({ pageData }) => {
@@ -20,7 +20,7 @@ export default defineConfig({
         const keywords = pageData.frontmatter.keywords || ''
         const datePublished = pageData.frontmatter.date || new Date().toISOString()
         const dateModified = pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : datePublished
-        
+
         const head: any[] = [
             ['link', { rel: 'canonical', href: url }],
             ['meta', { property: 'og:title', content: title }],
@@ -63,7 +63,7 @@ export default defineConfig({
         if (!jsonLd) {
             const isBlog = pageData.relativePath.startsWith('blog/') || pageData.frontmatter.layout === 'blog'
             const isDoc = pageData.relativePath.startsWith('docs/')
-            
+
             const graph: any[] = [
                 {
                     "@type": "WebPage",
