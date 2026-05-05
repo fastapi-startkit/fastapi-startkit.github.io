@@ -6,6 +6,12 @@ export default defineConfig({
     description: "A repositories of components that can used inside fastapi or console applications",
     cleanUrls: true,
     lastUpdated: true,
+    sitemap: {
+        hostname: 'https://fastapi-startkit.github.io'
+    },
+    head: [
+        ['meta', { name: 'google-site-verification', content: 'google3b7cbafc919db5aa' }]
+    ],
 
     transformHead: ({ pageData }) => {
         const title = pageData.frontmatter.title || pageData.title || 'Fastapi Startkit'
