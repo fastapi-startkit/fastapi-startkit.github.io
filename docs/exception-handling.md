@@ -18,8 +18,6 @@ ExceptionHandler
 
 `handle()` is the main entry point called by FastAPI. It calls both `report()` and `render()` in sequence.
 
----
-
 ## Setup
 
 Pass a custom handler class when creating your `Application`:
@@ -45,8 +43,6 @@ app = Application(
 
 `register()` is called automatically during application boot. Wire your renders and reports there.
 
----
-
 ## Registering Renders
 
 A render callable converts an exception into a Starlette/FastAPI `Response`.
@@ -62,8 +58,6 @@ def register(self):
 
 Renders are matched by **exact type**. If no render is found for the exception, `render()` returns `None` and FastAPI falls back to its own default error handling.
 
----
-
 ## Registering Reports
 
 Custom reporters let you send exceptions to external services (Sentry, Datadog, etc.):
@@ -76,8 +70,6 @@ def register(self):
     )
 ```
 
----
-
 ## Suppressing Reports
 
 Use `dont_report()` to skip logging for expected exceptions (e.g. 404s, auth redirects):
@@ -86,8 +78,6 @@ Use `dont_report()` to skip logging for expected exceptions (e.g. 404s, auth red
 def register(self):
     self.dont_report([NotAuthenticated, ModelNotFoundException])
 ```
-
----
 
 ## Handler Objects
 
@@ -107,8 +97,6 @@ def register(self):
 
 Handler objects support MRO resolution — a handler registered for `Exception` will also match subclasses unless a more specific handler exists.
 
----
-
 ## How It Wires to FastAPI
 
 `FastAPIProvider.boot()` registers a catch-all exception handler on the FastAPI instance:
@@ -120,13 +108,9 @@ self.app.fastapi.add_exception_handler(Exception, handler)
 
 This means every unhandled exception in a request is passed through `exception_manager.handle(exc, {"request": request})`.
 
----
-
 ## CLI Context
 
 In CLI (non-HTTP) contexts, `install()` wires `sys.excepthook` to call `report()` directly. The render path is never reached because there is no HTTP request. `KeyboardInterrupt` is passed through to the default hook unchanged.
-
----
 
 ## Built-in Exception Types
 

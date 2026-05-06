@@ -76,8 +76,6 @@ async def index(request: Request):
 - On the **first page load**, returns an HTML response using the root template.
 - On **Inertia XHR requests** (`X-Inertia: true` header), returns a JSON response with component name, props, and URL.
 
----
-
 ## Shared Data
 
 Share data globally — available as props on every component:
@@ -102,8 +100,6 @@ inertia.share("flash", lambda: {})
 
 Shared data is merged with per-render props. Per-render props take precedence.
 
----
-
 ## Partial Reloads
 
 ```python
@@ -121,8 +117,6 @@ return Inertia.render('Users/Index',{
 })
 ```
  
----
-
 ## Asset Versioning
 
 Set a version string so Inertia can detect asset changes and trigger a full-page reload:
@@ -138,8 +132,6 @@ inertia.version(vite.manifest_hash() or "1")
 
 When the client's `X-Inertia-Version` header mismatches the server version, the middleware returns `409 Conflict` with an `X-Inertia-Location` header, causing the client to perform a full hard reload.
 
----
-
 ## Middleware
 
 `InertiaMiddleware` is registered automatically by `InertiaProvider`. It handles three concerns:
@@ -147,8 +139,6 @@ When the client's `X-Inertia-Version` header mismatches the server version, the 
 1. **Version check** — returns `409` on version mismatch (triggers hard reload).
 2. **Redirect conversion** — converts `302` redirects to `303` for `PUT`/`PATCH`/`DELETE` requests, so the browser performs a `GET` on the redirect target.
 3. **Vary header** — adds `Vary: X-Inertia` to every response for correct cache behaviour.
-
----
 
 ## Custom Root View
 
@@ -158,8 +148,6 @@ Change the root template name (default: `index.html`):
 inertia = app().make("inertia")
 inertia.set_root_view("app.html")
 ```
-
----
 
 ## Client-Side Setup (React)
 

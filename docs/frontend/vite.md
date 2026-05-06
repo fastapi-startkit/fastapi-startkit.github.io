@@ -11,7 +11,7 @@ The `ViteProvider` integrates Vite asset bundling with your application. It supp
 
 ## Setup
 
-Register `ViteProvider` in your application:
+The Vite integration is included in the core `fastapi-startkit` package, so no further installation is required. Register `ViteProvider` in your application:
 
 ```python
 # bootstrap/application.py
@@ -37,8 +37,9 @@ This creates the following files in your project:
 - `config/vite.py`: FastAPI configuration for Vite.
 - `package.json`: Vite dependencies and scripts.
 - `vite.config.js`: Vite configuration with Tailwind CSS support.
-- `resources/js/app.js`: Main JavaScript entry point.
+- `resources/js/app.ts`: Main entry point.
 - `resources/css/app.css`: Main CSS entry point.
+- `templates/index.html`: Example template using Vite.
 
 After publishing, install the frontend dependencies and start the development server:
 
@@ -49,8 +50,6 @@ npm run dev
 
 > [!NOTE]
 > Ensure `APP_URL` in your `.env` matches your FastAPI server URL (e.g., `http://127.0.0.1:8000`) so that Vite's Hot Module Replacement (HMR) can correctly communicate with the backend.
-
----
 
 ## Configuration
 
@@ -70,7 +69,17 @@ config = ViteConfig(
 )
 ```
 
----
+To use your custom configuration, pass the `ViteConfig` class when registering the provider. This is optional; if omitted, the provider will use the default settings.
+
+```python
+from config.vite import ViteConfig
+
+app = Application(
+    providers=[
+        (ViteProvider, ViteConfig),
+    ],
+)
+```
 
 ## Development Mode (HMR)
 
@@ -88,8 +97,6 @@ The hot file's content is the HMR origin URL. Vite writes it automatically; you 
 http://localhost:5173
 ```
 
----
-
 ## Production Mode
 
 Build your assets:
@@ -99,8 +106,6 @@ npm run build
 ```
 
 Vite writes `public/build/manifest.json`. The framework reads this manifest at startup (cached in memory) and generates hashed asset URLs with preload tags.
-
----
 
 ## Template Helpers
 
@@ -148,8 +153,6 @@ Injects the React Fast Refresh preamble. Required for React HMR. Must appear **b
 
 In production mode, `vite_react_refresh()` returns an empty string — safe to always include.
 
----
-
 ## CSP Nonce
 
 ```python
@@ -160,8 +163,6 @@ nonce = vite.use_csp_nonce()   # generates a random nonce
 
 All generated script and link tags will include the `nonce` attribute.
 
----
-
 ## Custom Asset URL Resolver
 
 Override how asset URLs are built (e.g., to add a CDN prefix dynamically):
@@ -170,8 +171,6 @@ Override how asset URLs are built (e.g., to add a CDN prefix dynamically):
 vite = app.make("vite")
 vite.create_asset_paths_using(lambda path: f"https://cdn.example.com/{path}")
 ```
-
----
 
 ## SRI Integrity
 

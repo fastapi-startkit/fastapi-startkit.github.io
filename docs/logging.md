@@ -185,5 +185,3 @@ Sends log messages to a Slack channel via a webhook/token.
 Sends logs to the system logger.
 - `path`: The syslog path (usually `/dev/log` or `/var/run/syslog`).
 - `level`: Minimum logging level.
-
----

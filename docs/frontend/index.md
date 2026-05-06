@@ -28,8 +28,6 @@ Add `InertiaProvider` on top of `ViteProvider` and get a full server-driven SPA 
 This is the fastest path to a polished, interactive full-stack application. You write controllers the same way you always have, and React (or Vue or Svelte) handles the rendering.
 - [Inertia setup and usage →](./inertia)
 
----
-
 ## Zero cost when unused
 
 Both approaches are fully opt-in at the provider level. If `ViteProvider` is not registered, nothing from the frontend module is ever loaded. The files may exist on disk — they are never read into memory. There is no performance penalty and no configuration required to "disable" it.
