@@ -48,8 +48,6 @@ uv add fastapi-startkit
 pip install fastapi-startkit
 ```
 
----
-
 ## Way 1: Simple Setup
 
 For small projects or quick prototypes, you can define everything in a single file (e.g., `main.py`).
@@ -81,8 +79,6 @@ This setup registers a `serve` command automatically. You can run it directly:
 ```bash
 python main.py serve
 ```
-
----
 
 ## Way 2: Structured Setup (Recommended)
 
@@ -143,8 +139,6 @@ You can now use the `artisan` script to manage your application:
 ```bash
 python artisan serve
 ```
-
----
 
 ## Running with Uvicorn
 

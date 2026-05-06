@@ -28,8 +28,6 @@ debug = env("APP_DEBUG", False)
 db_port = env("DB_PORT", 5432)
 ```
 
----
-
 ## Global Application Settings
 
 You can pass a global configuration class (typically a dataclass) to the `Application` constructor. This class serves as the central hub for your application's settings.
@@ -62,8 +60,6 @@ app = Application(
     providers=[...]
 )
 ```
-
----
 
 ## Accessing Configuration
 
