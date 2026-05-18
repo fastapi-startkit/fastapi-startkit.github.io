@@ -158,3 +158,5 @@ class Post(Model):
 ```
 
 Relationship declarations are covered in the [Relationships](./relationships) section.
+
+Automatic type coercion and custom value objects are covered in the [Casts](./casts) section.

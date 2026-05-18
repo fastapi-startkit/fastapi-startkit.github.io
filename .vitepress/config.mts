@@ -169,6 +169,7 @@ export default defineConfig({
                 items: [
                     { text: 'Introduction', link: '/docs/database/' },
                     { text: 'Models', link: '/docs/database/models' },
+                    { text: 'Casts', link: '/docs/database/casts' },
                     { text: 'Migrations', link: '/docs/database/migrations' },
                     { text: 'Seeds', link: '/docs/database/seeds' },
                     { text: 'Relationships', link: '/docs/database/relationships' },
@@ -179,6 +180,12 @@ export default defineConfig({
                 items: [
                     { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
                     { text: 'Database Testing', link: '/docs/testing/database' },
+                ]
+            },
+            {
+                text: 'Digging Deeper',
+                items: [
+                    { text: 'Storage', link: '/docs/storage' },
                 ]
             }
         ],
