@@ -11,15 +11,19 @@ Casts automatically transform model attribute values when reading from or writin
 
 ## Built-in Casts
 
-| Type annotation | Cast | Example DB value → Python |
-|---|---|---|
-| `int` | Integer | `"1"` → `1` |
-| `str` | String | `1` → `"1"` |
-| `float` | Float | `"3.14"` → `3.14` |
-| `bool` | Boolean | `1` → `True`, `0` → `False` |
-| `dict` | JSON | `'{"key":"val"}'` → `{"key": "val"}` |
-| `list` | JSON | `'["a","b"]'` → `["a", "b"]` |
-| `Carbon` | DateTime | `"2024-01-01 00:00:00"` → `Carbon` |
+| Type annotation | Cast | Example DB value → Python                     |
+|---|---|-----------------------------------------------|
+| `int` | Integer | `"1"` → `1`                                   |
+| `str` | String | `1` → `"1"`                                   |
+| `float` | Float | `"3.14"` → `3.14`                             |
+| `bool` | Boolean | `1` → `True`, `0` → `False`                   |
+| `dict` | JSON | `'{"key":"val"}'` → `{"key": "val"}`          |
+| `list` | JSON | `'["a","b"]'` → `["a", "b"]`                  |
+| `datetime` | DateTime | `"2024-01-01 08:00:00"` → `datetime.datetime` |
+| `date` | DateTime | `"2024-01-01"` → `datetiem.date`              |
+| `Carbon` | DateTime | `"2024-01-01 00:00:00"` → `Carbon`            |
+| `time` | Time | `"09:00:00"` → `datetime.time`                |
+| `timedelta` | TimeDelta | `3600.0` → `datetime.timedelta(seconds=3600)` |
 
 Define the type annotation on the model — no extra configuration required:
 
@@ -55,6 +59,98 @@ await User.create({
     "tags": ["admin", "editor"],
 })
 ```
+
+## Date & Time Casts
+
+### `datetime` and `date`
+
+Fields annotated with `datetime` are returned as a `datetime` object on read, and fields annotated with `date` are returned as a `date` object. Use `Carbon` as the annotation if you want the richer `Carbon` type with timezone-aware helpers.
+
+```python
+from datetime import datetime, date
+from fastapi_startkit.masoniteorm import Model
+
+class User(Model):
+    email_verified_at: datetime   # stored as "YYYY-MM-DD HH:MM:SS", returned as datetime
+    date_of_birth: date           # stored as "YYYY-MM-DD", returned as datetime
+```
+
+When inserting you can pass a string or a native `datetime` / `date` object:
+
+```python
+import datetime
+
+await User.create({
+    "email_verified_at": "2024-06-15 12:30:00",                     # string
+    "date_of_birth": datetime.datetime.now(datetime.timezone.utc),  # native datetime
+})
+```
+
+```python
+user = await User.first()
+
+user.email_verified_at.year    # 2024
+user.date_of_birth.month       # 6
+```
+
+### `Carbon`
+
+Annotate with `Carbon` when you want the timezone-aware `Carbon` type:
+
+```python
+from fastapi_startkit.carbon import Carbon
+
+class Article(Model):
+    published_at: Carbon
+```
+
+### `time`
+
+`time` annotations use `TimeCast`. The value is stored as an `"HH:MM:SS"` string and returned as `datetime.time`.
+
+```python
+from datetime import time
+
+class User(Model):
+    punch_in_time: time
+```
+
+```python
+user = await User.first()
+isinstance(user.punch_in_time, time)   # True
+user.punch_in_time.hour                # 9
+```
+
+### `timedelta`
+
+`timedelta` annotations use `TimeDeltaCast`. The value is stored as a float (total seconds) and returned as `datetime.timedelta`.
+
+```python
+from datetime import timedelta
+
+class Session(Model):
+    duration: timedelta
+```
+
+```python
+session = await Session.first()
+isinstance(session.duration, timedelta)       # True
+session.duration.total_seconds()              # 3600.0
+```
+
+### Default values
+
+Use `Field(default=...)` or `Field(default_factory=...)` to specify a fallback when the column is `NULL`:
+
+```python
+from datetime import time
+from fastapi_startkit.masoniteorm.models.fields import Field
+
+class User(Model):
+    punch_in_time: time = Field(default=time(9, 0, 0))
+```
+
+A `NULL` database value will be returned as `time(9, 0, 0)` instead of `None`.
 
 ## Custom Casts with `Attribute`
 
