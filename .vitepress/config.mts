@@ -181,6 +181,12 @@ export default defineConfig({
                     { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
                     { text: 'Database Testing', link: '/docs/testing/database' },
                 ]
+            },
+            {
+                text: 'Digging Deeper',
+                items: [
+                    { text: 'Storage', link: '/docs/storage' },
+                ]
             }
         ],
 
