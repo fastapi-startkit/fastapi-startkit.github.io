@@ -126,6 +126,13 @@
     display: none !important;
 }
 
+/* VPLocalNav contains the mobile sidebar "Menu" button and the outline dropdown.
+   Offset it below our fixed SiteHeader so it isn't covered. */
+.VPLocalNav {
+    top: var(--vp-nav-height) !important;
+}
+
+
 .dark {
     --vp-c-brand-1: #66d9c9;
     --vp-c-brand-2: #05998b;
