@@ -3,10 +3,10 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
 </script>
 
 <template>
-    <section class="relative bg-inverse-surface text-white py-32 overflow-hidden">
+    <section class="relative bg-[#0f172a] text-white py-32 overflow-hidden">
         <!-- Background effects -->
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_60%_50%,rgba(5,153,139,0.15)_0%,transparent_50%)]"></div>
-        <div class="absolute inset-0 opacity-10" style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;40&quot; height=&quot;40&quot; viewBox=&quot;0 0 40 40&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cpath d=&quot;M0 0h1v1H0V0zm1 1h1v1H1V1z&quot; fill=&quot;%2305998b&quot; fill-opacity=&quot;0.4&quot; fill-rule=&quot;evenodd&quot;/%3E%3C/svg%3E');"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_60%_50%,rgba(5,150,105,0.15)_0%,transparent_50%)]"></div>
+        <div class="absolute inset-0 opacity-10" style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;40&quot; height=&quot;40&quot; viewBox=&quot;0 0 40 40&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cpath d=&quot;M0 0h1v1H0V0zm1 1h1v1H1V1z&quot; fill=&quot;%23059669&quot; fill-opacity=&quot;0.4&quot; fill-rule=&quot;evenodd&quot;/%3E%3C/svg%3E');"></div>
 
         <div class="max-w-7xl mx-auto px-10 relative z-10">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
@@ -21,7 +21,7 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                             <br/>
                             <span class="text-brand-teal text-glow">Optimized for speed.</span>
                         </h2>
-                        <p class="text-outline-variant font-body-lg text-body-lg max-w-xl opacity-90">
+                        <p class="text-white/70 font-body-lg text-body-lg max-w-xl">
                             The Startkit isn't just a collection of libraries; it's a battle-tested architecture designed to handle thousands of concurrent requests with sub-millisecond overhead.
                         </p>
                     </div>
@@ -33,7 +33,7 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                             </div>
                             <div class="space-y-1">
                                 <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Zero-copy Processing</h4>
-                                <p class="text-outline-variant text-body-sm font-body-sm max-w-md">Leveraging memory-efficient serialization for lightning-fast data throughput across all system boundaries.</p>
+                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Leveraging memory-efficient serialization for lightning-fast data throughput across all system boundaries.</p>
                             </div>
                         </li>
                         <li class="flex items-start gap-6 group/item">
@@ -42,7 +42,7 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                             </div>
                             <div class="space-y-1">
                                 <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Encrypted Pipelines</h4>
-                                <p class="text-outline-variant text-body-sm font-body-sm max-w-md">Hardware-accelerated TLS termination and internal secret management for uncompromising security at scale.</p>
+                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Hardware-accelerated TLS termination and internal secret management for uncompromising security at scale.</p>
                             </div>
                         </li>
                     </ul>
@@ -51,7 +51,7 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                 <!-- Right: Benchmark Card -->
                 <div class="relative">
                     <div class="absolute -inset-10 bg-brand-teal/20 blur-[100px] rounded-full opacity-40"></div>
-                    <div class="relative bg-slate-900/60 border border-brand-teal/20 p-10 rounded-xl backdrop-blur-xl shadow-[0_0_50px_rgba(5,153,139,0.1)]">
+                    <div class="relative bg-slate-900/60 border border-brand-teal/20 p-10 rounded-xl backdrop-blur-xl shadow-[0_0_50px_rgba(5,150,105,0.1)]">
                         <div class="flex justify-between items-center mb-12">
                             <div class="flex items-center gap-3">
                                 <div class="w-2 h-2 rounded-full bg-brand-teal animate-pulse"></div>
@@ -74,9 +74,9 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
 
                             <!-- Django -->
                             <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-outline-variant">
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-white/60">
                                     <span>Django Gunicorn</span>
-                                    <span class="text-outline-variant">12,180 req/s</span>
+                                    <span class="text-white/60">12,180 req/s</span>
                                 </div>
                                 <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                                     <div class="h-full bg-white/10 w-[20%]"></div>
@@ -85,9 +85,9 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
 
                             <!-- Express -->
                             <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-outline-variant">
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-white/60">
                                     <span>Express.js Cluster</span>
-                                    <span class="text-outline-variant">41,500 req/s</span>
+                                    <span class="text-white/60">41,500 req/s</span>
                                 </div>
                                 <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                                     <div class="h-full bg-white/20 w-[45%]"></div>

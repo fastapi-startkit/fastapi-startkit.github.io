@@ -6,10 +6,13 @@
 @source "../../**/*.md";
 @source "../theme/**/*.{vue,ts}";
 
+/* Tell Tailwind's dark: variant to use VitePress's .dark class instead of prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ===== Design Tokens ===== */
 @theme {
-    --color-brand-teal: #05998b;
-    --color-brand-teal-light: #66d9c9;
+    --color-brand-teal: #059669;
+    --color-brand-teal-light: #6ee7b7;
 
     --color-surface: #f8f9ff;
     --color-surface-dim: #cbdbf5;
@@ -92,25 +95,25 @@
 
 /* ===== Utility Classes ===== */
 .code-shadow {
-    box-shadow: 0 20px 50px -12px rgba(5, 153, 139, 0.2);
+    box-shadow: 0 20px 50px -12px rgba(5, 150, 105, 0.2);
 }
 
 .glass-teal {
-    background: rgba(5, 153, 139, 0.05);
+    background: rgba(5, 150, 105, 0.05);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(5, 153, 139, 0.1);
+    border: 1px solid rgba(5, 150, 105, 0.1);
 }
 
 .text-glow {
-    text-shadow: 0 0 20px rgba(5, 153, 139, 0.3);
+    text-shadow: 0 0 20px rgba(5, 150, 105, 0.3);
 }
 
 /* ===== VitePress Overrides ===== */
 :root {
-    --vp-c-brand-1: #05998b;
-    --vp-c-brand-2: #008377;
-    --vp-c-brand-3: #006a60;
-    --vp-c-brand-soft: rgba(5, 153, 139, 0.14);
+    --vp-c-brand-1: #059669;
+    --vp-c-brand-2: #047857;
+    --vp-c-brand-3: #065f46;
+    --vp-c-brand-soft: rgba(5, 150, 105, 0.14);
 
     --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
@@ -142,9 +145,31 @@
 
 
 .dark {
-    --vp-c-brand-1: #66d9c9;
-    --vp-c-brand-2: #05998b;
-    --vp-c-brand-3: #008377;
+    --vp-c-brand-1: #6ee7b7;
+    --vp-c-brand-2: #059669;
+    --vp-c-brand-3: #047857;
+
+    --color-brand-teal: #6ee7b7;
+    --color-brand-teal-light: #a7f3d0;
+
+    --color-surface: #0f172a;
+    --color-surface-dim: #0b1120;
+    --color-surface-container: #1e293b;
+    --color-surface-container-low: #152033;
+    --color-surface-container-high: #263448;
+    --color-surface-container-highest: #334155;
+    --color-surface-container-lowest: #080e1a;
+    --color-surface-variant: #1e293b;
+
+    --color-on-surface: #e2e8f0;
+    --color-on-surface-variant: #94a3b8;
+    --color-on-primary: #022c22;
+
+    --color-outline: #475569;
+    --color-outline-variant: #1e293b;
+
+    --color-inverse-surface: #e2e8f0;
+    --color-inverse-on-surface: #1e293b;
 }
 
 /* Hide default VitePress hero and features */
@@ -185,7 +210,7 @@ html {
 
 /* Selection color */
 ::selection {
-    background-color: #05998b;
+    background-color: #059669;
     color: white;
 }
 

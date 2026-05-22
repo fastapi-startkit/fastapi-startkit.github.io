@@ -12,7 +12,7 @@ import { Globe, Terminal, Activity, CircleCheck } from 'lucide-vue-next'
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-0 border border-outline-variant rounded overflow-hidden shadow-sm">
                 <!-- Module 1: Asynchronous Core -->
-                <div class="bg-white p-10 flex flex-col gap-8 border-r border-outline-variant hover:bg-brand-teal/[0.02] transition-colors group">
+                <div class="bg-surface-container-lowest p-10 flex flex-col gap-8 border-r border-outline-variant hover:bg-brand-teal/[0.02] transition-colors group">
                     <div class="space-y-4">
                         <div class="w-10 h-10 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal group-hover:scale-110 transition-transform">
                             <Globe :size="20" />
@@ -33,7 +33,7 @@ import { Globe, Terminal, Activity, CircleCheck } from 'lucide-vue-next'
                 </div>
 
                 <!-- Module 2: DevOps CLI -->
-                <div class="bg-white p-10 flex flex-col gap-8 border-r border-outline-variant hover:bg-brand-teal/[0.02] transition-colors group">
+                <div class="bg-surface-container-lowest p-10 flex flex-col gap-8 border-r border-outline-variant hover:bg-brand-teal/[0.02] transition-colors group">
                     <div class="space-y-4">
                         <div class="w-10 h-10 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal group-hover:scale-110 transition-transform">
                             <Terminal :size="20" />
@@ -52,7 +52,7 @@ import { Globe, Terminal, Activity, CircleCheck } from 'lucide-vue-next'
                 </div>
 
                 <!-- Module 3: Observability Stack -->
-                <div class="bg-white p-10 flex flex-col gap-8 hover:bg-brand-teal/[0.02] transition-colors group">
+                <div class="bg-surface-container-lowest p-10 flex flex-col gap-8 hover:bg-brand-teal/[0.02] transition-colors group">
                     <div class="space-y-4">
                         <div class="w-10 h-10 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal group-hover:scale-110 transition-transform">
                             <Activity :size="20" />

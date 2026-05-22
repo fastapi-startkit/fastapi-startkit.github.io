@@ -11,7 +11,7 @@
                 <div
                     v-for="(person, idx) in testimonials"
                     :key="idx"
-                    class="bg-white border border-outline-variant rounded-lg overflow-hidden flex flex-col hover:border-brand-teal transition-all hover:shadow-xl hover:shadow-brand-teal/5 group"
+                    class="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden flex flex-col hover:border-brand-teal transition-all hover:shadow-xl hover:shadow-brand-teal/5 group"
                 >
                     <div class="p-6 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
                         <div class="flex gap-1.5">
