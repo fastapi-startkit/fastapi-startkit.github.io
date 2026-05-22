@@ -1,6 +1,9 @@
 from fastapi_startkit.logging import Logger
 
-# Log messages with different levels
+# Once LoggerProvider is registered in bootstrap/application.py,
+# the global Logger is accessible anywhere in your codebase.
+# No local instantiation or repetitive configuration is required.
+
 Logger.debug("This is a debug message")
 Logger.info("Application is starting...")
 Logger.notice("A formal notice")

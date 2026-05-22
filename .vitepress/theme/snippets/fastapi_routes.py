@@ -1,6 +1,7 @@
 # routes/web.py
 from fastapi_startkit.fastapi import Router
 
+# Or, switch to an opinionated routing architecture for better organization
 router = Router()
 
 from app.http.controllers import users_controller

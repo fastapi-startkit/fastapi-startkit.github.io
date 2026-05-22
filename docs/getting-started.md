@@ -13,7 +13,7 @@ jsonLd:
     "name": "Fastapi Startkit Team"
 ---
 
-Fastapi Startkit is a modular, Laravel-inspired framework for building robust FastAPI applications with minimal boilerplate. That said, **it doesn't enforce you to use FastAPI at all** — you can build completely CLI-only applications or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
+Fastapi Startkit is a modular, provider-driven, Laravel-inspired framework for building robust FastAPI applications with minimal boilerplate. That said, **it doesn't enforce you to use FastAPI at all** — You can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
 
 ## Prerequisites
 
