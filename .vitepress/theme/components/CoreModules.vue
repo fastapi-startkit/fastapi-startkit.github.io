@@ -1,3 +1,7 @@
+<script setup>
+import { Globe, Terminal, Activity, CircleCheck } from 'lucide-vue-next'
+</script>
+
 <template>
     <section class="py-32 bg-surface">
         <div class="max-w-7xl mx-auto px-10">
@@ -11,18 +15,18 @@
                 <div class="bg-white p-10 flex flex-col gap-8 border-r border-outline-variant hover:bg-brand-teal/[0.02] transition-colors group">
                     <div class="space-y-4">
                         <div class="w-10 h-10 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal group-hover:scale-110 transition-transform">
-                            <span class="material-symbols-outlined">api</span>
+                            <Globe :size="20" />
                         </div>
                         <h3 class="font-headline-md text-headline-md font-semibold text-on-surface tracking-[-0.01em]">Asynchronous Core</h3>
                         <p class="text-body-sm font-body-sm text-on-surface-variant">Fully async stack built on FastAPI, Starlette, Pydantic, and Masonite ORM — providing the fastest possible execution path for Python web applications.</p>
                     </div>
                     <div class="mt-auto space-y-3">
                         <div class="flex items-center gap-3 py-2 border-t border-outline-variant/50">
-                            <span class="text-brand-teal material-symbols-outlined text-sm">check_circle</span>
+                            <CircleCheck :size="16" class="text-brand-teal" />
                             <span class="text-label-sm font-label-sm text-on-surface">Automatic OpenAPI Docs</span>
                         </div>
                         <div class="flex items-center gap-3 py-2 border-t border-outline-variant/50">
-                            <span class="text-brand-teal material-symbols-outlined text-sm">check_circle</span>
+                            <CircleCheck :size="16" class="text-brand-teal" />
                             <span class="text-label-sm font-label-sm text-on-surface">Strict Typing Engine</span>
                         </div>
                     </div>
@@ -32,7 +36,7 @@
                 <div class="bg-white p-10 flex flex-col gap-8 border-r border-outline-variant hover:bg-brand-teal/[0.02] transition-colors group">
                     <div class="space-y-4">
                         <div class="w-10 h-10 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal group-hover:scale-110 transition-transform">
-                            <span class="material-symbols-outlined">terminal</span>
+                            <Terminal :size="20" />
                         </div>
                         <h3 class="font-headline-md text-headline-md font-semibold text-on-surface tracking-[-0.01em]">Artisan CLI</h3>
                         <p class="text-body-sm font-body-sm text-on-surface-variant">Powerful artisan commands for scaffolding models, running migrations, seeding databases, and managing your application — all from the terminal.</p>
@@ -51,7 +55,7 @@
                 <div class="bg-white p-10 flex flex-col gap-8 hover:bg-brand-teal/[0.02] transition-colors group">
                     <div class="space-y-4">
                         <div class="w-10 h-10 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal group-hover:scale-110 transition-transform">
-                            <span class="material-symbols-outlined">monitoring</span>
+                            <Activity :size="20" />
                         </div>
                         <h3 class="font-headline-md text-headline-md font-semibold text-on-surface tracking-[-0.01em]">Observability Stack</h3>
                         <p class="text-body-sm font-body-sm text-on-surface-variant">Native integration with Prometheus, Grafana, and OpenTelemetry for deep inspection of application state.</p>

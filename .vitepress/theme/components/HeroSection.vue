@@ -1,5 +1,6 @@
 <script setup>
     import { computed, onMounted, onUnmounted, ref } from "vue"
+    import { Terminal, FileText, Copy } from "lucide-vue-next"
 
     // ── Raw Python snippet imports ──────────────────────────────────────────────
     import applicationRaw from "../snippets/application.py?raw"
@@ -78,7 +79,7 @@
     const currentTabData = computed(() => tabData[activeCategory.value])
 
     const currentCode = computed(() => {
-        if (!highlighterReady.value) return ""
+        if (!highlighterReady.value) return escapeHtml(currentTabData.value.raw[activeFileIndex.value])
         const h = highlighted.value[activeCategory.value]
         if (h) return h[activeFileIndex.value] ?? escapeHtml(currentTabData.value.raw[activeFileIndex.value])
         return escapeHtml(currentTabData.value.raw[activeFileIndex.value])
@@ -108,6 +109,20 @@
             activeFileIndex.value = index
             isTransitioning.value = false
         }, 150)
+    }
+
+    // ── Synchronized horizontal scroll (file tabs ↔ code body) ─────────────────
+    const fileTabsRef = ref(null)
+    const codeBodyRef = ref(null)
+
+    function onCodeScroll() {
+        if (fileTabsRef.value && codeBodyRef.value)
+            fileTabsRef.value.scrollLeft = codeBodyRef.value.scrollLeft
+    }
+
+    function onTabsScroll() {
+        if (fileTabsRef.value && codeBodyRef.value)
+            codeBodyRef.value.scrollLeft = fileTabsRef.value.scrollLeft
     }
 </script>
 
@@ -149,7 +164,7 @@
                 <div class="flex flex-col sm:flex-row gap-4">
                     <a href="/docs/getting-started" class="bg-brand-teal text-white px-8 py-4 rounded font-label-md font-bold flex items-center justify-center gap-2 transition-all hover:brightness-110 shadow-lg shadow-brand-teal/20 active:scale-[0.98]">
                         Initialize Project
-                        <span class="material-symbols-outlined text-[18px]">terminal</span>
+                        <Terminal :size="18" />
                     </a>
                 </div>
 
@@ -192,34 +207,34 @@
 
                         <!-- Chrome bar -->
                         <div class="flex items-center justify-between px-4 py-3 bg-editor-chrome border-b border-brand-teal/10">
-                            <div class="flex items-center gap-6">
+                            <div class="flex items-center gap-6 min-w-0 flex-1 overflow-hidden">
                                 <!-- Traffic lights -->
-                                <div class="flex gap-1.5">
+                                <div class="flex gap-1.5 shrink-0">
                                     <div class="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
                                     <div class="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
                                     <div class="w-3 h-3 rounded-full bg-[#27c93f]"></div>
                                 </div>
                                 <!-- File tabs -->
-                                <div class="flex gap-4">
+                                <div ref="fileTabsRef" class="flex gap-4 overflow-x-auto scrollbar-none min-w-0 flex-1" @scroll="onTabsScroll">
                                     <button
                                         v-for="(file, idx) in currentTabData.files"
                                         :key="file"
-                                        class="px-3 py-1 flex items-center gap-2 rounded transition-all"
+                                        class="px-3 py-1 flex items-center gap-2 rounded transition-all shrink-0"
                                         :class="activeFileIndex === idx ? 'bg-brand-teal/10 border-b-2 border-brand-teal' : 'opacity-50 hover:opacity-75'"
                                         @click="switchFile(idx)"
                                     >
-                                        <span class="material-symbols-outlined text-xs" :class="activeFileIndex === idx ? 'text-brand-teal' : 'text-outline-variant'">description</span>
+                                        <FileText :size="12" :class="activeFileIndex === idx ? 'text-brand-teal' : 'text-outline-variant'" />
                                         <span class="text-xs font-mono tracking-tight" :class="activeFileIndex === idx ? 'text-white' : 'text-outline-variant'">{{ file }}</span>
                                     </button>
                                 </div>
                             </div>
-                            <span class="material-symbols-outlined text-outline-variant text-sm hover:text-brand-teal cursor-pointer transition-colors">content_copy</span>
+                            <Copy :size="14" class="text-outline-variant hover:text-brand-teal cursor-pointer transition-colors" />
                         </div>
 
                         <!-- Code body -->
-                        <div class="p-6 md:p-8 font-mono text-[13px] leading-relaxed h-[410px] overflow-y-auto overflow-x-hidden">
+                        <div ref="codeBodyRef" class="p-6 md:p-8 font-mono text-[13px] leading-relaxed h-[410px] overflow-y-auto overflow-x-auto" @scroll="onCodeScroll">
               <pre
-                  class="text-white transition-all duration-200 m-0 p-0 bg-transparent"
+                  class="text-white transition-all duration-200 m-0 p-0 bg-transparent whitespace-pre"
                   :class="{ 'opacity-0 translate-y-1': isTransitioning }"
               ><code v-html="currentCode" class="bg-transparent"></code></pre>
                         </div>

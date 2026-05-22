@@ -1,4 +1,5 @@
 <script setup>
+import { Terminal } from 'lucide-vue-next'
     const startYear = 2026
     const currentYear = new Date().getFullYear()
     const copyrightYear = currentYear > startYear ? `${startYear}–${currentYear}` : `${startYear}`
@@ -9,7 +10,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 w-full max-w-[1280px] mx-auto py-12 px-10">
             <div class="space-y-4">
                 <div class="font-label-md text-label-md font-bold text-brand-teal flex items-center gap-2">
-                    <span class="material-symbols-outlined text-brand-teal">terminal</span>
+                    <Terminal :size="18" class="text-brand-teal" />
                     Fastapi Starkit
                 </div>
                 <p class="text-body-sm font-body-sm text-on-surface-variant">
