@@ -151,7 +151,35 @@ inertia.set_root_view("app.html")
 
 ## Client-Side Setup (React)
 
-Create `resources/js/app.tsx` as the Inertia bootstrap entry point.
+For frontend tooling setup (Vite, package.json, tsconfig, Tailwind) see the [Vite docs](/docs/frontend/vite).
+
+For Inertia you need to additionally install `@inertiajs/react` and the Vite plugin:
+
+```bash
+npm install @inertiajs/react
+npm install -D @inertiajs/vite
+```
+
+Then add `@inertiajs/vite` to your `vite.config.js` input via `fastapi-vite-plugin`:
+
+```js
+// vite.config.js
+import fastapi from 'fastapi-vite-plugin'
+
+export default defineConfig({
+    plugins: [
+        fastapi({
+            input: 'resources/js/app.tsx',  // [!code ++]
+            refresh: true,
+        }),
+        // ...
+    ],
+})
+```
+
+### Entry point
+
+Create `resources/js/app.tsx`:
 
 ### Basic setup
 

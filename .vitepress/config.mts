@@ -1,23 +1,34 @@
 import { defineConfig } from 'vitepress'
+// @ts-ignore
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
     title: "Fastapi Startkit",
-    description: "A repositories of components that can used inside fastapi or console applications",
+    description: "FastAPI Startkit is a batteries-included starter kit and boilerplate for building Python applications with FastAPI. Includes SQLAlchemy async ORM, Alembic migrations, reusable components, service providers, CLI console commands, Vite frontend integration, and Inertia.js support.",
     cleanUrls: true,
     lastUpdated: true,
     sitemap: {
-        hostname: 'https://fastapi-startkit.github.io'
+        hostname: 'https://fastapi-startkit.github.io/sitemap.xml'
     },
     head: [
         ['meta', { name: 'google-site-verification', content: 'RpM5amadnjbR3TF0J4L4MXB4TWYVesPz0ssaXg7-jYM' }]
     ],
 
+    vite: {
+        plugins: [
+            tailwindcss(),
+        ],
+    },
+
     transformHead: ({ pageData }) => {
+        const defaultDescription = 'FastAPI Startkit is a batteries-included starter kit and boilerplate for building Python applications with FastAPI. Includes async ORM powered by SQLAlchemy, migrations, reusable components, service providers, CLI console commands, Vite frontend integration, and Inertia.js support.'
+        const defaultKeywords = 'FastAPI, FastAPI starter kit, FastAPI boilerplate, Python starter kit, Python boilerplate, SQLAlchemy, SQLAlchemy async, Fastapi migrations, FastAPI components, service providers, FastAPI framework, Python framework, FastAPI template, FastAPI scaffold, FastAPI ORM, FastAPI CLI, FastAPI Inertia, FastAPI Vite, FastAPI SQLAlchemy, async Python, Python web framework'
+
         const title = pageData.frontmatter.title || pageData.title || 'Fastapi Startkit'
-        const description = pageData.frontmatter.description || pageData.description || 'A repositories of components that can used inside fastapi or console applications'
+        const description = pageData.frontmatter.description || pageData.description || defaultDescription
         const url = `https://fastapi-startkit.github.io/${pageData.relativePath.replace(/\.md$/, '')}`
-        const keywords = pageData.frontmatter.keywords || ''
+        const keywords = pageData.frontmatter.keywords || defaultKeywords
         const datePublished = pageData.frontmatter.date || new Date().toISOString()
         const dateModified = pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : datePublished
 
@@ -81,7 +92,7 @@ export default defineConfig({
                     "@id": "https://fastapi-startkit.github.io/#website",
                     "url": "https://fastapi-startkit.github.io/",
                     "name": "Fastapi Startkit",
-                    "description": "Structured Data. Made Simple.",
+                    "description": defaultDescription,
                     "inLanguage": "en-US",
                     "publisher": {
                         "@type": "Organization",
@@ -138,12 +149,6 @@ export default defineConfig({
     },
 
     themeConfig: {
-        // https://vitepress.dev/reference/default-theme-config
-        nav: [
-            { text: 'Home', link: '/' },
-            { text: 'Documentation', link: '/docs/getting-started' }
-        ],
-
         sidebar: [
             {
                 text: 'Guide',

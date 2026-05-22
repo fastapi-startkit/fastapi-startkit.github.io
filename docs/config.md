@@ -1,8 +1,8 @@
 ---
 outline: deep
 title: Config Component
-description: Technical details of the Config component and environment variable management.
-keywords: config, environment, variables, pydantic, fastapi
+description: Learn how FastAPI Startkit handles configuration — from .env files and environment variables to dataclass-based app settings, the Config facade, and service provider config merging.
+keywords: FastAPI config, FastAPI configuration, environment variables, .env file, Python dotenv, FastAPI settings, dataclass config, FastAPI boilerplate config, Config facade, service provider config, app settings, FastAPI starter kit config, Python app configuration, config merge, dotted key config
 ---
 
 # Configuration
