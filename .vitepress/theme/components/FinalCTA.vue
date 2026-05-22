@@ -1,5 +1,5 @@
 <template>
-    <section class="py-32 bg-white border-t border-outline-variant relative overflow-hidden">
+    <section class="py-32 bg-surface border-t border-outline-variant relative overflow-hidden">
         <div class="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-[800px] h-[800px] bg-brand-teal/5 blur-[150px] rounded-full"></div>
         <div class="max-w-7xl mx-auto px-10 text-center relative z-10">
             <h2 class="font-headline-xl text-headline-xl font-bold text-on-surface mb-8 tracking-[-0.04em]">
@@ -8,7 +8,7 @@
                 Ship with confidence.
             </h2>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="/docs/getting-started" class="bg-brand-teal text-on-primary px-10 py-5 rounded font-label-md font-bold uppercase transition-all hover:brightness-110 shadow-xl shadow-brand-teal/20 active:scale-[0.98]">
+                <a href="/docs/getting-started" class="bg-brand-teal text-white dark:text-black px-10 py-5 rounded font-label-md font-bold uppercase transition-all hover:brightness-110 shadow-xl shadow-brand-teal/20 active:scale-[0.98]">
                     Start Your Project
                 </a>
             </div>

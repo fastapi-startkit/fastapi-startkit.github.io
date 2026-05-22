@@ -162,7 +162,7 @@
 
                 <!-- CTAs -->
                 <div class="flex flex-col sm:flex-row gap-4">
-                    <a href="/docs/getting-started" class="bg-brand-teal text-white px-8 py-4 rounded font-label-md font-bold flex items-center justify-center gap-2 transition-all hover:brightness-110 shadow-lg shadow-brand-teal/20 active:scale-[0.98]">
+                    <a href="/docs/getting-started" class="bg-brand-teal text-white dark:text-black px-8 py-4 rounded font-label-md font-bold flex items-center justify-center gap-2 transition-all hover:brightness-110 shadow-lg shadow-brand-teal/20 active:scale-[0.98]">
                         Initialize Project
                         <Terminal :size="18" />
                     </a>
@@ -195,7 +195,7 @@
                             v-for="cat in categories"
                             :key="cat"
                             class="flex-1 px-4 py-2 rounded-full font-label-md transition-all text-sm whitespace-nowrap"
-                            :class="activeCategory === cat ? 'bg-brand-teal text-white' : 'text-on-surface-variant hover:text-brand-teal'"
+                            :class="activeCategory === cat ? 'bg-brand-teal text-white dark:text-black' : 'text-on-surface-variant hover:text-brand-teal'"
                             @click="switchCategory(cat)"
                         >
                             {{ cat }}
