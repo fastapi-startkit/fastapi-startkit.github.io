@@ -1,6 +1,7 @@
 <script setup>
 import { useData } from 'vitepress'
 import { computed } from 'vue'
+import { Zap, Search } from 'lucide-vue-next'
 
 const { page } = useData()
 const currentPath = computed(() => page.value.relativePath)
@@ -24,7 +25,7 @@ function openSearch() {
       <!-- Left: Logo + desktop nav links -->
       <div class="flex items-center gap-8 md:gap-12">
         <a href="/" class="font-headline-md font-bold text-brand-teal tracking-tight flex items-center gap-2 hover:opacity-90 transition-opacity shrink-0">
-          <span class="material-symbols-outlined">bolt</span>
+          <Zap :size="20" />
           <span class="hidden sm:inline">FastAPI Startkit</span>
         </a>
 
@@ -47,7 +48,7 @@ function openSearch() {
           @click="openSearch"
         >
           <span class="text-on-surface-variant text-label-md font-label-md flex items-center gap-2">
-            <span class="material-symbols-outlined" style="font-size:16px">search</span>
+            <Search :size="16" />
             Search docs...
           </span>
           <span class="ml-4 text-[10px] text-outline font-label-sm border border-outline-variant px-1.5 py-0.5 rounded bg-white">⌘K</span>
@@ -59,7 +60,7 @@ function openSearch() {
           @click="openSearch"
           aria-label="Search"
         >
-          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">search</span>
+          <Search :size="18" class="text-on-surface-variant" />
         </button>
 
         <!-- Docs link — mobile/tablet only (< md) -->

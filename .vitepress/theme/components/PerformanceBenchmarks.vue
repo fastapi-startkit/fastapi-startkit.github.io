@@ -1,3 +1,7 @@
+<script setup>
+import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
+</script>
+
 <template>
     <section class="relative bg-inverse-surface text-white py-32 overflow-hidden">
         <!-- Background effects -->
@@ -25,7 +29,7 @@
                     <ul class="space-y-8">
                         <li class="flex items-start gap-6 group/item">
                             <div class="mt-1 w-10 h-10 rounded bg-brand-teal/10 border border-brand-teal/20 flex items-center justify-center shrink-0 group-hover/item:bg-brand-teal/30 transition-colors">
-                                <span class="material-symbols-outlined text-brand-teal">speed</span>
+                                <Gauge :size="20" class="text-brand-teal" />
                             </div>
                             <div class="space-y-1">
                                 <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Zero-copy Processing</h4>
@@ -34,7 +38,7 @@
                         </li>
                         <li class="flex items-start gap-6 group/item">
                             <div class="mt-1 w-10 h-10 rounded bg-brand-teal/10 border border-brand-teal/20 flex items-center justify-center shrink-0 group-hover/item:bg-brand-teal/30 transition-colors">
-                                <span class="material-symbols-outlined text-brand-teal">shield</span>
+                                <Shield :size="20" class="text-brand-teal" />
                             </div>
                             <div class="space-y-1">
                                 <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Encrypted Pipelines</h4>
@@ -94,7 +98,7 @@
                         <div class="mt-14 pt-8 border-t border-white/10">
                             <button class="w-full text-brand-teal font-label-sm text-[10px] uppercase tracking-[0.2em] hover:text-white transition-colors flex items-center justify-center gap-2 group/btn">
                                 View Technical Methodology
-                                <span class="material-symbols-outlined text-sm group-hover/btn:translate-x-1 transition-transform">arrow_forward</span>
+                                <ArrowRight :size="14" class="group-hover/btn:translate-x-1 transition-transform" />
                             </button>
                         </div>
                     </div>
