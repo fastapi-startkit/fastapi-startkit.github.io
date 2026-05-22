@@ -3,18 +3,8 @@
     import { useData } from "vitepress"
     import { computed, onMounted, onUnmounted, ref, watch } from "vue"
 
-    const { page, theme, frontmatter } = useData()
+    const { page } = useData()
     const currentPath = computed(() => page.value.relativePath)
-
-    // True only on actual doc pages that have a sidebar — not the homepage
-    const isHomePage = computed(() => frontmatter.value.layout === 'home' || currentPath.value === 'index.md')
-    const hasSidebar = computed(() => {
-        if (isHomePage.value) return false
-        const sidebar = theme.value.sidebar
-        if (!sidebar) return false
-        if (Array.isArray(sidebar)) return sidebar.length > 0
-        return Object.keys(sidebar).length > 0
-    })
 
     const mobileMenuOpen = ref(false)
     const menuButtonRef = ref(null)
@@ -37,32 +27,20 @@
     }
 
     function openSearch() {
+        mobileMenuOpen.value = false
         document.dispatchEvent(new KeyboardEvent("keydown", {
             key: "k", metaKey: true, ctrlKey: true, bubbles: true, cancelable: true,
         }))
     }
 
     function handleMenuToggle() {
-        if (hasSidebar.value) {
-            // Check VitePress's own sidebar state via aria-expanded
-            const vpBtn = document.querySelector(".VPLocalNav button.menu")
-            const sidebarIsOpen = vpBtn?.getAttribute("aria-expanded") === "true"
-            if (sidebarIsOpen) {
-                // Close: click the backdrop VitePress renders when sidebar is open
-                document.querySelector(".VPBackdrop")?.click()
-            } else {
-                vpBtn?.click()
-            }
-            mobileMenuOpen.value = !sidebarIsOpen
-        } else {
-            mobileMenuOpen.value = !mobileMenuOpen.value
-        }
+        mobileMenuOpen.value = !mobileMenuOpen.value
     }
 </script>
 
 <template>
     <header class="w-full h-16 bg-surface/80 backdrop-blur-md border-b border-outline-variant fixed top-0 left-0 right-0 z-[100]">
-        <nav class="flex justify-between items-center h-full max-w-[1280px] mx-auto px-6 md:px-10">
+        <nav class="flex justify-between items-center h-full max-w-7xl mx-auto px-6 md:px-10">
 
             <!-- Left: Logo + desktop nav links -->
             <div class="flex items-center gap-8 md:gap-12">
@@ -81,7 +59,7 @@
                 </div>
             </div>
 
-            <!-- Right: search + GitHub + menu -->
+            <!-- Right -->
             <div class="flex items-center gap-2 md:gap-4">
 
                 <!-- Full search bar — desktop only -->
@@ -96,21 +74,12 @@
                     <span class="ml-4 text-[10px] text-outline font-label-sm border border-outline-variant px-1.5 py-0.5 rounded bg-white">⌘K</span>
                 </button>
 
-                <!-- Search icon — mobile/tablet only (< lg) -->
-                <button
-                    class="lg:hidden flex items-center justify-center w-9 h-9 rounded border border-outline-variant bg-surface-container-low hover:border-brand-teal transition-all"
-                    @click="openSearch"
-                    aria-label="Search"
-                >
-                    <Search :size="18" class="text-on-surface-variant"/>
-                </button>
-
-                <!-- GitHub icon -->
+                <!-- GitHub icon — desktop only -->
                 <a
                     href="https://github.com/fastapi-startkit/fastapi_startkit"
                     target="_blank"
                     rel="noopener"
-                    class="text-on-surface-variant hover:text-brand-teal transition-colors"
+                    class="hidden md:block text-on-surface-variant hover:text-brand-teal transition-colors"
                     aria-label="GitHub"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -133,9 +102,9 @@
 
         </nav>
 
-        <!-- Mobile nav dropdown — homepage only -->
+        <!-- Mobile nav dropdown -->
         <div
-            v-if="mobileMenuOpen && isHomePage"
+            v-if="mobileMenuOpen"
             class="md:hidden absolute top-full left-0 right-0 bg-surface/95 backdrop-blur-md border-b border-outline-variant shadow-lg"
         >
             <div class="flex flex-col px-6 py-4 gap-1 max-w-[1280px] mx-auto">
@@ -145,6 +114,13 @@
                     :class="isActive('/docs') ? 'text-brand-teal' : 'text-on-surface'"
                     @click="mobileMenuOpen = false"
                 >Documentation</a>
+                <button
+                    class="text-body-md font-body-md text-on-surface hover:text-brand-teal transition-colors py-3 border-b border-outline-variant flex items-center gap-2 w-full text-left"
+                    @click="openSearch"
+                >
+                    <Search :size="18"/>
+                    Search
+                </button>
                 <a
                     href="https://github.com/fastapi-startkit/fastapi_startkit"
                     target="_blank"
