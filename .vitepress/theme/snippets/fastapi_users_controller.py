@@ -1,4 +1,5 @@
 # app/http/controllers/users_controller.py
+# NOTE: Database provider needs to register to run this code
 async def index(request: Request):
     return await User.all()
 

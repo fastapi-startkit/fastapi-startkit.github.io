@@ -1,15 +1,17 @@
 <script setup>
+    import { Copy, FileText, Terminal } from "lucide-vue-next"
     import { computed, onMounted, onUnmounted, ref } from "vue"
-    import { Terminal, FileText, Copy } from "lucide-vue-next"
 
     // ── Raw Python snippet imports ──────────────────────────────────────────────
     import applicationRaw from "../snippets/application.py?raw"
     import artisanRaw from "../snippets/artisan?raw"
+    import databaseAppRaw from "../snippets/database_app.py?raw"
     import dbMigrationsRaw from "../snippets/database_migrations.py?raw"
     import dbModelsRaw from "../snippets/database_models.py?raw"
+    import fastapiAppRaw from "../snippets/fastapi-app.py?raw"
     import fastapiRaw from "../snippets/fastapi.py?raw"
-    import fastapiControllerRaw from "../snippets/fastapi_users_controller.py?raw"
     import fastapiRoutesRaw from "../snippets/fastapi_routes.py?raw"
+    import fastapiControllerRaw from "../snippets/fastapi_users_controller.py?raw"
     import logLoggerRaw from "../snippets/logging_logger.py?raw"
 
     // ── Word rotator ────────────────────────────────────────────────────────────
@@ -32,16 +34,15 @@
     onUnmounted(() => { if (interval) clearInterval(interval) })
 
     // ── Tab / file structure ────────────────────────────────────────────────────
-    const categories = ["Application", "FastAPI", "Database", "Migrations", "Logging"]
+    const categories = ["Application", "FastAPI", "Database", "Logging"]
     const activeCategory = ref("Application")
     const activeFileIndex = ref(0)
     const isTransitioning = ref(false)
 
     const tabData = {
         Application: { files: ["application.py", "artisan"], raw: [applicationRaw, artisanRaw] },
-        FastAPI: { files: ["fastapi.py", "users_controllers.py", "api.py"], raw: [fastapiRaw, fastapiControllerRaw, fastapiRoutesRaw] },
-        Database: { files: ["models.py"], raw: [dbModelsRaw] },
-        Migrations: { files: ["2026_04_26_110113_create_users.py"], raw: [dbMigrationsRaw] },
+        FastAPI: { files: ["api.py", "application", "api.py", "users_controllers.py"], raw: [fastapiRaw, fastapiAppRaw, fastapiRoutesRaw, fastapiControllerRaw] },
+        Database: { files: ["application.py", "2026_04_26_110113_create_users.py", "models.py"], raw: [databaseAppRaw, dbMigrationsRaw, dbModelsRaw] },
         Logging: { files: ["logging.py"], raw: [logLoggerRaw] },
     }
 
@@ -49,6 +50,25 @@
     // highlighted[category][fileIndex] = inner HTML string from Shiki
     const highlighted = ref({})
     const highlighterReady = ref(false)
+
+    // Strip diff markers from source and return { code, lineTypes }
+    // Supported markers: # [+]  # [-]  # [!hl]
+    function extractHighlights(raw) {
+        const lines = raw.split("\n")
+        const lineTypes = {} // index -> 'add' | 'remove' | 'highlight'
+        const cleaned = lines.map((line, i) => {
+            if (line.includes("# [+]")) {
+                lineTypes[i] = "add"
+                return line.replace(/\s*#\s*\[\+\]/, "")
+            }
+            if (line.includes("# [-]")) {
+                lineTypes[i] = "remove"
+                return line.replace(/\s*#\s*\[-\]/, "")
+            }
+            return line
+        })
+        return { code: cleaned.join("\n"), lineTypes }
+    }
 
     onMounted(async () => {
         try {
@@ -60,12 +80,20 @@
 
             const result = {}
             for (const [cat, data] of Object.entries(tabData)) {
-                result[cat] = data.raw.map(code => {
+                result[cat] = data.raw.map(raw => {
+                    const { code, lineTypes } = extractHighlights(raw)
                     const html = hl.codeToHtml(code, { lang: "python", theme: "github-dark" })
                     // Strip outer <pre ...><code> wrapper — we render inside our own pre/code
-                    return html
+                    const inner = html
                         .replace(/^<pre[^>]*><code[^>]*>/, "")
                         .replace(/<\/code><\/pre>$/, "")
+                    // Wrap each line in a span and apply diff/highlight classes
+                    return inner.split("\n").map((line, i) => {
+                        const type = lineTypes[i]
+                        const cls = type ? ` ${type}` : ""
+                        const prefix = type === "add" ? "+" : type === "remove" ? "-" : " "
+                        return `<span class="line${cls}"><span class="diff-sign">${prefix}</span>${line}</span>`
+                    }).join("\n")
                 })
             }
             highlighted.value = result
@@ -109,6 +137,18 @@
             activeFileIndex.value = index
             isTransitioning.value = false
         }, 150)
+    }
+
+    // ── Copy to clipboard ───────────────────────────────────────────────────────
+    const copied = ref(false)
+
+    function copyCode() {
+        const raw = currentTabData.value.raw[activeFileIndex.value]
+        const { code } = extractHighlights(raw)
+        navigator.clipboard.writeText(code).then(() => {
+            copied.value = true
+            setTimeout(() => { copied.value = false }, 2000)
+        })
     }
 
     // ── Synchronized horizontal scroll (file tabs ↔ code body) ─────────────────
@@ -164,7 +204,7 @@
                 <div class="flex flex-col sm:flex-row gap-4">
                     <a href="/docs/getting-started" class="bg-brand-teal text-white dark:text-black px-8 py-4 rounded font-label-md font-bold flex items-center justify-center gap-2 transition-all hover:brightness-110 shadow-lg shadow-brand-teal/20 active:scale-[0.98]">
                         Initialize Project
-                        <Terminal :size="18" />
+                        <Terminal :size="18"/>
                     </a>
                 </div>
 
@@ -223,12 +263,15 @@
                                         :class="activeFileIndex === idx ? 'bg-brand-teal/10 border-b-2 border-brand-teal' : 'opacity-50 hover:opacity-75'"
                                         @click="switchFile(idx)"
                                     >
-                                        <FileText :size="12" :class="activeFileIndex === idx ? 'text-brand-teal' : 'text-outline-variant'" />
+                                        <FileText :size="12" :class="activeFileIndex === idx ? 'text-brand-teal' : 'text-outline-variant'"/>
                                         <span class="text-xs font-mono tracking-tight" :class="activeFileIndex === idx ? 'text-white' : 'text-outline-variant'">{{ file }}</span>
                                     </button>
                                 </div>
                             </div>
-                            <Copy :size="14" class="text-outline-variant hover:text-brand-teal cursor-pointer transition-colors" />
+                            <button @click="copyCode" class="shrink-0 transition-colors" :title="copied ? 'Copied!' : 'Copy code'">
+                                <Copy v-if="!copied" :size="14" class="text-outline-variant hover:text-brand-teal"/>
+                                <span v-else class="text-[11px] text-brand-teal font-mono">copied!</span>
+                            </button>
                         </div>
 
                         <!-- Code body -->
@@ -250,5 +293,48 @@
     /* Shiki injects spans with inline color styles — make sure the pre/code backgrounds are transparent */
     pre, code {
         background: transparent !important;
+    }
+
+    /* Diff / highlight line decorations */
+    :deep(.line) {
+        display: inline-block;
+        width: 100%;
+    }
+
+    :deep(.diff-sign) {
+        user-select: none;
+        margin-right: 6px;
+        opacity: 0.6;
+    }
+
+    :deep(.line.highlight) {
+        background-color: rgba(5, 150, 105, 0.15);
+        border-left: 2px solid #059669;
+        padding-left: 6px;
+        margin-left: -8px;
+    }
+
+    :deep(.line.add) {
+        background-color: rgba(5, 150, 105, 0.15);
+        border-left: 2px solid #059669;
+        padding-left: 6px;
+        margin-left: -8px;
+    }
+
+    :deep(.line.add .diff-sign) {
+        color: #059669;
+        opacity: 1;
+    }
+
+    :deep(.line.remove) {
+        background-color: rgba(239, 68, 68, 0.1);
+        border-left: 2px solid #ef4444;
+        padding-left: 6px;
+        margin-left: -8px;
+    }
+
+    :deep(.line.remove .diff-sign) {
+        color: #ef4444;
+        opacity: 1;
     }
 </style>
