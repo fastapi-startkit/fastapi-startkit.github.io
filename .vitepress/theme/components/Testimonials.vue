@@ -57,7 +57,7 @@
         },
         {
             name: "Puncoz Nepal",
-            role: "Lead Software Engineer",
+            role: "Lead Software Engineer, JoBins",
             avatar: "https://placehold.co/56x56",
             quote: "The developer experience is unmatched. Structured providers, clean routing, and a first-class ORM — everything fits together exactly how you'd expect it to.",
             metricLabel: "Dev Onboarding",
@@ -65,7 +65,7 @@
         },
         {
             name: "Kiran Prajapati",
-            role: "Lead AI Engineer",
+            role: "Lead AI Engineer, JoBins",
             avatar: "https://placehold.co/56x56",
             quote: "Integrating async ML pipelines and LLM endpoints into FastAPI Startkit was seamless. The fully async core handles concurrent inference workloads without breaking a sweat.",
             metricLabel: "Inference Throughput",
