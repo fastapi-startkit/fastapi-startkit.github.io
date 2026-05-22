@@ -132,6 +132,14 @@
     top: var(--vp-nav-height) !important;
 }
 
+/* On mobile, the VPLocalNav bar sits below the SiteHeader and covers the doc content.
+   Add extra top padding so the page title isn't hidden behind it. */
+@media (max-width: 959px) {
+    .VPDoc {
+        padding-top: calc(var(--vp-local-nav-height, 48px) + 3rem) !important;
+    }
+}
+
 
 .dark {
     --vp-c-brand-1: #66d9c9;

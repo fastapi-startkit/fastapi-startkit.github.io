@@ -40,7 +40,7 @@
     const tabData = {
         Application: { files: ["application.py", "artisan"], raw: [applicationRaw, artisanRaw] },
         FastAPI: { files: ["fastapi.py", "users_controllers.py", "api.py"], raw: [fastapiRaw, fastapiControllerRaw, fastapiRoutesRaw] },
-        Database: { files: ["models.py", "migrations.py"], raw: [dbModelsRaw] },
+        Database: { files: ["models.py"], raw: [dbModelsRaw] },
         Migrations: { files: ["2026_04_26_110113_create_users.py"], raw: [dbMigrationsRaw] },
         Logging: { files: ["logging.py", "config.py"], raw: [logLoggerRaw] },
     }
