@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -12,6 +13,12 @@ export default defineConfig({
     head: [
         ['meta', { name: 'google-site-verification', content: 'RpM5amadnjbR3TF0J4L4MXB4TWYVesPz0ssaXg7-jYM' }]
     ],
+
+    vite: {
+        plugins: [
+            tailwindcss(),
+        ],
+    },
 
     transformHead: ({ pageData }) => {
         const title = pageData.frontmatter.title || pageData.title || 'Fastapi Startkit'
