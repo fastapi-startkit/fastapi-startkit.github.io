@@ -97,8 +97,8 @@
                     @click="toggleDark"
                     :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
                 >
-                    <Sun v-if="isDark" :size="18" class="text-on-surface-variant"/>
-                    <Moon v-else :size="18" class="text-on-surface-variant"/>
+                    <Sun v-show="isDark" :size="18" class="text-on-surface-variant"/>
+                    <Moon v-show="!isDark" :size="18" class="text-on-surface-variant"/>
                 </button>
 
                 <!-- Mobile menu toggle -->
@@ -108,8 +108,8 @@
                     @click.stop="handleMenuToggle"
                     aria-label="Toggle menu"
                 >
-                    <X v-if="mobileMenuOpen" :size="18" class="text-on-surface-variant"/>
-                    <Menu v-else :size="18" class="text-on-surface-variant"/>
+                    <X v-show="mobileMenuOpen" :size="18" class="text-on-surface-variant"/>
+                    <Menu v-show="!mobileMenuOpen" :size="18" class="text-on-surface-variant"/>
                 </button>
 
             </div>
