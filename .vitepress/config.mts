@@ -192,6 +192,12 @@ export default defineConfig({
                 items: [
                     { text: 'Storage', link: '/docs/storage' },
                 ]
+            },
+            {
+                text: 'AI',
+                items: [
+                    { text: 'Getting Started', link: '/docs/mcp' },
+                ]
             }
         ],
 
