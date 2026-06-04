@@ -194,7 +194,7 @@ export default defineConfig({
                 ]
             },
             {
-                text: 'MCP',
+                text: 'AI',
                 items: [
                     { text: 'Getting Started', link: '/docs/mcp' },
                 ]
