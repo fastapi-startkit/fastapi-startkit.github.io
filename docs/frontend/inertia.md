@@ -61,16 +61,22 @@ This renders:
 
 ## Rendering Components
 
-Use `Inertia.render()` in your controller:
+Use `Inertia.render()` in your controller. It takes the component name and an optional props dict — no `request` argument is needed, because `InertiaMiddleware` stores the current request in a context variable automatically:
 
 ```python
-from fastapi import Request
 from fastapi_startkit.inertia import Inertia
 
-async def index(request: Request):
-    return Inertia.render(request, "Dashboard/Index", {
+async def index():
+    return Inertia.render("Dashboard/Index", {
         "user": {"name": "Alice"},
     })
+```
+
+Props are optional. When a controller has no props to pass, omit the second argument:
+
+```python
+async def index():
+    return Inertia.render("Dashboard/Index")
 ```
 
 - On the **first page load**, returns an HTML response using the root template.
@@ -78,56 +84,86 @@ async def index(request: Request):
 
 ## Shared Data
 
-Share data globally — available as props on every component:
+Share data globally — available as props on every component. The right place to call `share()` is inside a provider's `boot()` method, after all providers have been registered:
 
 ```python
-# providers/fastapi_provider.py or bootstrap/application.py
-from fastapi_startkit.application import app
+# providers/fastapi_provider.py
+from fastapi_startkit.fastapi import FastAPIProvider as BaseFastAPIProvider
+from fastapi_startkit.inertia import Inertia
 
-inertia = app().make("inertia")
+class FastAPIProvider(BaseFastAPIProvider):
+    def boot(self) -> None:
+        super().boot()
 
-# Static value
+        # Static value
+        Inertia.share("app_name", "PingCRM")
+
+        # Callable resolved per-request (receives the request object)
+        Inertia.share("auth", lambda request: {
+            "user": getattr(request.state, "user", None),
+        })
+
+        # Callable resolved per-request (receives the request object)
+        Inertia.share("flash", lambda request: {
+            "success": request.session.get("flash_success") if "session" in request.scope else None,
+        })
+```
+
+You can also call `Inertia.share()` via the container binding (they are the same object):
+
+```python
+inertia = self.app.make("inertia")
 inertia.share("app_name", "PingCRM")
-
-# Callable resolved per-request (receives the request object)
-inertia.share("auth", lambda request: {
-    "user": request.state.user,
-})
-
-# Callable resolved once (no parameters)
-inertia.share("flash", lambda: {})
 ```
 
 Shared data is merged with per-render props. Per-render props take precedence.
 
 ## Partial Reloads
 
-```python
-return Inertia.render('Users/Index', {
-    'users': lambda : await User.all(),
-    'companies': lambda await Organization.get()
-})
-```
-
-and it also provides an `Inertia.optional()` method to specify that a props should never be included unless requested using the `only` option.
+Wrap prop values in callables so they are resolved lazily. On a partial reload only the requested keys are evaluated. Because async is not allowed inside a `lambda`, use a named `async def` for async props:
 
 ```python
-return Inertia.render('Users/Index',{
-    'users': Inertia.optional(lambda : await User.all())
-})
+from fastapi_startkit.inertia import Inertia
+from app.models import User, Organization
+
+async def index():
+    async def get_users():
+        return await User.all()
+
+    async def get_organizations():
+        return await Organization.get()
+
+    return Inertia.render('Users/Index', {
+        'users': get_users,
+        'companies': get_organizations,
+    })
 ```
- 
+
+Use `Inertia.optional()` to mark a prop as never included unless explicitly requested via the `only` option:
+
+```python
+async def index():
+    async def get_users():
+        return await User.all()
+
+    return Inertia.render('Users/Index', {
+        'users': Inertia.optional(get_users),
+    })
+```
+
 ## Asset Versioning
 
-Set a version string so Inertia can detect asset changes and trigger a full-page reload:
+`InertiaMiddleware` automatically uses the Vite manifest hash as the asset version when a `ViteProvider` is registered — no extra configuration is needed in the common case.
+
+To override with a fixed version string, call `Inertia.version()` in a provider's `boot()` method:
 
 ```python
-inertia = app().make("inertia")
-inertia.version("1.0.0")
+from fastapi_startkit.inertia import Inertia
 
-# Or tie it to the Vite manifest hash:
-vite = app().make("vite")
-inertia.version(vite.manifest_hash() or "1")
+class FastAPIProvider(BaseFastAPIProvider):
+    def boot(self) -> None:
+        super().boot()
+        Inertia.version("1.0.0")
 ```
 
 When the client's `X-Inertia-Version` header mismatches the server version, the middleware returns `409 Conflict` with an `X-Inertia-Location` header, causing the client to perform a full hard reload.
@@ -145,8 +181,9 @@ When the client's `X-Inertia-Version` header mismatches the server version, the 
 Change the root template name (default: `index.html`):
 
 ```python
-inertia = app().make("inertia")
-inertia.set_root_view("app.html")
+from fastapi_startkit.inertia import Inertia
+
+Inertia.set_root_view("app.html")
 ```
 
 ## Client-Side Setup (React)
@@ -177,11 +214,7 @@ export default defineConfig({
 })
 ```
 
-### Entry point
-
-Create `resources/js/app.tsx`:
-
-### Basic setup
+### Entry point (`resources/js/app.tsx`)
 
 ```tsx
 import '../css/app.css'
@@ -235,19 +268,28 @@ function currentRouteName(): string {
     return parts[0] || 'dashboard'
 }
 
-window.route = function(name, params) {
-    let url = name ? (routeMap[name] ?? '/' + name.split('.')[0]) : '/'
-    if (params) {
-        const action = name?.split('.')[1]
-        if (action === 'edit') url += `/${params}/edit`
-        else if (action === 'destroy' || action === 'update') url += `/${params}`
+window.route = function(name, params, absolute) {
+    let path = "/"
+    if (name) {
+        if (routeMap[name]) {
+            path = routeMap[name]
+        } else {
+            const parts = name.split('.')
+            path = "/" + parts[0]
+            if (parts[1] === 'edit' && params) path += `/${params}/edit`
+            else if (parts[1] === 'destroy' && params) path += `/${params}`
+            else if (parts[1] === 'update' && params) path += `/${params}`
+            else if (parts[1] === 'create') path += "/create"
+        }
     }
-    const routeObj = new String(url) as string & { current: (pattern?: string) => string | boolean }
-    ;(routeObj as any).current = (pattern?: string) => {
+    // Return a URL instance — Inertia's visit() handles URL objects natively
+    const urlObj = new URL(path, window.location.href) as URL & { current: (pattern?: string) => string | boolean }
+    urlObj.current = function(pattern?: string) {
         if (!pattern) return currentRouteName()
-        return new RegExp('^' + pattern.replace(/\*/g, '.*') + '$').test(currentRouteName())
+        const segment = window.location.pathname.replace(/^\//, '').split('/')[0] || 'dashboard'
+        return new RegExp('^' + pattern.replace(/\*/g, '.*') + '$').test(segment)
     }
-    return routeObj
+    return urlObj as any
 }
 ```
 

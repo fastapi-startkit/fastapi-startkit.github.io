@@ -196,7 +196,7 @@ export default defineConfig({
             {
                 text: 'AI',
                 items: [
-                    { text: 'Getting Started', link: '/docs/mcp' },
+                    { text: 'MCP', link: '/docs/ai/mcp' },
                 ]
             }
         ],
@@ -206,7 +206,7 @@ export default defineConfig({
         },
 
         socialLinks: [
-            { icon: 'github', link: 'https://github.com/fastapi-startkit/fastapi_startkit' }
+            { icon: 'github', link: 'https://github.com/fastapi-startkit/fastapi-startkit' }
         ]
     }
 })
