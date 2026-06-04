@@ -9,6 +9,36 @@ keywords: MCP, Model Context Protocol, JSON-RPC, AI tools, FastAPI, fastapi-star
 
 The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-RPC 2.0 standard that lets AI assistants — such as Claude, Cursor, and other MCP-compatible clients — discover and call capabilities exposed by your application. `fastapi-startkit` includes built-in support for MCP: define servers, tools, prompts, and resources as plain Python classes and mount them on your app with a single line.
 
+## Getting Started
+
+Register `McpProvider` in your application alongside `FastAPIProvider`. Subclass it and override `server()` to return your `Server` instance:
+
+```python
+from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
+from fastapi_startkit.mcp import McpProvider
+
+from mcp.server import DevToolsServer
+
+
+class AppMcpProvider(McpProvider):
+    def server(self):
+        return DevToolsServer()
+
+
+app = Application(providers=[FastAPIProvider, AppMcpProvider])
+```
+
+The MCP server is mounted at `/mcp` by default. Override `prefix` on your provider to change it:
+
+```python
+class AppMcpProvider(McpProvider):
+    prefix = "/api/mcp"
+
+    def server(self):
+        return DevToolsServer()
+```
+
 ## Creating a Server
 
 A server is the top-level object that groups your tools, prompts, and resources. Subclass `Server`, set the `name` (required), and override `tools()`, `prompts()`, and `resources()` to return lists of the classes you want to register.
