@@ -191,6 +191,7 @@ export default defineConfig({
                 text: 'Digging Deeper',
                 items: [
                     { text: 'Storage', link: '/docs/storage' },
+                    { text: 'Process', link: '/docs/process' },
                 ]
             }
         ],
