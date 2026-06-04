@@ -11,32 +11,27 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-R
 
 ## Getting Started
 
-Register `McpProvider` in your application alongside `FastAPIProvider`. Subclass it and override `server()` to return your `Server` instance:
+Register `McpProvider` alongside `FastAPIProvider` in your application:
 
 ```python
 from fastapi_startkit import Application
 from fastapi_startkit.fastapi import FastAPIProvider
 from fastapi_startkit.mcp import McpProvider
 
-from mcp.server import DevToolsServer
-
-
-class AppMcpProvider(McpProvider):
-    def server(self):
-        return DevToolsServer()
-
-
-app = Application(providers=[FastAPIProvider, AppMcpProvider])
+app = Application(providers=[FastAPIProvider, McpProvider])
 ```
 
-The MCP server is mounted at `/mcp` by default. Override `prefix` on your provider to change it:
+That's all the setup required. Define your tools, prompts, and resources as classes (see below), then mount the server router on the app:
 
 ```python
-class AppMcpProvider(McpProvider):
-    prefix = "/api/mcp"
+from fastapi_startkit.mcp import Server
 
-    def server(self):
-        return DevToolsServer()
+class MyServer(Server):
+    name = "my-server"
+    def tools(self): return [MyTool]
+
+server = MyServer()
+app.include_router(server.router(prefix="/mcp"))
 ```
 
 ## Creating a Server
