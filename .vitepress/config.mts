@@ -192,7 +192,12 @@ export default defineConfig({
                 items: [
                     { text: 'Storage', link: '/docs/storage' },
                     { text: 'Process', link: '/docs/process' },
-                    { text: 'MCP', link: '/docs/mcp' },
+                ]
+            },
+            {
+                text: 'MCP',
+                items: [
+                    { text: 'Getting Started', link: '/docs/mcp' },
                 ]
             }
         ],

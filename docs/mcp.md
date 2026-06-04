@@ -1,21 +1,13 @@
 ---
 outline: deep
 title: MCP (Model Context Protocol)
-description: Build MCP servers with tools, prompts, and resources using startkit-mcp — a class-based MCP framework for FastAPI Startkit.
-keywords: MCP, Model Context Protocol, JSON-RPC, AI tools, FastAPI, startkit-mcp
+description: Build MCP servers with tools, prompts, and resources using fastapi-startkit — a class-based MCP framework for FastAPI Startkit.
+keywords: MCP, Model Context Protocol, JSON-RPC, AI tools, FastAPI, fastapi-startkit
 ---
 
 # MCP (Model Context Protocol)
 
-The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-RPC 2.0 standard that lets AI assistants — such as Claude, Cursor, and other MCP-compatible clients — discover and call capabilities exposed by your application. `startkit-mcp` is a companion package for FastAPI Startkit that makes it straightforward to define MCP servers, tools, prompts, and resources as plain Python classes, then mount them on any FastAPI app.
-
-## Installation
-
-```bash
-pip install startkit-mcp
-# or
-uv add startkit-mcp
-```
+The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-RPC 2.0 standard that lets AI assistants — such as Claude, Cursor, and other MCP-compatible clients — discover and call capabilities exposed by your application. `fastapi-startkit` includes built-in support for MCP: define servers, tools, prompts, and resources as plain Python classes and mount them on your app with a single line.
 
 ## Creating a Server
 
@@ -52,12 +44,13 @@ Return `None` (the default) from any of the three list methods to omit that capa
 Call `server.router(prefix)` to get a FastAPI `APIRouter` and include it in your app:
 
 ```python
-from fastapi import FastAPI
+from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
 from fastapi_startkit.mcp import Server
 
 server = MyServer()
 
-app = FastAPI()
+app = Application(providers=[FastAPIProvider])
 app.include_router(server.router(prefix="/mcp"))
 ```
 
@@ -221,7 +214,6 @@ Notifications (requests without an `id`) return HTTP `202` with an empty body.
 The following self-contained example puts all the pieces together — a calculator server that adds numbers, a greeting prompt, and a resource that exposes a status string.
 
 ```python
-from fastapi import FastAPI
 from pydantic import BaseModel
 
 from fastapi_startkit.mcp import (
@@ -296,11 +288,14 @@ class CalculatorServer(Server):
         return [StatusResource]
 
 
-# ── FastAPI app ───────────────────────────────────────────────────────────────
+# ── Application ───────────────────────────────────────────────────────────────
+
+from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
 
 server = CalculatorServer()
 
-app = FastAPI()
+app = Application(providers=[FastAPIProvider])
 app.include_router(server.router(prefix="/mcp"))
 ```
 
