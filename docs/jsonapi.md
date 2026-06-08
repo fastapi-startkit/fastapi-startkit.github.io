@@ -180,15 +180,26 @@ class ArticleResource(JsonResource[Article]):
 
 ## Relationships
 
-Override `to_relationships()` to declare related resources:
+`to_relationships()` returns a plain dict. Each value can be any of three forms:
 
 ```python
 class PostResource(JsonResource[Post]):
     def to_relationships(self):
-        if not self.model.author:
-            return None
-        return {"author": UserResource(self.model.author)}
+        return {
+            # 1. Class reference — framework reads self.model.author and wraps it
+            "author": UserResource,
+
+            # 2. Lambda — called with no args; useful for conditional or filtered data
+            "comments": lambda: CommentResource.collection(
+                self.model.comments.filter(is_public=True)
+            ),
+
+            # 3. Explicit instance — construct it yourself
+            "tag": TagResource(self.model.primary_tag),
+        }
 ```
+
+The key name is used to look up the attribute on the model for the class-reference form (`"author"` → `self.model.author`). If the attribute is `None`, the relationship is omitted.
 
 Sideload with `.include()`:
 
