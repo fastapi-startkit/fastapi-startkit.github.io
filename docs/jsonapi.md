@@ -68,40 +68,28 @@ class PostResource(JsonResource[Post]):
 
 ## Auto-Serialization
 
-By default, `to_attributes()` calls `model.serialize()` and strips `"id"` from the result. This means your ORM model's fields are exposed automatically with no extra configuration.
+By default, `to_attributes()` calls `model.serialize()` and exposes all returned fields as-is. This means your ORM model's fields are exposed automatically with no extra configuration.
 
 ```python
 class PostResource(JsonResource[Post]):
-    pass  # all model fields except 'id' are included
+    pass  # all model fields are included in data.attributes
 ```
 
 ### Hiding Sensitive Fields
 
-Use the `hidden` class variable to blacklist fields:
+Use the `hidden` class variable to exclude specific fields:
 
 ```python
 class UserResource(JsonResource[User]):
     hidden = ["password", "remember_token", "api_key"]
 ```
 
-Both `"id"` and every field in `hidden` are excluded from `data.attributes`.
-
-### Explicit Attribute Lists (Old Style)
-
-You can still list attributes explicitly — useful when you want fine-grained control or need to rename fields:
+Only the fields listed in `hidden` are excluded from `data.attributes`. To also hide `id`, add it explicitly:
 
 ```python
 class UserResource(JsonResource[User]):
-    attributes = ["name", "email"]  # explicit list takes priority over auto-serialize
-
-    def to_attributes(self):
-        return {
-            "full_name": self.model.name,
-            "email": self.model.email,
-        }
+    hidden = ["id", "password"]
 ```
-
-When `attributes` is non-empty, `to_attributes()` reads those named instance attributes instead of calling `model.serialize()`.
 
 ## Collections
 
@@ -237,31 +225,6 @@ All hooks are optional overrides:
 | `to_links()` | Returns top-level `links` dict |
 | `to_meta()` | Returns top-level `meta` dict |
 | `with_()` | Returns extra top-level keys merged into the envelope |
-
-## Backward Compatibility
-
-`JsonAPIResponse` and `JsonAPIListResponse` remain available as aliases:
-
-```python
-from fastapi_startkit.jsonapi import JsonAPIResponse, JsonAPIListResponse
-
-class UserResource(JsonAPIResponse):
-    type = "users"
-    attributes = ["name", "email"]
-
-    def __init__(self, id_, name, email):
-        self.id = id_
-        self.name = name
-        self.email = email
-
-    def to_attributes(self):
-        return {"name": self.name, "email": self.email}
-
-users = await User.all()
-return JsonAPIListResponse([UserResource(u.id, u.name, u.email) for u in users])
-```
-
-Old-style subclasses continue to work unchanged.
 
 ## Query-Param Helpers
 
