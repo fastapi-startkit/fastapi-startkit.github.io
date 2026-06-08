@@ -192,6 +192,7 @@ export default defineConfig({
                 items: [
                     { text: 'Storage', link: '/docs/storage' },
                     { text: 'Process', link: '/docs/process' },
+                    { text: 'Broadcasting', link: '/docs/broadcasting' },
                 ]
             },
             {
