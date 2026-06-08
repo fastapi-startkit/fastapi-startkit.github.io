@@ -180,28 +180,27 @@ class ArticleResource(JsonResource[Article]):
 
 ## Relationships
 
-`to_relationships()` returns a plain dict. The framework resolves each value automatically — no manual wrapping needed:
+`to_relationships()` returns a plain dict with two intended forms:
 
 ```python
 class PostResource(JsonResource[Post]):
     def to_relationships(self):
         return {
-            # Class reference — reads self.model.author, wraps with UserResource.
-            # If model.author is a list/Collection, calls UserResource.collection() automatically.
-            "author":   UserResource,
-            "comments": CommentResource,   # list → CommentResource.collection(model.comments)
+            # Class reference → always a single resource.
+            # Framework reads self.model.author and wraps it with UserResource.
+            # Omitted automatically when model.author is None.
+            "author": UserResource,
 
-            # Lambda — called with no args; use for conditional or filtered data.
-            "approved_comments": lambda: CommentResource.collection(
-                self.model.comments.where("is_public", True)
-            ),
+            # Lambda → for has-many / collections and any custom logic.
+            # Call ResourceClass.collection() inside the lambda.
+            "comments": lambda: CommentResource.collection(self.model.comments),
 
-            # Explicit instance — when you need full control.
+            # Explicit instance — full control when needed.
             "tag": TagResource(self.model.primary_tag),
         }
 ```
 
-The key name drives the class-reference lookup (`"author"` → `self.model.author`). If the attribute is `None` or absent, the relationship is silently omitted.
+The key name drives the lookup for the class-reference form (`"author"` → `self.model.author`).
 
 Sideload with `.include()`:
 
