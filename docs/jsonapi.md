@@ -48,31 +48,33 @@ async def get_post(id: int):
 
 ## Fluent Chain API
 
-Use `.include()` and `.fields()` to control what gets serialized:
+Use `.include()` and `.fields()` to control what gets serialized.
+
+`.fields()` takes plain field names for the primary resource, and `"type.field"` dotted specs for related resources:
 
 ```python
 # Sideload a relationship
 return PostResource(post).include("author")
 
-# Sparse fieldsets — restrict which attributes are returned
-return PostResource(post).fields("posts", ["title", "created_at"])
+# Sparse fieldsets — plain names restrict this resource's attributes
+return PostResource(post).fields("title", "created_at")
 
-# Chain both — mirrors ?fields[posts]=title,created_at&fields[users]=name&include=author
+# Dotted names restrict a related type's attributes
+# mirrors ?fields[posts]=title,created_at&fields[users]=name&include=author
 return (
     PostResource(post)
     .include("author")
-    .fields("posts", ["title", "created_at"])
-    .fields("users", ["name"])
+    .fields("title", "created_at", "users.name")
 )
 
 # Manual serialization to a dict
-doc = PostResource(post).include("author").fields("posts", ["title"]).serialize()
+doc = PostResource(post).include("author").fields("title", "users.name").serialize()
 ```
 
 The same chain API works on collections:
 
 ```python
-return PostResource.collection(posts).include("author").fields("posts", ["title"])
+return PostResource.collection(posts).include("author").fields("title", "users.name")
 ```
 
 When the resource is returned directly from a FastAPI endpoint **without** calling chain methods, `?include=` and `?fields[*]=` query params are parsed from the live request automatically. The chain API and automatic query-string parsing are equivalent — use whichever fits your endpoint.
@@ -214,16 +216,11 @@ Nested dot-notation is supported: `.include("author.company")`.
 
 ## Sparse Fieldsets
 
-Restrict which attributes are returned with `.fields(type, [fields])`:
+Pass plain field names for the primary resource, and `"type.field"` to restrict a related resource's attributes:
 
 ```python
-# GET /api/posts?fields[posts]=title,created_at&fields[users]=name
-return (
-    PostResource(post)
-    .include("author")
-    .fields("posts", ["title", "created_at"])
-    .fields("users", ["name"])
-)
+# GET /api/posts?fields[posts]=title,created_at&fields[users]=name&include=author
+return PostResource(post).include("author").fields("title", "created_at", "users.name")
 ```
 
 When returning resources directly (without chain methods), `?fields[posts]=title,created_at` in the URL is applied automatically.
@@ -284,12 +281,12 @@ async def get_post(id: int):
 @app.get("/api/posts/{id}/summary")
 async def get_post_summary(id: int):
     post = await Post.find_or_fail(id)
-    return PostResource(post).fields("posts", ["title", "created_at"])
+    return PostResource(post).fields("title", "created_at")
 
 
-# Paginated collection with include
+# Paginated collection with include + field restriction
 @app.get("/api/posts")
 async def list_posts(page: int = 1):
     posts = await Post.paginate(15, page)
-    return PostResource.collection(posts).include("author")
+    return PostResource.collection(posts).include("author").fields("title", "users.name")
 ```
