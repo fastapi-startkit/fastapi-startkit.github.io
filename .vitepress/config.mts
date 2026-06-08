@@ -162,11 +162,9 @@ export default defineConfig({
                 ]
             },
             {
-                text: 'Frontend',
+                text: 'AI',
                 items: [
-                    { text: 'Introduction', link: '/docs/frontend/' },
-                    { text: 'Vite', link: '/docs/frontend/vite' },
-                    { text: 'Inertia', link: '/docs/frontend/inertia' },
+                    { text: 'MCP', link: '/docs/ai/mcp' },
                 ]
             },
             {
@@ -181,10 +179,11 @@ export default defineConfig({
                 ]
             },
             {
-                text: 'Testing',
+                text: 'Frontend',
                 items: [
-                    { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
-                    { text: 'Database Testing', link: '/docs/testing/database' },
+                    { text: 'Introduction', link: '/docs/frontend/' },
+                    { text: 'Vite', link: '/docs/frontend/vite' },
+                    { text: 'Inertia', link: '/docs/frontend/inertia' },
                 ]
             },
             {
@@ -197,9 +196,10 @@ export default defineConfig({
                 ]
             },
             {
-                text: 'AI',
+                text: 'Testing',
                 items: [
-                    { text: 'MCP', link: '/docs/ai/mcp' },
+                    { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
+                    { text: 'Database Testing', link: '/docs/testing/database' },
                 ]
             }
         ],
