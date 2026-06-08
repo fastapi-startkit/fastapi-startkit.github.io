@@ -1,6 +1,6 @@
 ---
 title: JSON:API Resources
-description: Build JSON:API-compliant responses with JsonResource — automatic serialization, hidden fields, pagination meta, and collection wrappers.
+description: Build JSON:API-compliant responses with JsonResource — automatic serialization, hidden fields, pagination meta, fluent chain API for fields and includes.
 ---
 
 # JSON:API Resources
@@ -24,7 +24,7 @@ class PostResource(JsonResource["Post"]):
     pass  # type="posts", attributes from Post.serialize() automatically
 ```
 
-Return the resource directly from a FastAPI endpoint:
+Return the resource directly from a FastAPI endpoint — `?include=` and `?fields[*]=` query params are parsed and applied automatically:
 
 ```python
 @app.get("/api/posts/{id}")
@@ -32,8 +32,6 @@ async def get_post(id: int):
     post = await Post.find_or_fail(id)
     return PostResource(post)
 ```
-
-JSON:API envelope returned automatically:
 
 ```json
 {
@@ -48,9 +46,40 @@ JSON:API envelope returned automatically:
 }
 ```
 
+## Fluent Chain API
+
+Use `.include()` and `.fields()` to control what gets serialized:
+
+```python
+# Sideload a relationship
+return PostResource(post).include("author")
+
+# Sparse fieldsets — restrict which attributes are returned
+return PostResource(post).fields("posts", ["title", "created_at"])
+
+# Chain both — mirrors ?fields[posts]=title,created_at&fields[users]=name&include=author
+return (
+    PostResource(post)
+    .include("author")
+    .fields("posts", ["title", "created_at"])
+    .fields("users", ["name"])
+)
+
+# Manual serialization to a dict
+doc = PostResource(post).include("author").fields("posts", ["title"]).serialize()
+```
+
+The same chain API works on collections:
+
+```python
+return PostResource.collection(posts).include("author").fields("posts", ["title"])
+```
+
+When the resource is returned directly from a FastAPI endpoint **without** calling chain methods, `?include=` and `?fields[*]=` query params are parsed from the live request automatically. The chain API and automatic query-string parsing are equivalent — use whichever fits your endpoint.
+
 ## Auto-Type Derivation
 
-The `type` field is derived from the class name via `inflection.tableize()` — no need to set it manually.
+The `type` field is derived from the class name via `inflection.tableize()`:
 
 | Class name | Derived type |
 |---|---|
@@ -63,12 +92,12 @@ Override `type` to use a custom value:
 
 ```python
 class PostResource(JsonResource[Post]):
-    type = "articles"  # explicit override
+    type = "articles"
 ```
 
 ## Auto-Serialization
 
-By default, `to_attributes()` calls `model.serialize()` and exposes all returned fields as-is. This means your ORM model's fields are exposed automatically with no extra configuration.
+`to_attributes()` calls `model.serialize()` and exposes all returned fields. Only fields listed in `hidden` are excluded.
 
 ```python
 class PostResource(JsonResource[Post]):
@@ -77,14 +106,12 @@ class PostResource(JsonResource[Post]):
 
 ### Hiding Sensitive Fields
 
-Use the `hidden` class variable to exclude specific fields:
-
 ```python
 class UserResource(JsonResource[User]):
     hidden = ["password", "remember_token", "api_key"]
 ```
 
-Only the fields listed in `hidden` are excluded from `data.attributes`. To also hide `id`, add it explicitly:
+To also hide `id`, add it explicitly:
 
 ```python
 class UserResource(JsonResource[User]):
@@ -93,16 +120,12 @@ class UserResource(JsonResource[User]):
 
 ## Collections
 
-Use `JsonResource.collection()` to wrap any iterable of models:
-
 ```python
 @app.get("/api/posts")
 async def list_posts():
     posts = await Post.all()
     return PostResource.collection(posts)
 ```
-
-The response is a JSON:API collection:
 
 ```json
 {
@@ -115,16 +138,14 @@ The response is a JSON:API collection:
 
 ### Paginated Collections
 
-Pass a `LengthAwarePaginator` or `SimplePaginator` directly — pagination meta is added automatically:
+Pass a `LengthAwarePaginator` or `SimplePaginator` — pagination meta is added automatically:
 
 ```python
 @app.get("/api/posts")
 async def list_posts(page: int = 1):
-    posts = await Post.paginate(15, page)       # LengthAwarePaginator
+    posts = await Post.paginate(15, page)
     return PostResource.collection(posts)
 ```
-
-Response with pagination meta:
 
 ```json
 {
@@ -140,22 +161,20 @@ Response with pagination meta:
 }
 ```
 
-`SimplePaginator` (cursor-style) produces the same structure without `total` and `last_page`.
-
 ## Extra Envelope Keys — `with_()`
 
-Override `with_()` to merge extra top-level keys into the JSON:API document:
+Override `with_()` to merge extra top-level keys into the document:
 
 ```python
 class ArticleResource(JsonResource[Article]):
     def with_(self):
         return {
-            "meta": {"version": "1.1"},
             "jsonapi": {"version": "1.0"},
+            "meta": {"generated_at": "2026-01-01"},
         }
 ```
 
-`with_()` is applied **after** `to_links()` / `to_meta()`, so its keys take precedence.
+`with_()` is applied last, so its keys take precedence over `to_links()` / `to_meta()`.
 
 ## Relationships
 
@@ -169,16 +188,11 @@ class PostResource(JsonResource[Post]):
         return {"author": UserResource(self.model.author)}
 ```
 
-Side-load relationships with `?include=author`:
+Sideload with `.include()`:
 
 ```python
-@app.get("/api/posts/{id}")
-async def get_post(id: int, include: str | None = Query(None)):
-    post = await Post.find_or_fail(id)
-    return PostResource(post).serialize(include=parse_include(include))
+return PostResource(post).include("author")
 ```
-
-Response:
 
 ```json
 {
@@ -196,35 +210,33 @@ Response:
 }
 ```
 
-Nested dot-notation is supported: `?include=author.company`.
+Nested dot-notation is supported: `.include("author.company")`.
 
 ## Sparse Fieldsets
 
-Restrict which attributes are returned with `fields[type]=field1,field2`:
+Restrict which attributes are returned with `.fields(type, [fields])`:
 
 ```python
-from fastapi_startkit.jsonapi import parse_fields
-
-@app.get("/api/posts/{id}")
-async def get_post(id: int, request: Request):
-    post = await Post.find_or_fail(id)
-    fields = parse_fields(dict(request.query_params))
-    return PostResource(post).serialize(fields=fields)
+# GET /api/posts?fields[posts]=title,created_at&fields[users]=name
+return (
+    PostResource(post)
+    .include("author")
+    .fields("posts", ["title", "created_at"])
+    .fields("users", ["name"])
+)
 ```
 
-`GET /api/posts/1?fields[posts]=title` returns only `title` in `data.attributes`.
+When returning resources directly (without chain methods), `?fields[posts]=title,created_at` in the URL is applied automatically.
 
 ## Overridable Hooks
 
-All hooks are optional overrides:
-
 | Method | Purpose |
 |---|---|
-| `to_attributes()` | Returns `{name: value}` dict of resource attributes |
-| `to_relationships()` | Returns `{name: JsonResource}` dict of related resources |
-| `to_links()` | Returns top-level `links` dict |
-| `to_meta()` | Returns top-level `meta` dict |
-| `with_()` | Returns extra top-level keys merged into the envelope |
+| `to_attributes()` | `{name: value}` dict of resource attributes |
+| `to_relationships()` | `{name: JsonResource}` dict of related resources |
+| `to_links()` | Top-level `links` dict |
+| `to_meta()` | Top-level `meta` dict |
+| `with_()` | Extra top-level envelope keys merged last |
 
 ## Query-Param Helpers
 
@@ -241,8 +253,8 @@ fields = parse_fields(dict(request.query_params))
 ## Full Example
 
 ```python
-from fastapi import Depends, Query, Request
-from fastapi_startkit.jsonapi import JsonResource, parse_fields, parse_include
+from fastapi import Query, Request
+from fastapi_startkit.jsonapi import JsonResource
 
 class PostResource(JsonResource[Post]):
     hidden = ["internal_notes"]
@@ -261,21 +273,23 @@ class UserResource(JsonResource[User]):
     hidden = ["password"]
 
 
+# Automatic query-string parsing — client controls fields and includes
 @app.get("/api/posts/{id}")
-async def get_post(
-    id: int,
-    request: Request,
-    include: str | None = Query(None),
-):
+async def get_post(id: int):
     post = await Post.find_or_fail(id)
-    return PostResource(post).serialize(
-        include=parse_include(include),
-        fields=parse_fields(dict(request.query_params)),
-    )
+    return PostResource(post)
 
 
+# Server-controlled restrictions via chain API
+@app.get("/api/posts/{id}/summary")
+async def get_post_summary(id: int):
+    post = await Post.find_or_fail(id)
+    return PostResource(post).fields("posts", ["title", "created_at"])
+
+
+# Paginated collection with include
 @app.get("/api/posts")
 async def list_posts(page: int = 1):
     posts = await Post.paginate(15, page)
-    return PostResource.collection(posts)
+    return PostResource.collection(posts).include("author")
 ```
