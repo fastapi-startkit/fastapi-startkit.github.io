@@ -175,6 +175,7 @@ export default defineConfig({
                     { text: 'Casts', link: '/docs/database/casts' },
                     { text: 'Migrations', link: '/docs/database/migrations' },
                     { text: 'Seeds', link: '/docs/database/seeds' },
+                    { text: 'Factories', link: '/docs/orm-factory' },
                     { text: 'Relationships', link: '/docs/database/relationships' },
                 ]
             },
