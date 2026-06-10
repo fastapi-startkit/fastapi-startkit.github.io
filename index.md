@@ -6,7 +6,7 @@ jsonLd:
   "name": "Fastapi Startkit"
   "operatingSystem": "Linux, macOS, Windows"
   "applicationCategory": "DeveloperApplication"
-  "description": "A modular, Laravel-inspired framework for building robust FastAPI applications."
+  "description": "A modular, provider-driven framework for building robust FastAPI applications."
   "offers":
     "@type": "Offer"
     "price": "0"
@@ -25,7 +25,7 @@ features:
     details: Built for FastAPI, but completely optional. Use it as a lightweight core for any Python application.
     icon: ⚡️
   - title: Console Commands
-    details: Powerful CLI powered by Cleo, providing a Laravel-inspired developer experience.
+    details: Powerful CLI powered by Cleo, providing an expressive Artisan-style developer experience.
     icon: 💻
   - title: Advanced Logging
     details: Robust logging with dynamic configuration support and customizable channels.
