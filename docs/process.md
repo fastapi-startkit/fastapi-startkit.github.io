@@ -43,7 +43,7 @@ Every `run()` call returns a `ProcessResult` with the following methods:
 | `output()` | Returns captured stdout as a string |
 | `error_output()` | Returns captured stderr as a string |
 | `error()` | Alias for `error_output()` — stderr as a string |
-| `output_json()` | Parses stdout as JSON and returns the decoded value; raises `ProcessJsonDecodeError` if stdout is not valid JSON |
+| `json()` | Parses stdout as JSON and returns the decoded value; raises `ProcessJsonDecodeError` if stdout is not valid JSON |
 | `exit_code()` | Returns the integer exit code |
 | `successful()` | `True` if exit code is `0` |
 | `failed()` | `True` if exit code is non-zero |
@@ -59,7 +59,7 @@ result.throw()
 # raises ProcessFailedException if migration fails
 ```
 
-### output_json()
+### json()
 
 Parse the stdout of a process as JSON. Returns the decoded value, or raises `ProcessJsonDecodeError` if the output is not valid JSON:
 
@@ -67,7 +67,7 @@ Parse the stdout of a process as JSON. Returns the decoded value, or raises `Pro
 from fastapi_startkit.process import Process
 
 result = await Process.run('cat data.json')
-data = result.output_json()
+data = result.json()
 print(data['name'])
 ```
 
@@ -80,7 +80,7 @@ from fastapi_startkit.process.exception import ProcessJsonDecodeError
 result = await Process.run('some_command')
 
 try:
-    data = result.output_json()
+    data = result.json()
 except ProcessJsonDecodeError as e:
     print("Could not parse output:", e.stdout)
 ```
