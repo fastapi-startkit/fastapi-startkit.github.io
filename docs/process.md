@@ -9,28 +9,6 @@ keywords: process, subprocess, shell, commands, async, pipes, pools, testing, fa
 
 Fastapi Startkit ships a `Process` facade that wraps Python's `subprocess` module behind a clean, fluent interface. It lets you run shell commands asynchronously, stream output in the background, build pipelines, and run pools of concurrent processes — all with first-class support for test fakes so no real processes are spawned during your test suite.
 
-## Async vs Sync
-
-`Process.run()` is **async by default** — it must be awaited and is designed for use inside FastAPI request handlers and other async contexts:
-
-```python
-result = await Process.run('ls -la')
-```
-
-If you are writing a CLI script or Cleo command that runs outside an event loop, use the synchronous fallback instead:
-
-```python
-result = Process.run_sync('ls -la')
-```
-
-| Method | Execution model | Use when |
-|---|---|---|
-| `run()` | async (asyncio) | FastAPI handlers, async functions |
-| `run_sync()` | sync (subprocess) | CLI scripts, Cleo commands, no event loop |
-| `pipe()` | async (asyncio) | FastAPI handlers, async pipelines |
-| `pipe_sync()` | sync (subprocess) | CLI pipelines without an event loop |
-| `start()` | threads | Long-running background tasks, streaming output |
-
 ## Basic Usage
 
 Import `Process` and call `run()` with any shell command. It returns a `ProcessResult`:
@@ -58,14 +36,14 @@ if result.failed():
 
 ## ProcessResult API
 
-Every `run()` / `run_sync()` call returns a `ProcessResult` with the following methods:
+Every `run()` call returns a `ProcessResult` with the following methods:
 
 | Method | Description |
 |---|---|
 | `output()` | Returns captured stdout as a string |
 | `error_output()` | Returns captured stderr as a string |
 | `error()` | Alias for `error_output()` — stderr as a string |
-| `output_json()` | Parses stdout as JSON and returns the decoded value |
+| `output_json()` | Parses stdout as JSON and returns the decoded value; raises `ProcessJsonDecodeError` if stdout is not valid JSON |
 | `exit_code()` | Returns the integer exit code |
 | `successful()` | `True` if exit code is `0` |
 | `failed()` | `True` if exit code is non-zero |
@@ -81,17 +59,35 @@ result.throw()
 # raises ProcessFailedException if migration fails
 ```
 
-Use `output_json()` when a command returns JSON on stdout:
+### output_json()
+
+Parse the stdout of a process as JSON. Returns the decoded value, or raises `ProcessJsonDecodeError` if the output is not valid JSON:
 
 ```python
-result = await Process.run('aws s3api list-buckets')
+from fastapi_startkit.process import Process
+
+result = await Process.run('cat data.json')
 data = result.output_json()
-print(data['Buckets'])
+print(data['name'])
+```
+
+To handle invalid JSON gracefully:
+
+```python
+from fastapi_startkit.process import Process
+from fastapi_startkit.process.exception import ProcessJsonDecodeError
+
+result = await Process.run('some_command')
+
+try:
+    data = result.output_json()
+except ProcessJsonDecodeError as e:
+    print("Could not parse output:", e.stdout)
 ```
 
 ## Fluent Builder Options
 
-Any class method on `Process` that is not `run()`, `run_sync()`, `pipe()`, `pipe_sync()`, `start()`, or `pool()` returns a `PendingProcess` builder. Chain options before calling `run()`:
+Any class method on `Process` that is not `run()`, `pipe()`, `start()`, or `pool()` returns a `PendingProcess` builder. Chain options before calling `run()`:
 
 ### `timeout(seconds)`
 
@@ -186,50 +182,6 @@ result = await Process.path('/var/www/app').timeout(15).pipe(lambda p: (
     p.command('xargs wc -l'),
 ))
 ```
-
-## Sync Execution
-
-Use `run_sync()` and `pipe_sync()` when you are writing CLI scripts or Cleo commands that run outside an event loop.
-
-### `run_sync()`
-
-```python
-from fastapi_startkit.process import Process
-
-result = Process.run_sync('ls -la')
-print(result.output())
-print(result.exit_code())
-```
-
-All fluent builder options work the same way:
-
-```python
-result = (
-    Process
-    .timeout(30)
-    .path('/var/www/app')
-    .quietly()
-    .run_sync('bash deploy.sh')
-)
-```
-
-### `pipe_sync()`
-
-```python
-result = Process.pipe_sync(lambda p: (
-    p.command('cat access.log'),
-    p.command('grep "ERROR"'),
-    p.command('wc -l'),
-))
-
-print(result.output())  # count of ERROR lines
-```
-
-::: tip When to use `run_sync` vs `run`
-- Use **`run()`** inside FastAPI route handlers and any `async def` context.
-- Use **`run_sync()`** in Cleo commands, standalone scripts, or any code that runs without an event loop.
-  Calling `run()` outside an async context will raise a `RuntimeError` because there is no running event loop.
-:::
 
 ## Background Execution
 
