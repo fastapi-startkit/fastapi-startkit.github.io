@@ -1,13 +1,13 @@
 ---
 outline: deep
 title: AI Agents
-description: Build declarative AI agents in FastAPI Startkit — a Laravel-inspired agent framework with support for Anthropic, OpenAI, and Google providers, tool calling, streaming, document attachments, and built-in testing utilities.
+description: Build declarative AI agents in FastAPI Startkit — a LangGraph-powered agent framework with support for Anthropic, OpenAI, and Google providers, tool calling, streaming, document attachments, and built-in testing utilities.
 keywords: AI agents, Anthropic, OpenAI, Google Gemini, LLM, tool calling, streaming, FastAPI, fastapi-startkit, agent testing, structured output
 ---
 
 # AI Agents
 
-FastAPI Startkit includes a declarative, Laravel-inspired **AI agent module** that lets you build provider-agnostic LLM agents as plain Python classes. Swap between Anthropic, OpenAI, and Google with a single environment variable; attach tools, documents, and lifecycle hooks; and test everything offline with built-in faking and snapshot utilities.
+FastAPI Startkit includes a declarative, LangGraph-powered **AI agent module** that lets you build provider-agnostic LLM agents as plain Python classes. Swap between Anthropic, OpenAI, and Google with a single environment variable; attach tools, documents, and lifecycle hooks; and test everything offline with built-in faking and snapshot utilities.
 
 ## Introduction
 
