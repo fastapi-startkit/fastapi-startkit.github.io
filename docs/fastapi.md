@@ -71,7 +71,7 @@ class MyFastAPIProvider(Provider):
 
 ## Routing
 
-Fastapi Startkit supports the standard FastAPI routing approach as well as a `Router` wrapper that adds a more expressive, Laravel-inspired API on top.
+Fastapi Startkit supports the standard FastAPI routing approach as well as a `Router` wrapper that adds a more expressive, MVC-style API on top.
 
 ### Standard FastAPI Routing
 
@@ -108,7 +108,7 @@ class MyFastAPIProvider(Provider):
 
 ### Startkit Router
 
-Fastapi Startkit also ships a `Router` wrapper that lets you register routes imperatively — passing the path and endpoint as arguments instead of using decorators. This style is closer to how Laravel and other MVC frameworks handle routing.
+Fastapi Startkit also ships a `Router` wrapper that lets you register routes imperatively — passing the path and endpoint as arguments instead of using decorators. This style is closer to how MVC frameworks handle routing.
 
 #### Defining Routes
 

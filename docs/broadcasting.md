@@ -42,6 +42,76 @@ app = Application(
 )
 ```
 
+### Passing a config object
+
+If your app uses `BroadcastingConfig` to read env-vars explicitly, pass it as a tuple alongside the provider (the same pattern used for `DatabaseProvider`, `FastAPIProvider`, etc.):
+
+```python
+from fastapi_startkit.broadcasting import ReverbProvider
+from fastapi_startkit.broadcasting.config import BroadcastingConfig
+
+app = Application(
+    base_path=...,
+    providers=[
+        # ... other providers
+        (ReverbProvider, BroadcastingConfig),
+    ]
+)
+```
+
+---
+
+## Mounted Pattern
+
+By default `ReverbProvider` registers the Reverb WebSocket server as a standalone ASGI app. When you need the WebSocket endpoint to live **under a sub-path of your existing FastAPI app** (e.g. `/reverb`) — useful when a single-origin constraint applies, or you want to avoid a separate port — mount it from inside your `AppProvider.boot()` method:
+
+```python
+# providers/app_provider.py
+from fastapi_startkit.providers import Provider
+
+class AppProvider(Provider):
+    def boot(self) -> None:
+        from routes.web import router
+        self.app.fastapi.include_router(router.router)
+
+        # Mount Reverb under /reverb — same origin as the FastAPI app
+        reverb_server = self.app.make('reverb.server')
+        self.app.fastapi.mount('/reverb', reverb_server.as_starlette_app('local'))
+```
+
+> [!IMPORTANT]
+> **Order matters.** Call `include_router` **before** `mount`. FastAPI resolves routes in registration order; mounting before the router causes the `/reverb` prefix to shadow any API routes whose paths start with `/r`.
+
+With the mounted pattern the Reverb WebSocket is reachable at:
+
+```
+ws://<host>:<port>/reverb/app/<REVERB_APP_KEY>
+```
+
+The corresponding `pusher-js` config uses `wsPath` to point the client at the mount point:
+
+```js
+import Pusher from "pusher-js";
+
+const pusher = new Pusher("local", {
+    wsHost: window.location.hostname,
+    wsPort: Number(window.location.port) || 80,
+    forceTLS: false,
+    enabledTransports: ["ws"],
+    cluster: "mt1",
+    wsPath: "/reverb",   // <-- tells pusher-js to prefix all WS paths
+});
+```
+
+### When to use the mounted pattern vs the standalone default
+
+| Scenario | Recommendation |
+|---|---|
+| Single-port deployment (e.g. `dist/` build on `:4545`) | **Mounted** — no second port to manage |
+| Separate WebSocket service / different host | Standalone (default) |
+| Reverse-proxy that routes `/reverb` to FastAPI | **Mounted** |
+| Simplest possible setup, two ports are fine | Standalone (default) |
+
 ---
 
 ## Configuration
@@ -217,6 +287,8 @@ Install `pusher-js` in your frontend project:
 npm install pusher-js
 ```
 
+### Standalone (separate port)
+
 Connect to the Reverb server — point `wsHost` and `wsPort` at your FastAPI app:
 
 ```js
@@ -237,5 +309,99 @@ channel.bind("OrderShipped", (data) => {
 });
 ```
 
+### Mounted (same port, sub-path)
+
+When using the [mounted pattern](#mounted-pattern), add `wsPath` to tell `pusher-js` the mount point:
+
+```js
+import Pusher from "pusher-js";
+
+const { hostname, port } = window.location;
+
+const pusher = new Pusher("local", {
+    wsHost: hostname,
+    wsPort: port ? Number(port) : 80,
+    forceTLS: false,
+    enabledTransports: ["ws"],
+    cluster: "mt1",
+    wsPath: "/reverb",
+});
+
+const channel = pusher.subscribe("orders.1");
+
+channel.bind("OrderShipped", (data) => {
+    console.log("Order shipped:", data);
+});
+```
+
 > [!TIP]
 > The first argument to `new Pusher(...)` is the `REVERB_APP_KEY`. It must match the value configured in your `.env` file.
+
+### React hook
+
+A lightweight custom hook that wraps `pusher-js` and returns an accumulated messages array:
+
+```ts
+// hooks/useBroadcastChannel.ts
+import { useEffect, useRef, useState } from 'react'
+import Pusher, { type Channel } from 'pusher-js'
+
+export interface BroadcastMessage {
+    event: string
+    data: Record<string, unknown>
+    receivedAt: number
+}
+
+export function useBroadcastChannel(channelName: string): BroadcastMessage[] {
+    const [messages, setMessages] = useState<BroadcastMessage[]>([])
+    const pusherRef = useRef<Pusher | null>(null)
+    const channelRef = useRef<Channel | null>(null)
+
+    useEffect(() => {
+        const { hostname, port } = window.location
+
+        const pusher = new Pusher('local', {
+            wsHost: hostname,
+            wsPort: port ? Number(port) : 80,
+            forceTLS: false,
+            enabledTransports: ['ws'],
+            cluster: 'mt1',
+            wsPath: '/reverb',
+        })
+
+        pusherRef.current = pusher
+        const channel = pusher.subscribe(channelName)
+        channelRef.current = channel
+
+        channel.bind_global((eventName: string, data: Record<string, unknown>) => {
+            if (eventName.startsWith('pusher:')) return
+            setMessages(prev => [...prev, { event: eventName, data, receivedAt: Date.now() }])
+        })
+
+        return () => {
+            channel.unbind_all()
+            pusher.unsubscribe(channelName)
+            pusher.disconnect()
+        }
+    }, [channelName])
+
+    return messages
+}
+```
+
+Usage:
+
+```tsx
+import { useBroadcastChannel } from '@/hooks/useBroadcastChannel'
+
+export function OrderList() {
+    const messages = useBroadcastChannel('orders')
+    return (
+        <ul>
+            {messages.map((msg, i) => (
+                <li key={i}>{JSON.stringify(msg.data)}</li>
+            ))}
+        </ul>
+    )
+}
+```

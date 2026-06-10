@@ -7,7 +7,7 @@ keywords: logging, monitoring, debugging, fastapi
 
 # Logging
 
-Fastapi Startkit provides a powerful, modular, and Laravel-inspired logging system. It is built upon the concepts of **Drivers** and **Channels**, allowing you to easily route logs to files, terminal, Slack, or other services.
+Fastapi Startkit provides a powerful, modular logging system. It is built upon the concepts of **Drivers** and **Channels**, allowing you to easily route logs to files, terminal, Slack, or other services.
 
 > [!NOTE]
 > This logging system is based on [Masonite Logging](https://docs.masoniteproject.com/v3.0/official-packages/masonite-logging). We give full credit to the Masonite team for the architecture and design patterns used here.
