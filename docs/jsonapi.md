@@ -1,4 +1,5 @@
 ---
+outline: deep
 title: JSON:API Resources
 description: Build JSON:API-compliant responses with JsonResource — automatic serialization, hidden fields, pagination meta, fluent chain API for fields and includes.
 ---

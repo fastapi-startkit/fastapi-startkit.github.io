@@ -142,7 +142,7 @@ Apply decorators directly to the class to configure it declaratively:
 
 | Decorator | Default | Description |
 |---|---|---|
-| `@provider(name)` | `"anthropic"` | LLM provider: `"anthropic"`, `"openai"`, or `"google"` |
+| `@provider(name)` | `AI_PROVIDER` env var (default: `google`) | LLM provider: `"anthropic"`, `"openai"`, or `"google"` |
 | `@model(name)` | provider default | Model identifier (e.g. `"claude-sonnet-4-6"`, `"gpt-4o"`) |
 | `@max_tokens(n)` | `4096` | Maximum output tokens per response |
 | `@max_steps(n)` | `10` | Maximum agentic loop iterations before stopping |
