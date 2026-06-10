@@ -7,7 +7,29 @@ keywords: process, subprocess, shell, commands, async, pipes, pools, testing, fa
 
 # Process
 
-Fastapi Startkit ships a `Process` facade that wraps Python's `subprocess` module behind a clean, fluent interface. It lets you run shell commands synchronously, stream output asynchronously, build pipelines, and run pools of concurrent processes — all with first-class support for test fakes so no real processes are spawned during your test suite.
+Fastapi Startkit ships a `Process` facade that wraps Python's `subprocess` module behind a clean, fluent interface. It lets you run shell commands asynchronously, stream output in the background, build pipelines, and run pools of concurrent processes — all with first-class support for test fakes so no real processes are spawned during your test suite.
+
+## Async vs Sync
+
+`Process.run()` is **async by default** — it must be awaited and is designed for use inside FastAPI request handlers and other async contexts:
+
+```python
+result = await Process.run('ls -la')
+```
+
+If you are writing a CLI script or Cleo command that runs outside an event loop, use the synchronous fallback instead:
+
+```python
+result = Process.run_sync('ls -la')
+```
+
+| Method | Execution model | Use when |
+|---|---|---|
+| `run()` | async (asyncio) | FastAPI handlers, async functions |
+| `run_sync()` | sync (subprocess) | CLI scripts, Cleo commands, no event loop |
+| `pipe()` | async (asyncio) | FastAPI handlers, async pipelines |
+| `pipe_sync()` | sync (subprocess) | CLI pipelines without an event loop |
+| `start()` | threads | Long-running background tasks, streaming output |
 
 ## Basic Usage
 
@@ -16,7 +38,7 @@ Import `Process` and call `run()` with any shell command. It returns a `ProcessR
 ```python
 from fastapi_startkit.process import Process
 
-result = Process.run('ls -la')
+result = await Process.run('ls -la')
 
 print(result.output())      # stdout as a string
 print(result.exit_code())   # integer exit code
@@ -25,7 +47,7 @@ print(result.exit_code())   # integer exit code
 ### Handling Success and Failure
 
 ```python
-result = Process.run('git status')
+result = await Process.run('git status')
 
 if result.successful():
     print("Command succeeded")
@@ -36,12 +58,14 @@ if result.failed():
 
 ## ProcessResult API
 
-Every `run()` call returns a `ProcessResult` with the following methods:
+Every `run()` / `run_sync()` call returns a `ProcessResult` with the following methods:
 
 | Method | Description |
 |---|---|
 | `output()` | Returns captured stdout as a string |
 | `error_output()` | Returns captured stderr as a string |
+| `error()` | Alias for `error_output()` — stderr as a string |
+| `output_json()` | Parses stdout as JSON and returns the decoded value |
 | `exit_code()` | Returns the integer exit code |
 | `successful()` | `True` if exit code is `0` |
 | `failed()` | `True` if exit code is non-zero |
@@ -49,23 +73,32 @@ Every `run()` call returns a `ProcessResult` with the following methods:
 | `throw_if(condition)` | Raises `ProcessFailedException` if `condition` is truthy |
 | `command()` | Returns the original command string |
 
-`throw()` is useful for asserting success in a chain:
+`throw()` is useful for asserting success after a run:
 
 ```python
-result = Process.run('python migrate.py').throw()
+result = await Process.run('python migrate.py')
+result.throw()
 # raises ProcessFailedException if migration fails
+```
+
+Use `output_json()` when a command returns JSON on stdout:
+
+```python
+result = await Process.run('aws s3api list-buckets')
+data = result.output_json()
+print(data['Buckets'])
 ```
 
 ## Fluent Builder Options
 
-Any method on the `Process` facade that is not `run()` or `start()` returns a `PendingProcess` builder. Chain options before calling `run()`:
+Any class method on `Process` that is not `run()`, `run_sync()`, `pipe()`, `pipe_sync()`, `start()`, or `pool()` returns a `PendingProcess` builder. Chain options before calling `run()`:
 
 ### `timeout(seconds)`
 
 Sets how long to wait before killing the process and raising `ProcessTimedOutException`. The default is 60 seconds.
 
 ```python
-result = Process.timeout(10).run('bash slow_script.sh')
+result = await Process.timeout(10).run('bash slow_script.sh')
 ```
 
 ### `forever()`
@@ -73,7 +106,7 @@ result = Process.timeout(10).run('bash slow_script.sh')
 Disables the timeout entirely.
 
 ```python
-result = Process.forever().run('bash long_import.sh')
+result = await Process.forever().run('bash long_import.sh')
 ```
 
 ### `quietly()`
@@ -81,7 +114,7 @@ result = Process.forever().run('bash long_import.sh')
 Discards all stdout and stderr output. Useful when you only care about the exit code.
 
 ```python
-result = Process.quietly().run('npm install')
+result = await Process.quietly().run('npm install')
 ```
 
 ### `tty()`
@@ -89,7 +122,7 @@ result = Process.quietly().run('npm install')
 Passes stdin, stdout, and stderr directly through to the terminal. Output is not captured.
 
 ```python
-Process.tty().run('vim file.txt')
+await Process.tty().run('vim file.txt')
 ```
 
 ### `env(variables)`
@@ -97,7 +130,7 @@ Process.tty().run('vim file.txt')
 Merges additional environment variables into the process environment.
 
 ```python
-result = Process.env({'APP_ENV': 'production', 'DEBUG': '0'}).run('python app.py')
+result = await Process.env({'APP_ENV': 'production', 'DEBUG': '0'}).run('python app.py')
 ```
 
 ### `path(directory)`
@@ -105,7 +138,7 @@ result = Process.env({'APP_ENV': 'production', 'DEBUG': '0'}).run('python app.py
 Sets the working directory for the process.
 
 ```python
-result = Process.path('/var/www/app').run('git pull origin main')
+result = await Process.path('/var/www/app').run('git pull origin main')
 ```
 
 ### `input(data)`
@@ -113,7 +146,7 @@ result = Process.path('/var/www/app').run('git pull origin main')
 Pipes a string into the process's stdin.
 
 ```python
-result = Process.input('yes\n').run('apt-get install -y some-package')
+result = await Process.input('yes\n').run('apt-get install -y some-package')
 ```
 
 ### Combining Options
@@ -121,7 +154,7 @@ result = Process.input('yes\n').run('apt-get install -y some-package')
 Options chain together — each returns the same `PendingProcess`:
 
 ```python
-result = (
+result = await (
     Process
     .timeout(30)
     .path('/var/www/app')
@@ -131,9 +164,76 @@ result = (
 )
 ```
 
-## Async Execution
+## Piping
 
-Use `Process.start()` to launch a process without blocking. It returns an `InvokedProcess` that streams output as lines arrive via a callback:
+`Process.pipe()` builds a shell pipeline from multiple commands. Pass a callback that receives a `Pipe` builder and calls `.command()` for each stage:
+
+```python
+result = await Process.pipe(lambda p: (
+    p.command('cat access.log'),
+    p.command('grep "ERROR"'),
+    p.command('wc -l'),
+))
+
+print(result.output())  # count of ERROR lines
+```
+
+The commands are joined with `|` and executed as a single shell command. All fluent builder options apply before calling `pipe()`:
+
+```python
+result = await Process.path('/var/www/app').timeout(15).pipe(lambda p: (
+    p.command('find . -name "*.py"'),
+    p.command('xargs wc -l'),
+))
+```
+
+## Sync Execution
+
+Use `run_sync()` and `pipe_sync()` when you are writing CLI scripts or Cleo commands that run outside an event loop.
+
+### `run_sync()`
+
+```python
+from fastapi_startkit.process import Process
+
+result = Process.run_sync('ls -la')
+print(result.output())
+print(result.exit_code())
+```
+
+All fluent builder options work the same way:
+
+```python
+result = (
+    Process
+    .timeout(30)
+    .path('/var/www/app')
+    .quietly()
+    .run_sync('bash deploy.sh')
+)
+```
+
+### `pipe_sync()`
+
+```python
+result = Process.pipe_sync(lambda p: (
+    p.command('cat access.log'),
+    p.command('grep "ERROR"'),
+    p.command('wc -l'),
+))
+
+print(result.output())  # count of ERROR lines
+```
+
+::: tip When to use `run_sync` vs `run`
+- Use **`run()`** inside FastAPI route handlers and any `async def` context.
+- Use **`run_sync()`** in Cleo commands, standalone scripts, or any code that runs without an event loop.
+  Calling `run()` outside an async context will raise a `RuntimeError` because there is no running event loop.
+:::
+
+## Background Execution
+
+Use `Process.start()` to launch a process in the background without blocking. It spawns a thread-backed `InvokedProcess` that streams output as lines arrive via a callback:
 
 ```python
 import time
@@ -152,6 +252,10 @@ result = invoked.wait()
 print("Exit code:", result.exit_code())
 ```
 
+::: info Background execution uses threads
+`Process.start()` launches the subprocess via `subprocess.Popen` and reads its output on background threads — it does **not** use asyncio. Use it for long-running tasks where you want to stream output in real time, not for general async usage inside FastAPI handlers (use `await Process.run()` for that).
+:::
+
 ### `InvokedProcess` API
 
 | Method | Description |
@@ -163,32 +267,9 @@ print("Exit code:", result.exit_code())
 | `signal(sig)` | Sends a signal (e.g. `signal.SIGTERM`) to the process |
 | `ensure_not_timed_out()` | Raises `ProcessTimedOutException` if the configured timeout has elapsed |
 
-## Piping
-
-`Process.pipe()` builds a shell pipeline from multiple commands. Pass a callback that receives a `Pipe` builder and calls `.command()` for each stage:
-
-```python
-result = Process.pipe(lambda p: (
-    p.command('cat access.log'),
-    p.command('grep "ERROR"'),
-    p.command('wc -l'),
-))
-
-print(result.output())  # count of ERROR lines
-```
-
-The commands are joined with `|` and executed as a single shell command. All fluent builder options apply before calling `pipe()`:
-
-```python
-result = Process.path('/var/www/app').timeout(15).pipe(lambda p: (
-    p.command('find . -name "*.py"'),
-    p.command('xargs wc -l'),
-))
-```
-
 ## Pools (Concurrent Processes)
 
-`Process.pool()` runs multiple commands concurrently. Pass a callback that adds commands to a `Pool`, then call `.start()` to launch all of them and `.wait()` to collect results:
+`Process.pool()` runs multiple commands concurrently using background threads. Pass a callback that adds commands to a `Pool`, then call `.start()` to launch all of them and `.wait()` to collect results:
 
 ```python
 pool = Process.pool(lambda p: (
@@ -239,12 +320,12 @@ results = pool.wait()
 
 ## Testing with Fakes
 
-Call `Process.fake()` at the start of a test to intercept all process calls. No real subprocesses are spawned.
+Call `Process.fake()` at the start of a test to intercept all process calls. No real subprocesses are spawned. Because `Process.run()` is async, test functions must be declared with `async def` and await every call.
 
 ```python
 from fastapi_startkit.process import Process
 
-def test_deploy_script():
+async def test_deploy_script():
     fake = Process.fake()
 
     # ... call code that internally runs Process.run('bash deploy.sh')
@@ -266,11 +347,11 @@ fake = Process.fake({
     'bash rollback.sh': Process.describe().error_output('Rollback failed').exit_code(1),
 })
 
-result = Process.run('bash deploy.sh')
+result = await Process.run('bash deploy.sh')
 assert result.output() == 'Deployed successfully'
 assert result.successful()
 
-result = Process.run('bash rollback.sh')
+result = await Process.run('bash rollback.sh')
 assert result.failed()
 ```
 
@@ -319,8 +400,8 @@ def fake_process():
     yield fake
     Process.reset_fake()
 
-def test_my_command(fake_process):
-    Process.run('echo hello')
+async def test_my_command(fake_process):
+    await Process.run('echo hello')
     fake_process.assert_ran('echo hello')
 ```
 
@@ -334,7 +415,8 @@ Raised by `result.throw()` when the process exits with a non-zero code. It expos
 from fastapi_startkit.process.exception import ProcessFailedException
 
 try:
-    Process.run('bash risky.sh').throw()
+    result = await Process.run('bash risky.sh')
+    result.throw()
 except ProcessFailedException as e:
     print(e.result.error_output())
     print("Exit code:", e.result.exit_code())
@@ -348,7 +430,7 @@ Raised when a process exceeds its configured timeout. It exposes `.command` — 
 from fastapi_startkit.process.exception import ProcessTimedOutException
 
 try:
-    Process.timeout(5).run('sleep 60')
+    result = await Process.timeout(5).run('sleep 60')
 except ProcessTimedOutException as e:
     print("Timed out:", e.command)
 ```
