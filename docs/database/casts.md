@@ -20,7 +20,7 @@ Casts automatically transform model attribute values when reading from or writin
 | `dict` | JSON | `'{"key":"val"}'` → `{"key": "val"}`          |
 | `list` | JSON | `'["a","b"]'` → `["a", "b"]`                  |
 | `datetime` | DateTime | `"2024-01-01 08:00:00"` → `datetime.datetime` |
-| `date` | DateTime | `"2024-01-01"` → `datetiem.date`              |
+| `date` | DateTime | `"2024-01-01"` → `datetime.date`              |
 | `Carbon` | DateTime | `"2024-01-01 00:00:00"` → `Carbon`            |
 | `time` | Time | `"09:00:00"` → `datetime.time`                |
 | `timedelta` | TimeDelta | `3600.0` → `datetime.timedelta(seconds=3600)` |

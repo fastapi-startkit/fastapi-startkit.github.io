@@ -78,8 +78,7 @@ This will create a `config/database.py` file in your project. Alternatively, you
 
 ```python
 # config/database.py
-from dataclasses import field
-from pydantic.dataclasses import dataclass
+from dataclasses import dataclass, field
 from fastapi_startkit.environment import env
 from fastapi_startkit.masoniteorm import MySQLConfig, SQLiteConfig
 
@@ -88,20 +87,17 @@ class DatabaseConfig:
     default: str = field(default_factory=lambda: env("DB_CONNECTION", "sqlite"))
 
     connections: dict = field(default_factory=lambda: {
-        "sqlite": DatabaseConnection(
+        "sqlite": SQLiteConfig(
             driver="sqlite",
             database=env("DB_DATABASE", "database.sqlite"),
         ),
-        "mysql": DatabaseConnection(
+        "mysql": MySQLConfig(
             driver="mysql",
             host=env("DB_HOST", "127.0.0.1"),
             database=env("DB_DATABASE", "app"),
             username=env("DB_USERNAME", "root"),
             password=env("DB_PASSWORD", ""),
             port=env("DB_PORT", "3306"),
-            options={
-                "charset": "utf8mb4"
-            }
         ),
     })
 

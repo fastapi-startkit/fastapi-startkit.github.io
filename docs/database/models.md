@@ -77,6 +77,66 @@ user = await User.where("email", "admin@example.com").first()
 posts = await Post.where("user_id", 1).get()
 ```
 
+### `find_or_fail(id)` — find or raise
+
+Fetch a record by primary key, raising `ModelNotFoundException` if nothing is found:
+
+```python
+user = await User.find_or_fail(1)
+```
+
+### `first_or_fail()` — first or raise
+
+Execute the current query and raise `ModelNotFoundException` if no record matches:
+
+```python
+user = await User.where("email", "admin@example.com").first_or_fail()
+```
+
+### `exists()` — check existence
+
+Return `True` if any record matches the current query, `False` otherwise:
+
+```python
+active = await User.where("is_active", True).exists()
+```
+
+### `count()` — row count
+
+Return the number of rows matching the current query:
+
+```python
+total = await User.count()
+active_count = await User.where("is_active", True).count()
+```
+
+### `paginate(per_page, page)` — paginate results
+
+Return a `LengthAwarePaginator` containing the requested slice of records plus total-count metadata:
+
+```python
+page = await User.paginate(per_page=15, page=1)
+# page.items      → list of User instances
+# page.total      → total number of matching rows
+# page.last_page  → last available page number
+```
+
+### `or_where` / `where_raw` / `or_where_raw` / `or_where_null` — raw & OR variants
+
+```python
+# OR condition
+users = await User.where("role", "admin").or_where("role", "moderator").get()
+
+# Raw SQL predicate
+users = await User.where_raw("created_at > NOW() - INTERVAL '7 days'").get()
+
+# Raw SQL with OR
+users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").get()
+
+# OR IS NULL
+users = await User.where("name", "Alice").or_where_null("deleted_at").get()
+```
+
 ## Creating Records
 
 ### `create`
