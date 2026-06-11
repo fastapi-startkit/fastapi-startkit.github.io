@@ -155,7 +155,6 @@ export default defineConfig({
                 items: [
                     { text: 'Getting Started', link: '/docs/getting-started' },
                     { text: 'Configuration', link: '/docs/configuration' },
-                    { text: 'Config Component', link: '/docs/config' },
                     { text: 'FastAPI', link: '/docs/fastapi' },
                     { text: 'Exception Handling', link: '/docs/exception-handling' },
                     { text: 'Logging', link: '/docs/logging' },
