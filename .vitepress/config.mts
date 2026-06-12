@@ -194,6 +194,7 @@ export default defineConfig({
                     { text: 'Storage', link: '/docs/storage' },
                     { text: 'Process', link: '/docs/process' },
                     { text: 'Broadcasting', link: '/docs/broadcasting' },
+                    { text: 'Reverb', link: '/docs/reverb' },
                     { text: 'JSON:API Resources', link: '/docs/jsonapi' },
                 ]
             },
