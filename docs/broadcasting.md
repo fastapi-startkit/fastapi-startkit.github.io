@@ -248,17 +248,6 @@ async def ship_order(order_id: int):
     return {"status": "shipped"}
 ```
 
-### Using the Facade
-
-```python
-from fastapi_startkit.facades.Broadcast import Broadcast
-
-@router.post("/orders/{order_id}/ship")
-async def ship_order(order_id: int):
-    await Broadcast.event(OrderShipped(order_id, customer_email="user@example.com"))
-    return {"status": "shipped"}
-```
-
 ---
 
 ## Local Development
