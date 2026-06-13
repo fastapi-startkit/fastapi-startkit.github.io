@@ -166,6 +166,7 @@ export default defineConfig({
                 items: [
                     { text: 'Agents', link: '/docs/ai/agent' },
                     { text: 'MCP', link: '/docs/ai/mcp' },
+                    { text: 'Skills', link: '/docs/ai/skills' },
                 ]
             },
             {
