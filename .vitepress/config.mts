@@ -165,8 +165,8 @@ export default defineConfig({
                 text: 'AI',
                 items: [
                     { text: 'Agents', link: '/docs/ai/agent' },
-                    { text: 'Image Generation', link: '/docs/ai/image' },
-                    { text: 'Audio Generation', link: '/docs/ai/audio' },
+                    { text: 'Image', link: '/docs/ai/image' },
+                    { text: 'Audio', link: '/docs/ai/audio' },
                     { text: 'MCP', link: '/docs/ai/mcp' },
                     { text: 'Skills', link: '/docs/ai/skills' },
                 ]
