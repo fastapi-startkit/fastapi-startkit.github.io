@@ -19,8 +19,9 @@ The pattern is:
    `broker` during `register()`.
 2. In `boot()`, the broker's `startup`/`shutdown` are attached to the FastAPI
    lifecycle so the connection opens and closes with the web process.
-3. Tasks resolve the same `broker` binding from the booted application singleton
-   and register themselves with the `@broker.task` decorator.
+3. A small `bootstrap/broker.py` module resolves that same `broker` binding from
+   the booted application singleton, and tasks register against it with the
+   `@broker.task` decorator.
 
 ## Installation
 
@@ -144,7 +145,7 @@ from config.fastapi import FastAPIConfig
 from providers.queue_provider import QueueProvider
 
 app: Application = Application(
-    base_path=str(Path.cwd()),
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
         (FastAPIProvider, FastAPIConfig),
         QueueProvider,
@@ -152,26 +153,24 @@ app: Application = Application(
 )
 ```
 
-## Defining Tasks
+## Exposing the Broker
 
-Tasks need the broker at import time so the `@broker.task` decorator can register
-them. Because `bootstrap/application.py` instantiates `Application(...)` at module
-level — and the constructor runs every provider's `register()` and `boot()` — the
-`broker` binding already exists by the time the module finishes importing. You can
-therefore resolve it from the application singleton outside of any request:
+Both your tasks and the TaskIQ worker need to import the *same* broker instance.
+Add a tiny `bootstrap/broker.py` module that resolves it from the application
+singleton and re-exports it as a top-level `broker` variable:
 
 ```python
-# app/tasks.py
+# bootstrap/broker.py
 from bootstrap.application import app
 
 broker = app.make("broker")
-
-
-@broker.task
-async def send_welcome_email(user_id: int) -> str:
-    # ... do the work, e.g. load the user and send mail ...
-    return f"welcomed {user_id}"
 ```
+
+This works because `bootstrap/application.py` instantiates `Application(...)` at
+module level, and the constructor runs every provider's `register()` and `boot()`.
+By the time `bootstrap.application` finishes importing, the `QueueProvider` has
+already bound the broker — so `app.make("broker")` resolves it outside of any
+request. The worker then runs against `bootstrap.broker:broker`.
 
 ::: warning Resolving `broker` outside a request
 `app.make("broker")` returns the broker as soon as `bootstrap.application` is
@@ -180,10 +179,24 @@ What it does **not** do is *start* the broker: `broker.startup()` only runs from
 the FastAPI startup event (or the worker, below). Inside a request the startup
 event has already fired, so dispatching just works. From a standalone script you
 must start the broker yourself before dispatching — see
-[Dispatching outside a request](#dispatching-outside-a-request). If the binding
-is missing you'll get `MissingContainerBindingNotFound`, which means the provider
-was not registered.
+[Dispatching outside a request](#dispatching-outside-a-request). If you get
+`MissingContainerBindingNotFound`, the `QueueProvider` was not registered.
 :::
+
+## Defining Tasks
+
+Import the shared `broker` and register work with the `@broker.task` decorator:
+
+```python
+# app/tasks.py
+from bootstrap.broker import broker
+
+
+@broker.task
+async def send_welcome_email(user_id: int) -> str:
+    # ... do the work, e.g. load the user and send mail ...
+    return f"welcomed {user_id}"
+```
 
 ## Dispatching Tasks
 
@@ -226,10 +239,8 @@ when you're done:
 ```python
 import asyncio
 
-from bootstrap.application import app
+from bootstrap.broker import broker
 from app.tasks import send_welcome_email
-
-broker = app.make("broker")
 
 
 async def main() -> None:
@@ -246,29 +257,29 @@ asyncio.run(main())
 ## Running a Worker
 
 Dispatched tasks stay in Redis until a worker picks them up. Start one with the
-TaskIQ CLI, pointing it at the module path and the broker variable
-(`module:variable`):
+TaskIQ CLI, pointing it at the broker (`module:variable`) followed by the modules
+that contain your tasks:
 
 ```bash
-taskiq worker app.tasks:broker
+taskiq worker bootstrap.broker:broker app.tasks
 ```
 
-Importing `app.tasks` loads every `@broker.task` in that module, so the worker
-knows how to execute them. The CLI calls `broker.startup()` and `broker.shutdown()`
-for the worker process itself — you do not need to manage that here.
+`bootstrap.broker:broker` locates the broker instance, and each trailing module
+path (`app.tasks`) is imported so its `@broker.task` functions register with the
+worker. The CLI calls `broker.startup()` and `broker.shutdown()` for the worker
+process itself — you do not need to manage that here.
 
-To register tasks that live in several modules, import them all where the broker
-is defined (or pass the additional modules to the worker):
+If your tasks live in several modules, list them all:
 
 ```bash
-taskiq worker app.tasks:broker app.tasks.emails app.tasks.reports
+taskiq worker bootstrap.broker:broker app.tasks app.tasks.emails app.tasks.reports
 ```
 
 During development, add `--reload` to restart the worker when your task code
 changes:
 
 ```bash
-taskiq worker app.tasks:broker --reload
+taskiq worker bootstrap.broker:broker app.tasks --reload
 ```
 
 ## Summary
@@ -278,6 +289,7 @@ taskiq worker app.tasks:broker --reload
 | Build the broker, bind it as `broker` | `QueueProvider.register()` |
 | Open/close the connection with the web process | `QueueProvider.boot()` |
 | Register the provider | `bootstrap/application.py` |
+| Expose the broker for tasks and the worker | `bootstrap/broker.py` |
 | Define tasks with `@broker.task` | `app/tasks.py` |
 | Dispatch with `.kiq()` | controllers, scripts, commands |
-| Process the queue | `taskiq worker app.tasks:broker` |
+| Process the queue | `taskiq worker bootstrap.broker:broker app.tasks` |
