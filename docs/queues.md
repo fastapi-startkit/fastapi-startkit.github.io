@@ -32,8 +32,8 @@ uv add taskiq taskiq-redis
 pip install taskiq taskiq-redis
 ```
 
-You also need a running Redis server. The repository ships a `docker-compose.yml`
-with Redis, or you can run it directly:
+You also need a running Redis server — either a locally installed instance or
+one started with Docker:
 
 ```bash
 docker run -p 6379:6379 redis
