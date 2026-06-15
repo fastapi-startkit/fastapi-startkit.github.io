@@ -205,6 +205,7 @@ export default defineConfig({
                 text: 'Testing',
                 items: [
                     { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
+                    { text: 'Fluent JSON Assertions', link: '/docs/testing/json-assertions' },
                     { text: 'Database Testing', link: '/docs/testing/database' },
                 ]
             }

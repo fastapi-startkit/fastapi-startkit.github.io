@@ -39,16 +39,19 @@ The `get_application()` method is called once per test via a pytest fixture — 
 
 ## HTTP Helpers
 
-`HttpTestCase` exposes async wrappers around the four most common HTTP methods. All keyword arguments are forwarded directly to the underlying `httpx.AsyncClient` method.
+`HttpTestCase` exposes async wrappers around the most common HTTP methods. All keyword arguments are forwarded directly to the underlying `httpx.AsyncClient` method.
 
 | Method | Signature |
 |---|---|
 | `get` | `await self.get(url, **kwargs)` |
 | `post` | `await self.post(url, **kwargs)` |
 | `put` | `await self.put(url, **kwargs)` |
+| `patch` | `await self.patch(url, **kwargs)` |
 | `delete` | `await self.delete(url, **kwargs)` |
 
 Pass a JSON body with `json=`, form data with `data=`, headers with `headers=`, and so on — anything `httpx` accepts.
+
+Each helper returns a `TestResponse` — a thin wrapper around `httpx.Response` that adds fluent assertion helpers (`assert_status`, `assert_ok`, `assert_json`, and more) while forwarding everything else to the underlying response. See [Fluent JSON Assertions](/docs/testing/json-assertions) for the full API.
 
 ## Writing Tests
 
@@ -132,10 +135,10 @@ class TestRegister(HttpTestCase):
 
 ## Accessing the Raw Client
 
-If you need features not covered by the convenience helpers (e.g. `PATCH`, custom auth headers on every request, streaming), access `self.client` directly. It is a fully configured `httpx.AsyncClient`.
+If you need features not covered by the convenience helpers (e.g. `OPTIONS`, `HEAD`, custom auth headers on every request, streaming), access `self.client` directly. It is a fully configured `httpx.AsyncClient`. Note that calling the client directly returns a raw `httpx.Response`, not a `TestResponse`, so the fluent assertion helpers are not available.
 
 ```python
-async def test_update_profile(self):
-    response = await self.client.patch("/profile", json={"name": "New Name"})
-    assert response.status_code == 200
+async def test_preflight(self):
+    response = await self.client.options("/profile")
+    assert response.status_code == 204
 ```
