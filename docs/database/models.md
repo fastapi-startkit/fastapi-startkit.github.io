@@ -167,10 +167,8 @@ user = await User.first_or_create(
 Insert one or many rows without instantiating individual model instances:
 
 ```python
-# Single row
 await User.insert({"email": "picard@example.com", "votes": 0})
 
-# Multiple rows (bulk)
 await User.insert([
     {"email": "picard@example.com", "votes": 0},
     {"email": "janeway@example.com", "votes": 0},
