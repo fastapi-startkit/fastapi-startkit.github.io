@@ -162,6 +162,23 @@ user = await User.first_or_create(
 )
 ```
 
+### `insert` — bulk insert rows
+
+Insert one or many rows without instantiating individual model instances:
+
+```python
+# Single row
+await User.insert({"email": "picard@example.com", "votes": 0})
+
+# Multiple rows (bulk)
+await User.insert([
+    {"email": "picard@example.com", "votes": 0},
+    {"email": "janeway@example.com", "votes": 0},
+])
+```
+
+> Unlike `create`, `insert` does not fire model events, apply timestamps, or return model instances. It is intended for high-volume seed and batch operations.
+
 ## Updating Records
 
 ```python
