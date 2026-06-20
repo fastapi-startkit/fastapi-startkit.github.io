@@ -11,6 +11,12 @@ The `ViteProvider` integrates Vite asset bundling with your application. It supp
 
 ## Setup
 
+Templates rely on Jinja2, which ships with the `vite` extra:
+
+```bash
+pip install "fastapi-startkit[vite]"
+```
+
 The Vite integration is included in the core `fastapi-startkit` package, so no further installation is required. Register `ViteProvider` in your application:
 
 ```python
@@ -110,12 +116,6 @@ Vite writes `public/build/manifest.json`. The framework reads this manifest at s
 ## Returning a Page from the Backend
 
 `ViteProvider` auto-loads Jinja2 templates, so you can render and return an HTML page straight from a route. When `ViteConfig.template` is `True` (the default) and no `templates` binding already exists, the provider binds a `Jinja2Templates` instance pointing at `resources/templates` and registers it in the container as `templates`.
-
-Templates rely on Jinja2, which ships with the `vite` extra:
-
-```bash
-pip install "fastapi-startkit[vite]"
-```
 
 The template directory is configurable via `templates_directory`:
 
