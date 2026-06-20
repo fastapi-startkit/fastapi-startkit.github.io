@@ -62,7 +62,7 @@ npm run dev
 `config/vite.py` uses a `ViteConfig` dataclass with these defaults:
 
 ```python
-from fastapi_startkit.vite import ViteConfig
+from fastapi_startkit.vite.config.vite import ViteConfig
 
 config = ViteConfig(
     public_path="public",       # Root directory for assets
@@ -72,6 +72,8 @@ config = ViteConfig(
     asset_url="",               # Optional CDN prefix for asset URLs
     static_url="/build",        # URL prefix used when mounting static files
     mount_static=True,          # Auto-mount public/build as a StaticFiles route
+    template=True,              # Auto-bind Jinja2 templates (default)
+    templates_directory="resources/templates",  # Directory the template engine reads from
 )
 ```
 
@@ -86,6 +88,32 @@ app = Application(
     ],
 )
 ```
+
+## Returning a Page from the Backend
+
+`ViteProvider` auto-loads Jinja2 templates, so you can render and return an HTML page straight from a route. When `ViteConfig.template` is `True` (the default) and no `templates` binding already exists, the provider binds a `Jinja2Templates` instance pointing at `resources/templates` and registers it in the container as `templates`.
+
+The template directory is configurable via `templates_directory`:
+
+```python
+from fastapi_startkit.vite.config.vite import ViteConfig
+
+config = ViteConfig(
+    templates_directory="resources/templates",   # default
+)
+```
+
+Render a template the standard FastAPI/Starlette way: resolve the `templates` binding from the container and return a `TemplateResponse`. Pass the `Request` as the first argument, the template name as the second, and the context dict as the third:
+
+```python
+from starlette.requests import Request
+
+async def index(request: Request):
+    templates = app.make("templates")
+    return templates.TemplateResponse(request, "index.html", {"user": user})
+```
+
+Inside the rendered template, the `vite()`, `vite_asset()`, and `vite_react_refresh()` globals are available — see [Template Helpers](#template-helpers) below.
 
 ## Development Mode (HMR)
 
@@ -112,32 +140,6 @@ npm run build
 ```
 
 Vite writes `public/build/manifest.json`. The framework reads this manifest at startup (cached in memory) and generates hashed asset URLs with preload tags.
-
-## Returning a Page from the Backend
-
-`ViteProvider` auto-loads Jinja2 templates, so you can render and return an HTML page straight from a route. When `ViteConfig.template` is `True` (the default) and no `templates` binding already exists, the provider binds a `Jinja2Templates` instance pointing at `resources/templates` and registers it in the container as `templates`.
-
-The template directory is configurable via `templates_directory`:
-
-```python
-from fastapi_startkit.vite import ViteConfig
-
-config = ViteConfig(
-    templates_directory="resources/templates",   # default
-)
-```
-
-Render a template the standard FastAPI/Starlette way: resolve the `templates` binding from the container and return a `TemplateResponse`. Pass the `Request` as the first argument, the template name as the second, and the context dict as the third:
-
-```python
-from starlette.requests import Request
-
-async def index(request: Request):
-    templates = app.make("templates")
-    return templates.TemplateResponse(request, "index.html", {"user": user})
-```
-
-Inside the rendered template, the `vite()`, `vite_asset()`, and `vite_react_refresh()` globals are available — see [Template Helpers](#template-helpers) below.
 
 ## Template Helpers
 
