@@ -6,18 +6,21 @@ keywords: vite, frontend, assets, fastapi, bundling
 ---
 
 # Vite
+[Vite](https://vitejs.dev) is a fast frontend build tool that compiles JavaScript, CSS, and other assets for production. FastAPI Startkit ships with first-party Vite integration through `ViteProvider`, supporting HMR in development and manifest-based asset fingerprinting in production.
 
-The `ViteProvider` integrates Vite asset bundling with your application. It supports both **HMR development mode** and **manifest-based production mode**, and injects `vite()`, `vite_asset()`, and `vite_react_refresh()` helpers into Jinja2 templates.
+## Example App
+
+A fully working example is available in the [vite-app](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/vite-app) directory of the monorepo. It demonstrates the complete setup: `ViteProvider` registration, config, Vite config, and a template using `vite()`.
 
 ## Setup
 
-Templates rely on Jinja2, which ships with the `vite` extra:
+Install the optional `vite` package to use Vite integration:
 
 ```bash
 pip install "fastapi-startkit[vite]"
 ```
 
-The Vite integration is included in the core `fastapi-startkit` package, so no further installation is required. Register `ViteProvider` in your application:
+Then add `ViteProvider` to your application's providers list:
 
 ```python
 # bootstrap/application.py
@@ -45,7 +48,7 @@ This creates the following files in your project:
 - `vite.config.js`: Vite configuration with Tailwind CSS support.
 - `resources/js/app.ts`: Main entry point.
 - `resources/css/app.css`: Main CSS entry point.
-- `templates/index.html`: Example template using Vite.
+- `resources/templates/index.html`: Example template using Vite.
 
 After publishing, install the frontend dependencies and start the development server:
 
@@ -89,31 +92,36 @@ app = Application(
 )
 ```
 
-## Returning a Page from the Backend
+## Loading a Page with JS and CSS
 
-`ViteProvider` auto-loads Jinja2 templates, so you can render and return an HTML page straight from a route. When `ViteConfig.template` is `True` (the default) and no `templates` binding already exists, the provider binds a `Jinja2Templates` instance pointing at `resources/templates` and registers it in the container as `templates`.
-
-The template directory is configurable via `templates_directory`:
-
-```python
-from fastapi_startkit.vite import ViteConfig
-
-config = ViteConfig(
-    templates_directory="resources/templates",   # default
-)
-```
-
-Render a template the standard FastAPI/Starlette way: resolve the `templates` binding from the container and return a `TemplateResponse`. Pass the `Request` as the first argument, the template name as the second, and the context dict as the third:
+`ViteProvider` automatically sets up template rendering, so you can return an HTML page directly from a route. Resolve `templates` from the container and return a `TemplateResponse`:
 
 ```python
 from starlette.requests import Request
 
 async def index(request: Request):
-    templates = app.make("templates")
+    from fastapi_startkit import app
+    templates = app().make("templates")
     return templates.TemplateResponse(request, "index.html", {"user": user})
 ```
 
-Inside the rendered template, the `vite()`, `vite_asset()`, and `vite_react_refresh()` globals are available — see [Template Helpers](#template-helpers) below.
+In your template, call `vite()` with the entry point to inject the JS and CSS tags:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>FastAPI + Vite</title>
+    {{ vite('resources/js/app.ts') }}
+</head>
+<body>
+    <h1>Hello from FastAPI + Vite</h1>
+</body>
+</html>
+```
+
+`vite()`, `vite_asset()`, and `vite_react_refresh()` are all available as template globals — see [Template Helpers](#template-helpers) below.
 
 ## Development Mode (HMR)
 
