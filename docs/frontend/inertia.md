@@ -238,14 +238,6 @@ class FastAPIProvider(BaseFastAPIProvider):
 
 When the client's `X-Inertia-Version` header mismatches the server version, the middleware returns `409 Conflict` with an `X-Inertia-Location` header, causing the client to perform a full hard reload.
 
-## Middleware
-
-`InertiaMiddleware` is registered automatically by `InertiaProvider`. It handles three concerns:
-
-1. **Version check** — returns `409` on version mismatch (triggers hard reload).
-2. **Redirect conversion** — converts `302` redirects to `303` for `PUT`/`PATCH`/`DELETE` requests, so the browser performs a `GET` on the redirect target.
-3. **Vary header** — adds `Vary: X-Inertia` to every response for correct cache behaviour.
-
 ## Custom Root View
 
 Change the root template name (default: `index.html`):
@@ -255,5 +247,13 @@ from fastapi_startkit.inertia import Inertia
 
 Inertia.set_root_view("app.html")
 ```
+
+## Middleware
+
+`InertiaMiddleware` is registered automatically by `InertiaProvider`. It handles three concerns:
+
+1. **Version check** — returns `409` on version mismatch (triggers hard reload).
+2. **Redirect conversion** — converts `302` redirects to `303` for `PUT`/`PATCH`/`DELETE` requests, so the browser performs a `GET` on the redirect target.
+3. **Vary header** — adds `Vary: X-Inertia` to every response for correct cache behaviour.
 
 
