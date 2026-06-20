@@ -15,6 +15,7 @@ The `InertiaProvider` wires Inertia into your application: it binds the `Inertia
 
 ## Setup
 
+### Server-Side Setup
 Register `InertiaProvider` after `ViteProvider`, which provides the Jinja2 templates:
 
 ```python
@@ -32,9 +33,86 @@ app = Application(
 )
 ```
 
-## Root Template
+Your backend is ready to serve Inertia pages, return the `Inertia.render()` response:
+```python
+from fastapi_startkit.inertia import Inertia
 
-Create `templates/index.html`. The <code v-pre>{{ inertia(page) }}</code> helper renders the bootstrap `<script>` tag and the `<div id="app">` mount point:
+async def index():
+    return Inertia.render("Dashboard/Index")
+```
+
+
+### Client-Side Setup
+It  needs vite to setup for the inertia so please consider the [vite docs](/docs/frontend/vite) if you haven't set up it yet.
+
+Although inertia supports, other framework such as `Vue, svelte`, we will focus on `react` on this docs. For Inertia you need to additionally install `@inertiajs/react` and the Vite plugin:
+
+```bash
+npm install react react-dom @vitejs/plugin-react
+```
+
+and for the types:
+```bash
+npm i --save-dev @types/react-dom @types/react
+```
+
+```js
+// vite.config.js
+import fastapi from 'fastapi-vite-plugin'
+
+export default defineConfig({
+    plugins: [
+        fastapi({
+            input: 'resources/js/app.tsx',  // [!code ++]
+            refresh: true,
+        }),
+        react(), // [!code ++]
+        // ...
+    ],
+})
+```
+
+#### Entry point (`resources/js/app.tsx`)
+
+```tsx
+import '../css/app.css'
+import { createInertiaApp } from "@inertiajs/react"
+import { createRoot } from "react-dom/client"
+
+// @ts-ignore
+const appName = import.meta.env.VITE_APP_NAME || "My App"
+
+await createInertiaApp({
+    title: title => `${title} - ${appName}`,
+    resolve: name => {
+        // @ts-ignore
+        const pages = import.meta.glob('./Pages/**/*.tsx', { eager: true })
+        return pages[`./Pages/${name}.tsx`]
+    },
+    setup({ el, App, props }) {
+        createRoot(el).render(<App {...props} />)
+    },
+    progress: {
+        color: "#F87415",
+    },
+})
+```
+
+after defining the `root` component, define the `pages` as 
+```tsx
+// resources/js/Pages/Dashboard/Index.tsx
+export default function Dashboard() {
+    return (
+        <div>
+            <p>Hello from the Fastapi Starkit</p>
+        </div>
+    )
+}
+```
+
+### Root Template
+
+Create `resources/templates/index.html`. The <code v-pre>{{ inertia(page) }}</code> helper renders the bootstrap `<script>` tag and the `<div id="app">` mount point:
 
 ```html
 <!DOCTYPE html>
@@ -51,16 +129,7 @@ Create `templates/index.html`. The <code v-pre>{{ inertia(page) }}</code> helper
 </html>
 ```
 
-This renders:
-
-```html
-<script data-page="app" type="application/json">
-  {"component": "...", "props": {...}, ...}
-</script>
-<div id="app"></div>
-```
-
-## Rendering Components
+## Passing Props
 
 Use `Inertia.render()` in your controller. It takes the component name and an optional props dict — no `request` argument is needed, because `InertiaMiddleware` stores the current request in a context variable automatically:
 
@@ -187,111 +256,4 @@ from fastapi_startkit.inertia import Inertia
 Inertia.set_root_view("app.html")
 ```
 
-## Client-Side Setup (React)
 
-For frontend tooling setup (Vite, package.json, tsconfig, Tailwind) see the [Vite docs](/docs/frontend/vite).
-
-For Inertia you need to additionally install `@inertiajs/react` and the Vite plugin:
-
-```bash
-npm install @inertiajs/react
-npm install -D @inertiajs/vite
-```
-
-Then add `@inertiajs/vite` to your `vite.config.js` input via `fastapi-vite-plugin`:
-
-```js
-// vite.config.js
-import fastapi from 'fastapi-vite-plugin'
-
-export default defineConfig({
-    plugins: [
-        fastapi({
-            input: 'resources/js/app.tsx',  // [!code ++]
-            refresh: true,
-        }),
-        // ...
-    ],
-})
-```
-
-### Entry point (`resources/js/app.tsx`)
-
-```tsx
-import '../css/app.css'
-import { createInertiaApp } from "@inertiajs/react"
-import { createRoot } from "react-dom/client"
-
-const appName = import.meta.env.VITE_APP_NAME || "My App"
-
-createInertiaApp({
-    title: title => `${title} - ${appName}`,
-    resolve: name => {
-        const pages = import.meta.glob('./Pages/**/*.tsx', { eager: true })
-        return pages[`./Pages/${name}.tsx`]
-    },
-    setup({ el, App, props }) {
-        createRoot(el).render(<App {...props} />)
-    },
-    progress: {
-        color: "#F87415",
-    },
-})
-```
-
-### Named routes
-
-Inertia's client-side components often use a `route()` helper for generating URLs and checking the active route (e.g. for nav highlighting). Add it directly in `app.tsx`:
-
-```tsx
-// Map your server-side route names to URLs
-const routeMap: Record<string, string> = {
-    'dashboard': '/',
-    'login': '/login',
-    'users': '/users',
-    'organizations': '/organizations',
-    'contacts': '/contacts',
-    'reports': '/reports',
-}
-
-// Reverse map for current() lookup
-const reverseRouteMap = Object.fromEntries(
-    Object.entries(routeMap).map(([k, v]) => [v, k])
-)
-
-function currentRouteName(): string {
-    const pathname = window.location.pathname
-    if (reverseRouteMap[pathname]) return reverseRouteMap[pathname]
-    const parts = pathname.replace(/^\//, '').split('/')
-    if (parts.length >= 3 && parts[2] === 'edit') return `${parts[0]}.edit`
-    if (parts.length >= 2 && parts[1] === 'create') return `${parts[0]}.create`
-    if (parts.length >= 2) return `${parts[0]}.show`
-    return parts[0] || 'dashboard'
-}
-
-window.route = function(name, params, absolute) {
-    let path = "/"
-    if (name) {
-        if (routeMap[name]) {
-            path = routeMap[name]
-        } else {
-            const parts = name.split('.')
-            path = "/" + parts[0]
-            if (parts[1] === 'edit' && params) path += `/${params}/edit`
-            else if (parts[1] === 'destroy' && params) path += `/${params}`
-            else if (parts[1] === 'update' && params) path += `/${params}`
-            else if (parts[1] === 'create') path += "/create"
-        }
-    }
-    // Return a URL instance — Inertia's visit() handles URL objects natively
-    const urlObj = new URL(path, window.location.href) as URL & { current: (pattern?: string) => string | boolean }
-    urlObj.current = function(pattern?: string) {
-        if (!pattern) return currentRouteName()
-        const segment = window.location.pathname.replace(/^\//, '').split('/')[0] || 'dashboard'
-        return new RegExp('^' + pattern.replace(/\*/g, '.*') + '$').test(segment)
-    }
-    return urlObj as any
-}
-```
-
-`route().current()` with no argument returns the active route name — used by nav components to highlight the current page. With a pattern argument it returns a boolean, e.g. `route().current('users*')`.
