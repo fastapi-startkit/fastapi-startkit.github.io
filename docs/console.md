@@ -96,13 +96,13 @@ if __name__ == "__main__":
 Once registered, you can run your command using your CLI entry point script (e.g., `artisan`):
 
 ```bash
-python artisan hello
+uv run python artisan hello
 ```
 
 To see a list of all available commands, simply run:
 
 ```bash
-python artisan
+uv run python artisan
 ```
 
 ## Example Application

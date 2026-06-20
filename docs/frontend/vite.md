@@ -38,7 +38,7 @@ app = Application(
 Publish the default config and asset files:
 
 ```bash
-python artisan provider:publish --provider=vite
+uv run python artisan provider:publish --provider=vite
 ```
 
 This creates the following files in your project:
