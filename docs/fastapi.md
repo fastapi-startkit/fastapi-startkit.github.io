@@ -291,7 +291,7 @@ class MyFastAPIProvider(Provider):
 When you register the `ServeCommand` in your provider, you gain access to the `serve` CLI command:
 
 ```bash
-python artisan serve
+uv run python artisan serve
 ```
 
 This command uses Uvicorn to start your application with reasonable defaults and reload capabilities.

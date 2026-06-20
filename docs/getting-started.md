@@ -77,7 +77,7 @@ The `FastAPIProvider` handles the initialization of the FastAPI instance, binds 
 This setup registers a `serve` command automatically. You can run it directly:
 
 ```bash
-python main.py serve
+uv run python main.py serve
 ```
 
 ## Way 2: Structured Setup (Recommended)
@@ -137,7 +137,7 @@ if __name__ == "__main__":
 You can now use the `artisan` script to manage your application:
 
 ```bash
-python artisan serve
+uv run python artisan serve
 ```
 
 ## Running with Uvicorn

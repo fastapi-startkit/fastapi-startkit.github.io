@@ -94,11 +94,11 @@ class PostSeeder(Seeder):
 Run all seeds via the `DatabaseSeeder` entry point:
 
 ```bash
-python artisan db:seed
+uv run python artisan db:seed
 ```
 
 To run a specific seeder class:
 
 ```bash
-python artisan db:seed --class UserSeeder
+uv run python artisan db:seed --class UserSeeder
 ```

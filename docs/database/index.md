@@ -71,7 +71,7 @@ app: Application = Application(
 The fastest way to get the default configuration file is to use the `provider:publish` command:
 
 ```bash
-python artisan provider:publish --provider=DatabaseProvider
+uv run python artisan provider:publish --provider=DatabaseProvider
 ```
 
 This will create a `config/database.py` file in your project. Alternatively, you can create it manually:

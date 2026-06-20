@@ -282,25 +282,25 @@ class DatabaseSeeder(Seeder):
 Run the `DatabaseSeeder` entry point:
 
 ```bash
-python artisan db:seed
+uv run python artisan db:seed
 ```
 
 Run a specific seeder class by name:
 
 ```bash
-python artisan db:seed --class UserSeeder
+uv run python artisan db:seed --class UserSeeder
 ```
 
 Use a fully qualified dotted path to target a seeder in a sub-directory:
 
 ```bash
-python artisan db:seed --class databases.seeds.user_seeder.UserSeeder
+uv run python artisan db:seed --class databases.seeds.user_seeder.UserSeeder
 ```
 
 Specify a custom seed directory with `--directory`:
 
 ```bash
-python artisan db:seed --directory databases/seeds
+uv run python artisan db:seed --directory databases/seeds
 ```
 
 ### Generating a Seeder File
@@ -308,7 +308,7 @@ python artisan db:seed --directory databases/seeds
 The `seed` artisan command scaffolds a new seeder file:
 
 ```bash
-python artisan seed Post
+uv run python artisan seed Post
 ```
 
 This creates `databases/seeds/post_table_seeder.py` with a `PostTableSeeder` stub:
