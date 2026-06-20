@@ -62,7 +62,7 @@ npm run dev
 `config/vite.py` uses a `ViteConfig` dataclass with these defaults:
 
 ```python
-from fastapi_startkit.vite.config.vite import ViteConfig
+from fastapi_startkit.vite import ViteConfig
 
 config = ViteConfig(
     public_path="public",       # Root directory for assets
@@ -96,7 +96,7 @@ app = Application(
 The template directory is configurable via `templates_directory`:
 
 ```python
-from fastapi_startkit.vite.config.vite import ViteConfig
+from fastapi_startkit.vite import ViteConfig
 
 config = ViteConfig(
     templates_directory="resources/templates",   # default
