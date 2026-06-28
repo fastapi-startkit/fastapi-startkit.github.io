@@ -31,15 +31,15 @@ An agent is a Python class that subclasses `Agent`, configures itself with decor
 Install the `ai` extra to pull in LangChain:
 
 ```bash
-pip install "fastapi-startkit[ai]"
+uv add "fastapi-startkit[ai]"
 ```
 
 The `ai` extra installs `langchain` and `langchain-core` only. Provider SDKs are loaded lazily through LangChain's integration packages — install the one(s) for the provider you use:
 
 ```bash
-pip install langchain-anthropic        # Anthropic
-pip install langchain-openai           # OpenAI
-pip install langchain-google-genai     # Google Gemini
+uv add langchain-anthropic        # Anthropic
+uv add langchain-openai           # OpenAI
+uv add langchain-google-genai     # Google Gemini
 ```
 
 ### Registering the provider
@@ -634,7 +634,7 @@ Models are created with LangChain's `init_chat_model`, which selects the integra
 ### Anthropic
 
 ```bash
-pip install langchain-anthropic
+uv add langchain-anthropic
 ```
 
 ```ini
@@ -644,7 +644,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 ### OpenAI
 
 ```bash
-pip install langchain-openai
+uv add langchain-openai
 ```
 
 ```ini
@@ -654,7 +654,7 @@ OPENAI_API_KEY=sk-...
 ### Google Gemini
 
 ```bash
-pip install langchain-google-genai
+uv add langchain-google-genai
 ```
 
 ```ini
