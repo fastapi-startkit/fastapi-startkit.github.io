@@ -39,11 +39,77 @@ app: Application = Application(
 
 ## The FastAPI Provider
 
-The `FastAPIProvider` is responsible for initializing the `FastAPI` instance and registering it with the application container. You can customize your FastAPI instance by extending this provider.
+The `FastAPIProvider` shipped with Fastapi Startkit is the default, batteries-included entry point. Once registered (see [Setup](#setup)), it configures everything needed to run a FastAPI application — you do **not** need to write your own provider to get started.
 
-### Customizing the Instance
+Across its two boot phases it:
 
-To change the title, version, or add global exception handlers, you can create your own provider:
+- **`register()`** — loads the FastAPI configuration (merging your published `config/fastapi.py` over the framework defaults) and creates the `FastAPI` instance, binding it into the application container via `use_fastapi()`.
+- **`boot()`** — registers the `serve` console command, wires the framework's exception handlers (so `HTTPException`, request-validation errors, and otherwise uncaught exceptions are rendered through the exception manager), and publishes the default `config/fastapi.py` so you can export and edit it.
+
+Registering `FastAPIProvider` in your providers list is all that is required — the FastAPI instance, the `serve` command, and exception handling are wired up for you.
+
+## Configuration
+
+### Default Configuration
+
+FastAPI settings are defined by the `FastAPIConfig` dataclass, with values sourced from environment variables:
+
+| Field | Environment variable | Default |
+|---|---|---|
+| `app_url` | `APP_URL` | `http://127.0.0.1:8000` |
+| `reload` | `APP_RELOAD` | `True` |
+| `reload_dirs` | — | `None` |
+| `reload_excludes` | — | `["*.log", "tests/*", "node_modules/*"]` |
+
+- `app_url` — the host and port the `serve` command binds to.
+- `reload` — whether Uvicorn watches for code changes and restarts automatically.
+- `reload_dirs` — an optional list of directories to watch; `None` lets Uvicorn use its default.
+- `reload_excludes` — glob patterns Uvicorn ignores while watching for changes.
+
+For most applications, setting `APP_URL` and `APP_RELOAD` in your `.env` is all you need:
+
+```bash
+# .env
+APP_URL=http://127.0.0.1:8000
+APP_RELOAD=true
+```
+
+### Publishing the Config
+
+To customise the configuration beyond environment variables — for example to change `reload_dirs` or `reload_excludes` — export the default config file into your project with the `provider:publish` command:
+
+```bash
+uv run artisan provider:publish --provider fastapi
+```
+
+This copies the framework's default configuration into your project at `config/fastapi.py`, where you can edit it directly:
+
+```python
+# config/fastapi.py
+import dataclasses
+
+from fastapi_startkit.environment import env
+
+
+@dataclasses.dataclass
+class FastAPIConfig:
+    app_url: str = dataclasses.field(default_factory=lambda: env("APP_URL", "http://127.0.0.1:8000"))
+    reload: bool = dataclasses.field(default_factory=lambda: env("APP_RELOAD", True))
+    reload_dirs: list | None = None
+    reload_excludes: list = dataclasses.field(
+        default_factory=lambda: [
+            "*.log",
+            "tests/*",
+            "node_modules/*",
+        ]
+    )
+```
+
+The provider merges this file over the framework defaults at boot, so you only need to keep the fields you want to override.
+
+## Advanced: Customizing the Provider
+
+The default provider is enough for most applications. If you need full control over the `FastAPI` instance — for example to change the title and version, or to add custom middleware — you can write your own provider and register it in place of `FastAPIProvider`:
 
 ```python
 # app/providers/fastapi_provider.py
@@ -68,6 +134,8 @@ class MyFastAPIProvider(Provider):
             ServeCommand
         ])
 ```
+
+When you supply your own provider you take over instance creation, so remember to register any commands (such as `ServeCommand`) and exception handlers you still want.
 
 ## Routing
 
@@ -288,13 +356,13 @@ class MyFastAPIProvider(Provider):
 
 ## Serving the Application
 
-When you register the `ServeCommand` in your provider, you gain access to the `serve` CLI command:
+The default `FastAPIProvider` registers the `serve` CLI command for you (when you use a custom provider, register `ServeCommand` yourself). Start the server with:
 
 ```bash
-uv run python artisan serve
+uv run artisan serve
 ```
 
-This command uses Uvicorn to start your application with reasonable defaults and reload capabilities.
+This command uses Uvicorn to start your application, honouring the `app_url`, `reload`, `reload_dirs`, and `reload_excludes` values from your [FastAPI configuration](#configuration).
 
 ## Example Application
 
