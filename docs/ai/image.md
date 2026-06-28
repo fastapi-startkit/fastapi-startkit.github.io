@@ -207,5 +207,5 @@ async def create_avatar(prompt: str):
 ## See Also
 
 - [Audio Generation](/docs/ai/audio) — text-to-speech with the same fluent API
-- [AI Agents](/docs/ai/agent) — LangGraph-powered agents and the `Document` helper
+- [AI Agents](/docs/ai/agent) — LangChain-powered agents and the `Document` helper
 - [Storage](/docs/storage) — disks, public URLs, and fake storage for tests
