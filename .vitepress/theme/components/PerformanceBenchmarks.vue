@@ -19,10 +19,10 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                         <h2 class="font-headline-xl text-headline-xl font-bold tracking-[-0.04em]">
                             Built for scale.
                             <br/>
-                            <span class="text-brand-teal text-glow">Optimized for speed.</span>
+                            <span class="text-brand-teal text-glow">Zero overhead.</span>
                         </h2>
                         <p class="text-white/70 font-body-lg text-body-lg max-w-xl">
-                            The Startkit isn't just a collection of libraries; it's a battle-tested architecture designed to handle thousands of concurrent requests with sub-millisecond overhead.
+                            The Startkit is a thin, provider-driven layer over FastAPI. Every request still runs on Starlette and uvicorn, so you get FastAPI's throughput with none of the boilerplate — and no measurable overhead over hand-written FastAPI.
                         </p>
                     </div>
 
@@ -32,8 +32,8 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                                 <Gauge :size="20" class="text-brand-teal" />
                             </div>
                             <div class="space-y-1">
-                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Zero-copy Processing</h4>
-                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Leveraging memory-efficient serialization for lightning-fast data throughput across all system boundaries.</p>
+                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Measured, not marketed</h4>
+                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Every number here comes from a reproducible harness you can run yourself, comparing Startkit against a raw FastAPI baseline.</p>
                             </div>
                         </li>
                         <li class="flex items-start gap-6 group/item">
@@ -41,8 +41,8 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                                 <Shield :size="20" class="text-brand-teal" />
                             </div>
                             <div class="space-y-1">
-                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Encrypted Pipelines</h4>
-                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Hardware-accelerated TLS termination and internal secret management for uncompromising security at scale.</p>
+                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Honest baseline</h4>
+                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">The baseline is raw FastAPI itself — an overhead delta, not an apples-to-oranges comparison against an unrelated stack.</p>
                             </div>
                         </li>
                     </ul>
@@ -52,54 +52,49 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                 <div class="relative">
                     <div class="absolute -inset-10 bg-brand-teal/20 blur-[100px] rounded-full opacity-40"></div>
                     <div class="relative bg-slate-900/60 border border-brand-teal/20 p-10 rounded-xl backdrop-blur-xl shadow-[0_0_50px_rgba(5,150,105,0.1)]">
-                        <div class="flex justify-between items-center mb-12">
+                        <div class="flex justify-between items-center mb-4">
                             <div class="flex items-center gap-3">
                                 <div class="w-2 h-2 rounded-full bg-brand-teal animate-pulse"></div>
                                 <div class="font-label-md text-label-md text-white/90 uppercase tracking-widest">Performance Benchmark</div>
                             </div>
-                            <div class="text-brand-teal text-[10px] font-bold border border-brand-teal/40 px-2 py-0.5 rounded uppercase tracking-tighter">Real-time</div>
+                            <div class="text-brand-teal text-[10px] font-bold border border-brand-teal/40 px-2 py-0.5 rounded uppercase tracking-tighter">Overhead delta</div>
                         </div>
+
+                        <p class="text-white/50 text-[11px] mb-12 tracking-wide">JSON serialization · single worker · peak of 8 trials</p>
 
                         <div class="space-y-10">
                             <!-- FastAPI Startkit -->
                             <div class="space-y-3">
                                 <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-outline-variant">
                                     <span class="text-white font-bold">FastAPI Startkit</span>
-                                    <span class="text-brand-teal font-bold">94,203 req/s</span>
+                                    <span class="text-brand-teal font-bold">19,116 req/s</span>
                                 </div>
                                 <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-[95%] shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
+                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-full shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
                                 </div>
                             </div>
 
-                            <!-- Django -->
+                            <!-- Raw FastAPI baseline -->
                             <div class="space-y-3">
                                 <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-white/60">
-                                    <span>Django Gunicorn</span>
-                                    <span class="text-white/60">12,180 req/s</span>
+                                    <span>Raw FastAPI <span class="text-white/40 normal-case tracking-normal">(baseline)</span></span>
+                                    <span class="text-white/60">18,552 req/s</span>
                                 </div>
                                 <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div class="h-full bg-white/10 w-[20%]"></div>
-                                </div>
-                            </div>
-
-                            <!-- Express -->
-                            <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-white/60">
-                                    <span>Express.js Cluster</span>
-                                    <span class="text-white/60">41,500 req/s</span>
-                                </div>
-                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div class="h-full bg-white/20 w-[45%]"></div>
+                                    <div class="h-full bg-white/30 w-[97%]"></div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mt-14 pt-8 border-t border-white/10">
-                            <button class="w-full text-brand-teal font-label-sm text-[10px] uppercase tracking-[0.2em] hover:text-white transition-colors flex items-center justify-center gap-2 group/btn">
+                        <p class="mt-10 text-white/70 text-body-sm font-body-sm leading-relaxed">
+                            Within <span class="text-brand-teal font-semibold">±3%</span> of raw FastAPI — the difference sits inside run-to-run noise, so the framework adds <span class="text-white font-semibold">no measurable overhead</span>.
+                        </p>
+
+                        <div class="mt-10 pt-8 border-t border-white/10">
+                            <a href="/docs/benchmarks" class="w-full text-brand-teal font-label-sm text-[10px] uppercase tracking-[0.2em] hover:text-white transition-colors flex items-center justify-center gap-2 group/btn">
                                 View Technical Methodology
                                 <ArrowRight :size="14" class="group-hover/btn:translate-x-1 transition-transform" />
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
