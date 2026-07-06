@@ -96,9 +96,8 @@ per-request overhead instead of measuring how many cores the host has.
 
 ## Reproduce it
 
-The full harness lives in
-[`benchmarks/`](https://github.com/fastapi-startkit/fastapi-startkit.github.io/tree/main/benchmarks)
-in the docs repository.
+The full harness lives in the `benchmarks/` directory of the
+[docs repository](https://github.com/fastapi-startkit/fastapi-startkit.github.io).
 
 ```bash
 cd benchmarks
