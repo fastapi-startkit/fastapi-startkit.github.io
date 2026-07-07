@@ -13,7 +13,29 @@ jsonLd:
     "name": "Fastapi Startkit Team"
 ---
 
-Fastapi Startkit is a modular, provider-driven framework for building robust FastAPI applications with minimal boilerplate. That said, **it doesn't enforce you to use FastAPI at all** — You can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
+## Introduction
+
+FastAPI is a superb HTTP layer, but it deliberately stops at the request/response boundary. Everything above it — configuration, logging, a database layer, dependency injection, a console for CLI commands, and a predictable way to wire it all together — is left for you to assemble. In practice that means every new service starts by copy-pasting the same bootstrap code, and each team's copy slowly drifts apart. Across a fleet of microservices, that duplicated foundation becomes a maintenance burden of its own.
+
+Fastapi Startkit is a modular, provider-driven framework that packages those app-level concerns into a single, coherent foundation so you can focus on your domain instead of the plumbing. That said, **it doesn't enforce you to use FastAPI at all** — you can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
+
+An application is composed by **registering providers**. Each provider knows how to register a slice of functionality into the service container and boot it once everything is wired up. You pick the providers you need, hand them to the `Application`, and the framework takes care of the rest:
+
+```python
+from pathlib import Path
+from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
+
+app: Application = Application(
+    base_path=Path(__file__).parent.parent,
+    providers=[
+        FastAPIProvider,
+        # add your own providers here...
+    ],
+)
+```
+
+Adding a capability is as simple as adding a provider to that list. The sections below walk you through installing the framework and standing up your first application.
 
 ## Prerequisites
 
