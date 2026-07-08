@@ -13,7 +13,7 @@ jsonLd:
     "name": "Fastapi Startkit Team"
 ---
 
-## Introduction
+# Introduction
 
 FastAPI is excellent for quickly building APIs, but it intentionally leaves many application-level concerns to the developer. Things like environment management (including multiple environments), logging, database setup, configuration, CLI commands, storage, and other infrastructure are things you typically need to design and wire together yourself.
 

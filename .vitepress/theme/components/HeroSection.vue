@@ -179,9 +179,9 @@
                 <!-- Badge -->
                 <div class="inline-flex items-center gap-2 px-3 py-1 glass-teal rounded-full">
                     <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-teal opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-teal"></span>
-          </span>
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-teal opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-teal"></span>
+                    </span>
                     <span class="text-label-sm font-label-sm text-brand-teal uppercase tracking-wider">Architected for production</span>
                 </div>
 
@@ -206,6 +206,14 @@
                         Initialize Project
                         <Terminal :size="18"/>
                     </a>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-2 gap-8 pt-8 border-t border-outline-variant">
+                    <div>
+                        <div class="text-headline-md font-headline-md font-semibold text-brand-teal tracking-[-0.01em]">70%</div>
+                        <div class="text-label-sm font-label-sm text-on-surface-variant uppercase mt-1">Test Coverage</div>
+                    </div>
                 </div>
             </div>
 
