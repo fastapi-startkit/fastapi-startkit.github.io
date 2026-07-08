@@ -25,14 +25,18 @@ To enable FastAPI support, register the `FastAPIProvider` in your application pr
 
 ```python
 # bootstrap/application.py
+from pathlib import Path
+
 from fastapi_startkit import Application
-from fastapi_startkit.fastapi import FastAPIProvider
+from fastapi_startkit.logging import LogProvider
+from providers.fastapi_provider import FastAPIProvider
+from config.fastapi import FastAPIConfig
 
 app: Application = Application(
-    base_path=...,
+    base_path=str(Path.cwd()),  # This always gives path relative to the execution.
     providers=[
-        FastAPIProvider,
-        # ... other providers
+        LogProvider,
+        (FastAPIProvider, FastAPIConfig),
     ]
 )
 ```
