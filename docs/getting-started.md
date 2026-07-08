@@ -15,7 +15,7 @@ jsonLd:
 
 ## Introduction
 
-FastAPI is excellent for quickly building APIs, but it intentionally leaves many application-level concerns to the developer. Things like environment management (including multiple environments), logging, database setup, configuration, CLI commands, plugins, storage, and other infrastructure are things you typically need to design and wire together yourself.
+FastAPI is excellent for quickly building APIs, but it intentionally leaves many application-level concerns to the developer. Things like environment management (including multiple environments), logging, database setup, configuration, CLI commands, storage, and other infrastructure are things you typically need to design and wire together yourself.
 
 In our case, we were building multiple microservices, and we found ourselves repeatedly copying the same bootstrap code between projects. Over time, that became repetitive and harder to maintain consistently.
 
@@ -30,7 +30,7 @@ Some features include:
 - 🪵 Logging
 - 🗄️ Async database ORM, migrations & seeders
 - 🖥️ CLI console commands
-- 🧩 Providers & plugins
+- 🧩 Providers
 - 📦 Storage
 - ⚡ FastAPI integration & routing
 - 🎨 Frontend integration (Vite & Inertia)
