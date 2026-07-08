@@ -211,10 +211,6 @@ export default defineConfig({
             {
                 text: 'Performance & Benchmarks',
                 link: '/docs/benchmarks'
-            },
-            {
-                text: 'GitHub',
-                link: 'https://github.com/fastapi-startkit/fastapi-startkit'
             }
         ],
 
