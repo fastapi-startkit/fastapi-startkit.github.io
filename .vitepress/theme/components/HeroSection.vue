@@ -207,18 +207,6 @@
                         <Terminal :size="18"/>
                     </a>
                 </div>
-
-                <!-- Stats -->
-                <div class="grid grid-cols-2 gap-8 pt-8 border-t border-outline-variant">
-                    <div>
-                        <div class="text-headline-md font-headline-md font-semibold text-brand-teal tracking-[-0.01em]">&lt;20ms</div>
-                        <div class="text-label-sm font-label-sm text-on-surface-variant uppercase mt-1">P99 Latency</div>
-                    </div>
-                    <!--  <div>-->
-                    <!--      <div class="text-headline-md font-headline-md font-semibold text-brand-teal tracking-[-0.01em]">12k+</div>-->
-                    <!--      <div class="text-label-sm font-label-sm text-on-surface-variant uppercase mt-1">Stars</div>-->
-                    <!--  </div>-->
-                </div>
             </div>
 
             <!-- Right Column: Code Editor -->
