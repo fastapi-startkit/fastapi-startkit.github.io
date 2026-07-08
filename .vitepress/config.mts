@@ -153,6 +153,7 @@ export default defineConfig({
             {
                 text: 'Guide',
                 items: [
+                    { text: 'Why fastapi-startkit', link: '/docs/why' },
                     { text: 'Getting Started', link: '/docs/getting-started' },
                     { text: 'Env Variables', link: '/docs/configuration' },
                     { text: 'FastAPI', link: '/docs/fastapi' },

@@ -14,11 +14,14 @@ jsonLd:
 
 hero:
     name: "Fastapi Startkit"
-    tagline: The components needs to build a great Python application.
+    tagline: A batteries-included application framework for FastAPI — the ORM, migrations, config, logging, CLI, and service providers that FastAPI leaves to you, all wired up and ready.
     actions:
         -   theme: brand
-            text: Documentation
+            text: Get Started
             link: /docs/getting-started
+        -   theme: alt
+            text: Why fastapi-startkit?
+            link: /docs/why
 
 features:
   - title: FastAPI Integration
