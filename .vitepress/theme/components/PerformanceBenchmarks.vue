@@ -19,10 +19,10 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                         <h2 class="font-headline-xl text-headline-xl font-bold tracking-[-0.04em]">
                             Built for scale.
                             <br/>
-                            <span class="text-brand-teal text-glow">Zero overhead.</span>
+                            <span class="text-brand-teal text-glow">Same request path.</span>
                         </h2>
                         <p class="text-white/70 font-body-lg text-body-lg max-w-xl">
-                            The Startkit is a thin, provider-driven layer over FastAPI. Every request still runs on Starlette and uvicorn, so you get FastAPI's throughput with none of the boilerplate — and no measurable overhead over hand-written FastAPI.
+                            The Startkit is a thin, provider-driven layer over FastAPI. Every request still runs on the same Starlette and uvicorn hot path as hand-written FastAPI — the framework adds its wiring at boot, not on the request path.
                         </p>
                     </div>
 
@@ -33,7 +33,7 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                             </div>
                             <div class="space-y-1">
                                 <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Measured, not marketed</h4>
-                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Every number here comes from a reproducible harness you can run yourself, comparing Startkit against a raw FastAPI baseline.</p>
+                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Every number here comes from the public <a href="https://github.com/fastapi-startkit/web-frameworks" class="text-brand-teal hover:underline">web-frameworks</a> harness — a reproducible benchmark you can run yourself against a raw FastAPI baseline.</p>
                             </div>
                         </li>
                         <li class="flex items-start gap-6 group/item">
@@ -60,34 +60,49 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                             <div class="text-brand-teal text-[10px] font-bold border border-brand-teal/40 px-2 py-0.5 rounded uppercase tracking-tighter">Overhead delta</div>
                         </div>
 
-                        <p class="text-white/50 text-[11px] mb-12 tracking-wide">JSON serialization · single worker · peak of 8 trials</p>
+                        <p class="text-white/50 text-[11px] mb-12 tracking-wide">Relative to raw FastAPI · uvicorn · oha · concurrency 64</p>
 
-                        <div class="space-y-10">
-                            <!-- FastAPI Startkit -->
+                        <div class="space-y-8">
+                            <!-- GET / -->
                             <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-outline-variant">
-                                    <span class="text-white font-bold">FastAPI Startkit</span>
-                                    <span class="text-brand-teal font-bold">19,116 req/s</span>
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider">
+                                    <span class="text-white font-bold">GET /</span>
+                                    <span class="text-white/80 font-bold">−2.9%</span>
                                 </div>
                                 <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-full shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
+                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-[97%] shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
                                 </div>
                             </div>
 
-                            <!-- Raw FastAPI baseline -->
+                            <!-- GET /user/{id} -->
                             <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-white/60">
-                                    <span>Raw FastAPI <span class="text-white/40 normal-case tracking-normal">(baseline)</span></span>
-                                    <span class="text-white/60">18,552 req/s</span>
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider">
+                                    <span class="text-white font-bold">GET /user/&#123;id&#125;</span>
+                                    <span class="text-white/80 font-bold">−1.5%</span>
                                 </div>
-                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div class="h-full bg-white/30 w-[97%]"></div>
+                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-[98%] shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
+                                </div>
+                            </div>
+
+                            <!-- POST /user -->
+                            <div class="space-y-3">
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider">
+                                    <span class="text-white font-bold">POST /user</span>
+                                    <span class="text-white/80 font-bold">−17.3%</span>
+                                </div>
+                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                    <div class="h-full bg-gradient-to-r from-brand-teal/40 to-brand-teal/80 w-[83%] transition-all duration-1000"></div>
                                 </div>
                             </div>
                         </div>
 
                         <p class="mt-10 text-white/70 text-body-sm font-body-sm leading-relaxed">
-                            Within <span class="text-brand-teal font-semibold">±3%</span> of raw FastAPI — the difference sits inside run-to-run noise, so the framework adds <span class="text-white font-semibold">no measurable overhead</span>.
+                            The GET routes run <span class="text-brand-teal font-semibold">within a few percent</span> of raw FastAPI. The wider <span class="text-white font-semibold">POST /user</span> gap is FastAPI 0.139's <code class="text-brand-teal">include_router</code> resolution — reproducible in plain FastAPI, not framework per-request code.
+                        </p>
+
+                        <p class="mt-4 text-white/40 text-[10px] leading-relaxed">
+                            Source: web-frameworks · relative, same-host comparison — not official benchmark figures.
                         </p>
 
                         <div class="mt-10 pt-8 border-t border-white/10">
