@@ -25,7 +25,7 @@ The goal is not to replace FastAPI. Instead, it provides a structured foundation
 
 Some features include:
 
-- 🏗️ Service container & dependency injection
+- 🏗️ Service container
 - ⚙️ Configuration with multi-environment support
 - 🪵 Logging
 - 🗄️ Async database ORM, migrations & seeders
