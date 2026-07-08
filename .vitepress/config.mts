@@ -207,10 +207,6 @@ export default defineConfig({
                     { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
                     { text: 'Database Testing', link: '/docs/testing/database' },
                 ]
-            },
-            {
-                text: 'Performance & Benchmarks',
-                link: '/docs/benchmarks'
             }
         ],
 

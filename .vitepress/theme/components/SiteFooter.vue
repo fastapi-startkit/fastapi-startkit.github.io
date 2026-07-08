@@ -25,6 +25,11 @@ import { Terminal } from 'lucide-vue-next'
                             Github
                         </a>
                     </li>
+                    <li>
+                        <a href="/docs/benchmarks" class="text-on-surface-variant hover:text-brand-teal hover:underline decoration-brand-teal transition-all text-body-sm font-body-sm">
+                            Performance &amp; Benchmarks
+                        </a>
+                    </li>
                 </ul>
             </div>
             <!--                    <li>-->
