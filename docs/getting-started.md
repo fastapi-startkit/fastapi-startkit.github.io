@@ -30,7 +30,7 @@ Some features include:
 - 🪵 Logging
 - 🗄️ Async database ORM, migrations & seeders
 - 🖥️ CLI console commands
-- 🧩 Providers
+- 🧩 Service providers
 - 📦 Storage
 - ⚡ FastAPI integration & routing
 - 🎨 Frontend integration (Vite & Inertia)
