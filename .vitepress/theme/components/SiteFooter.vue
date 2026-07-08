@@ -14,7 +14,7 @@ import { Terminal } from 'lucide-vue-next'
                     Fastapi Starkit
                 </div>
                 <p class="text-body-sm font-body-sm text-on-surface-variant">
-                    The high-performance architecture for modern software engineering. Engineered for reliability.
+                    A batteries-included application framework for modern Python software engineering.
                 </p>
             </div>
             <div class="space-y-4">
@@ -60,7 +60,7 @@ import { Terminal } from 'lucide-vue-next'
         </div>
         <div class="max-w-7xl mx-auto px-10 pb-12 border-t border-outline-variant/10 pt-8 flex justify-between items-center">
             <div class="font-label-sm text-label-sm text-on-surface-variant">
-                © {{ copyrightYear }} FastAPI Startkit. Built for high-performance architects.
+                © {{ copyrightYear }} FastAPI Startkit. Built for Python application developers.
             </div>
             <!-- <div class="flex gap-8 text-[10px] text-on-surface-variant uppercase font-label-sm">-->
             <!--     <a class="hover:text-brand-teal transition-colors" href="#">Privacy</a>-->

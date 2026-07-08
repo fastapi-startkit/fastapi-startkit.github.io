@@ -197,7 +197,7 @@
 
                 <!-- Description -->
                 <p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl">
-                    FastAPI Startkit is a high-performance boilerplate engineered for speed. Batteries-included components designed to scale with your production requirements.
+                    FastAPI Startkit is a batteries-included boilerplate for building production FastAPI applications. Modular components designed to scale with your requirements.
                 </p>
 
                 <!-- CTAs -->
@@ -206,6 +206,14 @@
                         Initialize Project
                         <Terminal :size="18"/>
                     </a>
+                </div>
+
+                <!-- Stats -->
+                <div class="grid grid-cols-2 gap-8 pt-8 border-t border-outline-variant">
+                    <div>
+                        <div class="text-headline-md font-headline-md font-semibold text-brand-teal tracking-[-0.01em]">100%</div>
+                        <div class="text-label-sm font-label-sm text-on-surface-variant uppercase mt-1">Test Coverage</div>
+                    </div>
                 </div>
             </div>
 
