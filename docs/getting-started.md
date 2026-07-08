@@ -25,7 +25,6 @@ The goal is not to replace FastAPI. Instead, it provides a structured foundation
 
 Some features include:
 
-- ⚙️ Configuration with multi-environment support
 - 🪵 Logging
 - 🗄️ Async database ORM, migrations & seeders
 - 🖥️ CLI console commands
