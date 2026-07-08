@@ -182,9 +182,7 @@
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-teal opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-teal"></span>
                     </span>
-                    <span class="text-label-sm font-label-sm text-brand-teal uppercase tracking-wider">
-                        Architected for production
-                    </span>
+                    <span class="text-label-sm font-label-sm text-brand-teal uppercase tracking-wider">Architected for production</span>
                 </div>
 
                 <!-- Heading -->
@@ -199,7 +197,7 @@
 
                 <!-- Description -->
                 <p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl">
-                    FastAPI Startkit is a component-driven boilerplate built for production. Batteries-included and designed to scale with your application's needs.
+                    FastAPI Startkit is a batteries-included boilerplate for building production FastAPI applications. Modular components designed to scale with your requirements.
                 </p>
 
                 <!-- CTAs -->
