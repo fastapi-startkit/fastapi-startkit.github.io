@@ -209,11 +209,7 @@
                 </div>
 
                 <!-- Stats -->
-                <div class="grid grid-cols-3 gap-8 pt-8 border-t border-outline-variant">
-                    <div>
-                        <div class="text-headline-md font-headline-md font-semibold text-brand-teal tracking-[-0.01em]">99.9%</div>
-                        <div class="text-label-sm font-label-sm text-on-surface-variant uppercase mt-1">Uptime SLA</div>
-                    </div>
+                <div class="grid grid-cols-2 gap-8 pt-8 border-t border-outline-variant">
                     <div>
                         <div class="text-headline-md font-headline-md font-semibold text-brand-teal tracking-[-0.01em]">&lt;20ms</div>
                         <div class="text-label-sm font-label-sm text-on-surface-variant uppercase mt-1">P99 Latency</div>
