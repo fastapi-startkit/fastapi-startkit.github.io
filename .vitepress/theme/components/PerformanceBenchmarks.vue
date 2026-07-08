@@ -19,10 +19,10 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                         <h2 class="font-headline-xl text-headline-xl font-bold tracking-[-0.04em]">
                             Built for scale.
                             <br/>
-                            <span class="text-brand-teal text-glow">Optimized for speed.</span>
+                            <span class="text-brand-teal text-glow">Same request path.</span>
                         </h2>
                         <p class="text-white/70 font-body-lg text-body-lg max-w-xl">
-                            The Startkit isn't just a collection of libraries; it's a battle-tested architecture designed to handle thousands of concurrent requests with sub-millisecond overhead.
+                            The Startkit is a thin, provider-driven layer over FastAPI. Every request still runs on the same Starlette and uvicorn hot path as hand-written FastAPI — the framework adds its wiring at boot, not on the request path.
                         </p>
                     </div>
 
@@ -32,8 +32,8 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                                 <Gauge :size="20" class="text-brand-teal" />
                             </div>
                             <div class="space-y-1">
-                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Zero-copy Processing</h4>
-                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Leveraging memory-efficient serialization for lightning-fast data throughput across all system boundaries.</p>
+                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Measured, not marketed</h4>
+                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Every number here comes from the public <a href="https://github.com/fastapi-startkit/web-frameworks" class="text-brand-teal hover:underline">web-frameworks</a> harness — a reproducible benchmark you can run yourself against a raw FastAPI baseline.</p>
                             </div>
                         </li>
                         <li class="flex items-start gap-6 group/item">
@@ -41,8 +41,8 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                                 <Shield :size="20" class="text-brand-teal" />
                             </div>
                             <div class="space-y-1">
-                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Encrypted Pipelines</h4>
-                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">Hardware-accelerated TLS termination and internal secret management for uncompromising security at scale.</p>
+                                <h4 class="font-headline-md text-headline-md font-semibold text-white tracking-[-0.01em]">Honest baseline</h4>
+                                <p class="text-white/90 text-body-sm font-body-sm max-w-md">The baseline is raw FastAPI itself — an overhead delta, not an apples-to-oranges comparison against an unrelated stack.</p>
                             </div>
                         </li>
                     </ul>
@@ -52,54 +52,64 @@ import { Gauge, Shield, ArrowRight } from 'lucide-vue-next'
                 <div class="relative">
                     <div class="absolute -inset-10 bg-brand-teal/20 blur-[100px] rounded-full opacity-40"></div>
                     <div class="relative bg-slate-900/60 border border-brand-teal/20 p-10 rounded-xl backdrop-blur-xl shadow-[0_0_50px_rgba(5,150,105,0.1)]">
-                        <div class="flex justify-between items-center mb-12">
+                        <div class="flex justify-between items-center mb-4">
                             <div class="flex items-center gap-3">
                                 <div class="w-2 h-2 rounded-full bg-brand-teal animate-pulse"></div>
                                 <div class="font-label-md text-label-md text-white/90 uppercase tracking-widest">Performance Benchmark</div>
                             </div>
-                            <div class="text-brand-teal text-[10px] font-bold border border-brand-teal/40 px-2 py-0.5 rounded uppercase tracking-tighter">Real-time</div>
+                            <div class="text-brand-teal text-[10px] font-bold border border-brand-teal/40 px-2 py-0.5 rounded uppercase tracking-tighter">Overhead delta</div>
                         </div>
 
-                        <div class="space-y-10">
-                            <!-- FastAPI Startkit -->
+                        <p class="text-white/50 text-[11px] mb-12 tracking-wide">Relative to raw FastAPI · uvicorn · oha · concurrency 64</p>
+
+                        <div class="space-y-8">
+                            <!-- GET / -->
                             <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-outline-variant">
-                                    <span class="text-white font-bold">FastAPI Startkit</span>
-                                    <span class="text-brand-teal font-bold">94,203 req/s</span>
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider">
+                                    <span class="text-white font-bold">GET /</span>
+                                    <span class="text-white/80 font-bold">−2.9%</span>
                                 </div>
                                 <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-[95%] shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
+                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-[97%] shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
                                 </div>
                             </div>
 
-                            <!-- Django -->
+                            <!-- GET /user/{id} -->
                             <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-white/60">
-                                    <span>Django Gunicorn</span>
-                                    <span class="text-white/60">12,180 req/s</span>
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider">
+                                    <span class="text-white font-bold">GET /user/&#123;id&#125;</span>
+                                    <span class="text-white/80 font-bold">−1.5%</span>
                                 </div>
-                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div class="h-full bg-white/10 w-[20%]"></div>
+                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                    <div class="h-full bg-gradient-to-r from-brand-teal/50 to-brand-teal w-[98%] shadow-[0_0_15px_rgba(5,153,139,0.5)] transition-all duration-1000"></div>
                                 </div>
                             </div>
 
-                            <!-- Express -->
+                            <!-- POST /user -->
                             <div class="space-y-3">
-                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider text-white/60">
-                                    <span>Express.js Cluster</span>
-                                    <span class="text-white/60">41,500 req/s</span>
+                                <div class="flex justify-between text-[11px] font-label-sm uppercase tracking-wider">
+                                    <span class="text-white font-bold">POST /user</span>
+                                    <span class="text-white/80 font-bold">−17.3%</span>
                                 </div>
-                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                    <div class="h-full bg-white/20 w-[45%]"></div>
+                                <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                    <div class="h-full bg-gradient-to-r from-brand-teal/40 to-brand-teal/80 w-[83%] transition-all duration-1000"></div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="mt-14 pt-8 border-t border-white/10">
-                            <button class="w-full text-brand-teal font-label-sm text-[10px] uppercase tracking-[0.2em] hover:text-white transition-colors flex items-center justify-center gap-2 group/btn">
+                        <p class="mt-10 text-white/70 text-body-sm font-body-sm leading-relaxed">
+                            The GET routes run <span class="text-brand-teal font-semibold">within a few percent</span> of raw FastAPI. The wider <span class="text-white font-semibold">POST /user</span> gap is FastAPI 0.139's <code class="text-brand-teal">include_router</code> resolution — reproducible in plain FastAPI, not framework per-request code.
+                        </p>
+
+                        <p class="mt-4 text-white/40 text-[10px] leading-relaxed">
+                            Source: web-frameworks · relative, same-host comparison — not official benchmark figures.
+                        </p>
+
+                        <div class="mt-10 pt-8 border-t border-white/10">
+                            <a href="/docs/benchmarks" class="w-full text-brand-teal font-label-sm text-[10px] uppercase tracking-[0.2em] hover:text-white transition-colors flex items-center justify-center gap-2 group/btn">
                                 View Technical Methodology
                                 <ArrowRight :size="14" class="group-hover/btn:translate-x-1 transition-transform" />
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>

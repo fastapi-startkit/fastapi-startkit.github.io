@@ -1,5 +1,5 @@
 <script setup>
-import { Globe, Terminal, Activity, CircleCheck } from 'lucide-vue-next'
+import { Globe, Terminal, Bot, CircleCheck } from 'lucide-vue-next'
 </script>
 
 <template>
@@ -51,27 +51,29 @@ import { Globe, Terminal, Activity, CircleCheck } from 'lucide-vue-next'
                     </div>
                 </div>
 
-                <!-- Module 3: Observability Stack -->
+                <!-- Module 3: AI & Agents -->
                 <div class="bg-surface-container-lowest p-10 flex flex-col gap-8 hover:bg-brand-teal/[0.02] transition-colors group">
                     <div class="space-y-4">
                         <div class="w-10 h-10 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal group-hover:scale-110 transition-transform">
-                            <Activity :size="20" />
+                            <Bot :size="20" />
                         </div>
-                        <h3 class="font-headline-md text-headline-md font-semibold text-on-surface tracking-[-0.01em]">Observability Stack</h3>
-                        <p class="text-body-sm font-body-sm text-on-surface-variant">Native integration with Prometheus, Grafana, and OpenTelemetry for deep inspection of application state.</p>
+                        <h3 class="font-headline-md text-headline-md font-semibold text-on-surface tracking-[-0.01em]">AI &amp; Agents</h3>
+                        <p class="text-body-sm font-body-sm text-on-surface-variant">Build AI-native services and autonomous agents on the async core — register LLM providers, orchestrate tools, and stream responses through the same container and provider pattern that powers the rest of your app.</p>
                     </div>
-                    <div class="mt-auto space-y-4">
-                        <div class="h-24 w-full bg-surface-container-low rounded border border-outline-variant flex items-end p-2 gap-1 overflow-hidden group-hover:border-brand-teal/30 transition-colors">
-                            <div class="bg-brand-teal/20 h-[60%] w-full rounded-t-sm"></div>
-                            <div class="bg-brand-teal/40 h-[80%] w-full rounded-t-sm"></div>
-                            <div class="bg-brand-teal h-[95%] w-full rounded-t-sm animate-pulse"></div>
-                            <div class="bg-brand-teal/30 h-[40%] w-full rounded-t-sm"></div>
-                            <div class="bg-brand-teal/20 h-[70%] w-full rounded-t-sm"></div>
-                            <div class="bg-brand-teal/50 h-[85%] w-full rounded-t-sm"></div>
-                        </div>
-                        <div class="flex justify-between text-[10px] text-outline font-label-sm uppercase">
-                            <span>Request Throughput</span>
-                            <span class="text-brand-teal font-bold">STABLE</span>
+                    <div class="mt-auto">
+                        <div class="bg-surface-container-low rounded border border-outline-variant p-3 space-y-3 group-hover:border-brand-teal/30 transition-colors">
+                            <div class="flex justify-end">
+                                <span class="text-[11px] font-label-sm text-on-surface bg-brand-teal/10 rounded-lg rounded-br-none px-3 py-1.5 max-w-[80%]">Summarize today's orders</span>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <div class="w-6 h-6 shrink-0 bg-brand-teal/10 rounded flex items-center justify-center text-brand-teal">
+                                    <Bot :size="14" />
+                                </div>
+                                <span class="text-[11px] font-label-sm text-on-surface-variant bg-surface-container rounded-lg rounded-bl-none px-3 py-1.5 max-w-[80%]">
+                                    42 orders · $3,180 total
+                                    <span class="inline-flex ml-1 h-2 w-2 rounded-full bg-brand-teal animate-pulse align-middle"></span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
