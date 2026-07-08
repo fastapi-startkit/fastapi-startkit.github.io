@@ -25,6 +25,11 @@ import { Terminal } from 'lucide-vue-next'
                             Github
                         </a>
                     </li>
+                    <li>
+                        <a href="/docs/benchmarks" class="text-on-surface-variant hover:text-brand-teal hover:underline decoration-brand-teal transition-all text-body-sm font-body-sm">
+                            Benchmarks and Performance
+                        </a>
+                    </li>
                 </ul>
             </div>
             <!--                    <li>-->
@@ -60,7 +65,7 @@ import { Terminal } from 'lucide-vue-next'
         </div>
         <div class="max-w-7xl mx-auto px-10 pb-12 border-t border-outline-variant/10 pt-8 flex justify-between items-center">
             <div class="font-label-sm text-label-sm text-on-surface-variant">
-                © {{ copyrightYear }} FastAPI Startkit. Built for Python application developers.
+                © {{ copyrightYear }} FastAPI Startkit.
             </div>
             <!-- <div class="flex gap-8 text-[10px] text-on-surface-variant uppercase font-label-sm">-->
             <!--     <a class="hover:text-brand-teal transition-colors" href="#">Privacy</a>-->

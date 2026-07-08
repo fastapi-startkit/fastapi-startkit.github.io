@@ -13,7 +13,54 @@ jsonLd:
     "name": "Fastapi Startkit Team"
 ---
 
-Fastapi Startkit is a modular, provider-driven framework for building robust FastAPI applications with minimal boilerplate. That said, **it doesn't enforce you to use FastAPI at all** — You can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
+# Introduction
+
+FastAPI is excellent for quickly building APIs, but it intentionally leaves many application-level concerns to the developer. Things like environment management (including multiple environments), logging, database setup, configuration, CLI commands, storage, and other infrastructure are things you typically need to design and wire together yourself.
+
+In our case, we were building multiple microservices, and we found ourselves repeatedly copying the same bootstrap code between projects. Over time, that became repetitive and harder to maintain consistently.
+
+So we decided to open source it as FastAPI Startkit, an application framework that brings proven patterns from mature web frameworks into Python and FastAPI.
+
+The goal is not to replace FastAPI. Instead, it provides a structured foundation for building larger applications while staying modular — you can use only the components you need. That said, **it doesn't enforce you to use FastAPI at all** — you can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components.
+
+Some features include:
+
+- 🪵 Logging
+- 🗄️ Async database ORM, migrations & seeders
+- 🖥️ CLI console commands
+- 🧩 Service providers
+- 🧵 Queue workers with TaskIQ
+- ⚡ FastAPI integration & routing
+- 🎨 Frontend integration (Vite & Inertia)
+
+An application is composed by **registering providers** — you pick the ones you need and hand them to the `Application`:
+
+```python
+from pathlib import Path
+from fastapi_startkit import Application
+
+app = Application(
+    base_path=Path(__file__).parent.parent,
+    providers=[
+        LogProvider,
+        (DatabaseProvider, DatabaseConfig),
+        (FastAPIProvider, FastAPIConfig),
+        McpProvider,
+        AISkillProvider,
+        (StorageProvider, StorageConfig),
+        AppProvider,
+        PluginProvider,
+        TerminalProvider,
+        (ViteProvider, ViteConfig),
+        InertiaProvider,
+        (ReverbProvider, BroadcastingConfig),
+    ],
+)
+```
+
+A provider can be listed on its own, or paired with a config object as a `(Provider, Config)` tuple when it needs configuration. Adding a capability is as simple as adding a provider to that list. For a real-world example, see the [Keera Agent `bootstrap/application.py`](https://github.com/Keera-Labs/keera-agent/blob/main/bootstrap/application.py#L23-L39).
+
+The sections below walk you through installing the framework and standing up your first application.
 
 ## Prerequisites
 

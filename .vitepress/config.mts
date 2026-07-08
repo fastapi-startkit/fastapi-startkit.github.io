@@ -154,7 +154,7 @@ export default defineConfig({
                 text: 'Guide',
                 items: [
                     { text: 'Getting Started', link: '/docs/getting-started' },
-                    { text: 'Configuration', link: '/docs/configuration' },
+                    { text: 'Env Variables', link: '/docs/configuration' },
                     { text: 'FastAPI', link: '/docs/fastapi' },
                     { text: 'Exception Handling', link: '/docs/exception-handling' },
                     { text: 'Logging', link: '/docs/logging' },
@@ -199,7 +199,6 @@ export default defineConfig({
                     { text: 'Process', link: '/docs/process' },
                     { text: 'Broadcasting', link: '/docs/broadcasting' },
                     { text: 'JSON:API Resources', link: '/docs/jsonapi' },
-                    { text: 'Performance & Benchmarks', link: '/docs/benchmarks' },
                 ]
             },
             {

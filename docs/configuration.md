@@ -40,9 +40,9 @@ app = Application(base_path=Path(__file__).parent.parent, env='production')
 In practice you rarely hardcode the environment. Pass `--env` on the command line instead — the `artisan` entry point picks it up before any command runs:
 
 ```bash
-uv run artisan --env=production   # .env → .env.production
-uv run artisan --env=testing      # .env → .env.testing
-uv run artisan                    # .env only
+uv run python artisan --env=production   # .env → .env.production
+uv run python artisan --env=testing      # .env → .env.testing
+uv run python artisan                     # .env only
 ```
 
 ### The `env()` Helper

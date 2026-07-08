@@ -216,5 +216,5 @@ async def narrate(text: str):
 ## See Also
 
 - [Image Generation](/docs/ai/image) — text-to-image and editing with the same fluent API
-- [AI Agents](/docs/ai/agent) — LangGraph-powered agents and provider configuration
+- [AI Agents](/docs/ai/agent) — LangChain-powered agents and provider configuration
 - [Storage](/docs/storage) — disks, public URLs, and fake storage for tests

@@ -1,57 +1,64 @@
 ---
 outline: deep
 title: AI Agents
-description: Build declarative AI agents in FastAPI Startkit — a LangGraph-powered agent framework with support for Anthropic, OpenAI, and Google providers, tool calling, streaming, document attachments, and built-in testing utilities.
-keywords: AI agents, Anthropic, OpenAI, Google Gemini, LLM, tool calling, streaming, FastAPI, fastapi-startkit, agent testing, structured output
+description: Build declarative AI agents in FastAPI Startkit — a LangChain-powered agent module with support for Anthropic, OpenAI, and Google providers, tool calling, streaming, document attachments, structured output, middleware, and built-in testing utilities.
+keywords: AI agents, Anthropic, OpenAI, Google Gemini, LLM, tool calling, streaming, FastAPI, fastapi-startkit, agent testing, structured output, middleware
 ---
 
 # AI Agents
 
-FastAPI Startkit includes a declarative, LangGraph-powered **AI agent module** that lets you build provider-agnostic LLM agents as plain Python classes. Swap between Anthropic, OpenAI, and Google with a single environment variable; attach tools, documents, and lifecycle hooks; and test everything offline with built-in faking and snapshot utilities.
+FastAPI Startkit includes a declarative, **LangChain-powered AI agent module** that lets you build provider-agnostic LLM agents as plain Python classes. Swap between Anthropic, OpenAI, and Google with a single environment variable; attach tools, documents, structured-output schemas, and middleware; and test everything offline with built-in faking and record/replay utilities.
 
 ## Introduction
 
-An agent is a Python class that subclasses `Agent`, configures itself with decorators, and exposes a clean `prompt()` / `stream()` API. The framework handles the agentic loop — calling tools, feeding results back to the model, and stopping when the model is done.
+An agent is a Python class that subclasses `Agent`, configures itself with decorators and overridable methods, and exposes an `async` `prompt()` / `stream()` API. Under the hood the module builds a LangChain chat model for the active provider, binds your tools, runs the request, and wraps the result in an `AgentResponse`.
 
 **Supported providers:**
 
-| Provider | Default model | SDK |
-|---|---|---|
-| `anthropic` | `claude-sonnet-4-6` | `anthropic` |
-| `openai` | `gpt-4o` | `openai` |
-| `google` | `gemini-2.0-flash` | `google-generativeai` |
+| Provider | `@provider` name | Default text model | LangChain integration package |
+|---|---|---|---|
+| Anthropic | `"anthropic"` | `claude-sonnet-4-6` | `langchain-anthropic` |
+| OpenAI | `"openai"` | `gpt-4o` | `langchain-openai` |
+| Google Gemini | `"google"` | `gemini-2.5-flash-lite` | `langchain-google-genai` |
+
+> [!NOTE]
+> The agent module is built on **LangChain** (`langchain` + `langchain-core`) and a small custom runner — not LangGraph. Models are created with `langchain.chat_models.init_chat_model`, so any provider LangChain supports can be wired in.
 
 ---
 
 ## Installation
 
-Install the `ai` extra to pull in the provider SDKs you need:
+Install the `ai` extra to pull in LangChain:
 
 ```bash
-# All provider SDKs
-pip install "fastapi-startkit[ai]"
+uv add "fastapi-startkit[ai]"
+```
 
-# Or install only what you need
-pip install "fastapi-startkit[ai-anthropic]"  # Anthropic only
-pip install "fastapi-startkit[ai-openai]"     # OpenAI only
-pip install "fastapi-startkit[ai-google]"     # Google only
+The `ai` extra installs `langchain` and `langchain-core` only. Provider SDKs are loaded lazily through LangChain's integration packages — install the one(s) for the provider you use:
+
+```bash
+uv add langchain-anthropic        # Anthropic
+uv add langchain-openai           # OpenAI
+uv add langchain-google-genai     # Google Gemini
 ```
 
 ### Registering the provider
 
-Register `AIProvider` in your application bootstrap:
+Register `AIProvider` in your application bootstrap so the AI configuration is merged into the container under the `ai` key:
 
 ```python
 # bootstrap/application.py
+from pathlib import Path
+
 from fastapi_startkit import Application
 from fastapi_startkit.ai import AIProvider
 
-app = Application(
-    base_path=...,
+app: Application = Application(
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
         # ... other providers
         AIProvider,
-    ]
+    ],
 )
 ```
 
@@ -59,7 +66,7 @@ app = Application(
 
 ## Configuration
 
-Add your API keys and default provider to `.env`:
+Add your API keys and the default provider to `.env`:
 
 ```ini
 # .env
@@ -74,43 +81,51 @@ GEMINI_API_KEY=AIza...
 
 | Variable | Default | Description |
 |---|---|---|
-| `AI_PROVIDER` | `google` | Active provider: `anthropic`, `openai`, or `google` |
-| `ANTHROPIC_API_KEY` | — | API key for Anthropic |
-| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic API base URL (override for proxies) |
-| `OPENAI_API_KEY` | — | API key for OpenAI |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL (override for proxies / Azure) |
-| `GEMINI_API_KEY` | — | API key for Google Gemini (`GOOGLE_API_KEY` is also accepted) |
+| `AI_PROVIDER` | `google` | Active text provider: `anthropic`, `openai`, or `google` |
+| `ANTHROPIC_API_KEY` | `""` | API key for Anthropic |
+| `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic API base URL |
+| `OPENAI_API_KEY` | `""` | API key for OpenAI |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL |
+| `GEMINI_API_KEY` | `""` | API key for Google Gemini (`GOOGLE_API_KEY` is also accepted) |
+
+> [!TIP]
+> `AI_DEFAULT_IMAGE_PROVIDER`, `AI_DEFAULT_AUDIO_PROVIDER`, and `AI_DEFAULT_TRANSCRIBE_PROVIDER` (each defaulting to `openai`) select the providers used by the [Image](./image) and [Audio](./audio) helpers.
 
 ### AIConfig overview
 
-The framework reads these variables into a structured `AIConfig` dataclass:
+`AIProvider` reads these variables into an `AIConfig` dataclass and registers it under the `ai` config key:
 
 ```python
 @dataclass
 class AIConfig:
-    default: str  # active provider from AI_PROVIDER
+    default: str            # AI_PROVIDER            (default "google")
+    default_image: str      # AI_DEFAULT_IMAGE_PROVIDER     (default "openai")
+    default_audio: str      # AI_DEFAULT_AUDIO_PROVIDER     (default "openai")
+    default_transcribe: str # AI_DEFAULT_TRANSCRIBE_PROVIDER (default "openai")
 
-    providers: dict = {
-        "anthropic": AnthropicConfig(key=..., url=...),
-        "openai":    OpenAIConfig(key=..., url=...),
-        "google":    GoogleConfig(key=...),
-    }
+    providers: dict         # {"google": GoogleConfig(), "openai": OpenAIConfig(),
+                            #  "anthropic": AnthropicConfig(), "elevenlabs": ElevenLabsConfig()}
 ```
 
-You can access the active provider at runtime via the `AI` facade:
+Access the active configuration at runtime via the `AI` facade or the `Config` facade:
 
 ```python
 from fastapi_startkit.facades import AI
+from fastapi_startkit import Config
 
-config = AI.config()          # returns AIConfig
-provider = config.default     # e.g. "anthropic"
+AI.config()        # the full AIConfig object
+AI.default()       # the default provider name, e.g. "anthropic"
+AI.providers()     # the per-provider config dict
+
+Config.get("ai.providers.anthropic.key")          # dotted access
+Config.get("ai.providers.google.models.default")  # "gemini-2.5-flash-lite"
 ```
 
 ---
 
 ## Creating an Agent
 
-Subclass `Agent`, apply configuration decorators, and override lifecycle methods:
+Subclass `Agent`, apply configuration decorators, and override the methods you need. Define your system prompt with `instructions()`:
 
 ```python
 from fastapi_startkit.ai import Agent, provider, model, max_tokens
@@ -119,212 +134,280 @@ from fastapi_startkit.ai import Agent, provider, model, max_tokens
 @model("claude-sonnet-4-6")
 @max_tokens(2048)
 class SupportAgent(Agent):
-    def messages(self):
-        return [
-            {
-                "role": "system",
-                "content": "You are a friendly customer support assistant.",
-            }
-        ]
+    def instructions(self) -> str:
+        return "You are a friendly customer support assistant."
 
 agent = SupportAgent()
-response = agent.prompt("How do I reset my password?")
-print(response)  # "To reset your password, click …"
+response = await agent.prompt("How do I reset my password?")
+print(response.content)  # "To reset your password, click …"
 ```
 
-The `prompt()` method runs the full **agentic loop**: if the model calls tools, they are executed and the results are fed back until the model returns a final answer or `_max_steps` is reached.
+> [!IMPORTANT]
+> `prompt()` and `stream()` are **async** — always `await` them (or iterate with `async for`). Call them from an `async` route or any coroutine.
+
+### Overridable methods
+
+Define an agent's behaviour by overriding these methods (all optional):
+
+| Method | Returns | Purpose |
+|---|---|---|
+| `instructions()` | `str \| None` | The system prompt — leads the message list |
+| `messages()` | `list[dict]` | Prior conversation turns to prepend |
+| `tools()` | `list[BaseTool]` | LangChain tools the model may call |
+| `schema()` | `type \| None` | Pydantic model for [structured output](#structured-output) |
+| `middleware()` | `list` | [Middleware](#middleware-pipeline) layers wrapping each request |
+| `provider_options()` | `dict` | Per-provider SDK options |
 
 ---
 
 ## Decorators Reference
 
-Apply decorators directly to the class to configure it declaratively:
+Apply decorators to the class to configure it declaratively. Each sets a class attribute:
 
 | Decorator | Default | Description |
 |---|---|---|
-| `@provider(name)` | `AI_PROVIDER` env var (default: `google`) | LLM provider: `"anthropic"`, `"openai"`, or `"google"` |
+| `@provider(name)` | `AI_PROVIDER` (default `google`) | LLM provider: `"anthropic"`, `"openai"`, `"google"` |
 | `@model(name)` | provider default | Model identifier (e.g. `"claude-sonnet-4-6"`, `"gpt-4o"`) |
 | `@max_tokens(n)` | `4096` | Maximum output tokens per response |
-| `@max_steps(n)` | `10` | Maximum agentic loop iterations before stopping |
+| `@max_steps(n)` | `10` | Maximum tool-call rounds |
 | `@timeout(seconds)` | `30.0` | Per-request timeout in seconds |
 | `@top_p(value)` | `1.0` | Top-p nucleus sampling parameter |
-| `@memory(backend)` | `""` | Named memory backend (reserved for future use) |
 
-All decorators stack cleanly — apply as many as you need:
+Decorators stack — apply as many as you need:
 
 ```python
 @provider("openai")
 @model("gpt-4o")
 @max_tokens(1024)
-@max_steps(5)
 @timeout(60.0)
 class AnalysisAgent(Agent):
     ...
+```
+
+Equivalently, set the attributes directly on the class:
+
+```python
+class AnalysisAgent(Agent):
+    provider = "openai"
+    model = "gpt-4o"
+    max_tokens = 1024
 ```
 
 ---
 
 ## prompt()
 
-`Agent.prompt()` sends a user message and returns an `AgentResponse` after running the full agentic tool loop:
+`Agent.prompt()` sends a user message and returns an `AgentResponse`:
 
 ```python
-response = agent.prompt("Summarise this lead and score it 1–10.")
+response = await agent.prompt("Summarise this lead and score it 1–10.")
 ```
 
-### Optional keyword arguments
+### Signature
 
-| Argument | Type | Description |
-|---|---|---|
-| `system` | `str \| None` | Override the system prompt for this call only |
-| `model` | `str \| None` | Override the model for this call only |
-| `messages` | `list[dict] \| None` | Extra conversation history to prepend |
-| `attachments` | `list[Document] \| None` | Documents to include with the message |
-| `provider_options` | `dict \| None` | Per-provider options merged for this call only |
+```python
+async def prompt(
+    self,
+    message: str,
+    *,
+    model: str | None = None,            # override the model for this call only
+    attachments: list[Document] | None = None,  # documents to include
+    provider_options: dict | None = None,        # per-provider options for this call
+) -> AgentResponse
+```
 
 ### AgentResponse fields
 
 | Field | Type | Description |
 |---|---|---|
 | `content` | `str` | The final text reply from the model |
-| `tool_calls` | `list[dict]` | Tool calls made during the last step (name + input) |
+| `tool_calls` | `list[dict]` | Tool calls the model returned on its final turn |
 | `usage` | `dict` | Token counts: `{"input": n, "output": n}` |
-| `raw` | `Any` | The raw SDK response object |
+| `raw` | `Any` | The raw runner result |
+| `parsed` | `Any` | Validated schema instance when [`schema()`](#structured-output) is set, else `None` |
 
 ```python
-response = agent.prompt("Analyse Q3 revenue.")
+response = await agent.prompt("Analyse Q3 revenue.")
 
-print(response.content)          # text reply
-print(response.text())           # same — convenience method
-print(response.usage)            # {"input": 312, "output": 78}
-print(response.tool_calls)       # [{"name": "lookup_db", "input": {...}}]
-data = response.json()           # parse content as JSON (if model returned JSON)
+print(response.content)     # text reply
+print(response.text())      # same — convenience method
+print(response.usage)       # {"input": 312, "output": 78}
+data = response.json()      # parse content as JSON (raises if not valid JSON)
+bool(response)              # True when content is non-empty
+str(response)               # the content
 ```
 
 ---
 
 ## stream()
 
-`Agent.stream()` yields response tokens one at a time — ideal for server-sent events and live UI updates:
+`Agent.stream()` is an async generator that yields response tokens as they arrive — ideal for server-sent events and live UIs:
 
 ```python
-for chunk in agent.stream("Write a follow-up email to the lead."):
+async for chunk in agent.stream("Write a follow-up email to the lead."):
     print(chunk, end="", flush=True)
 ```
 
-### StreamingResponse in FastAPI
-
-Wrap the generator in a `StreamingResponse` to pipe tokens directly to the browser:
+### Signature
 
 ```python
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-
-app = FastAPI()
-
-@app.post("/chat")
-def chat(body: ChatRequest):
-    agent = SupportAgent()
-
-    def token_generator():
-        for chunk in agent.stream(body.message):
-            yield chunk
-
-    return StreamingResponse(token_generator(), media_type="text/plain")
+async def stream(
+    self,
+    message: str,
+    *,
+    model: str | None = None,
+    provider_options: dict | None = None,
+) -> AsyncIterator[str]
 ```
 
-> [!NOTE]
-> Tool execution is **not supported during streaming**. If your agent uses tools, call `prompt()` instead — it runs the full agentic loop and returns a final `AgentResponse`.
+### Streaming in FastAPI
+
+Wrap the generator in a `StreamingResponse` to pipe tokens straight to the browser as SSE:
+
+```python
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+
+from app.agents.chat import SupportAgent
+from app.requests.chat import ChatRequest
+
+api = APIRouter()
+
+@api.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    async def generate():
+        async for chunk in SupportAgent().stream(request.message):
+            yield f"data: {chunk}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+When the agent uses tools, the stream yields the model's text tokens and then the tool results.
+
+---
+
+## Prompting
+
+When you call `prompt()` or `stream()`, the agent assembles the message list in this order:
+
+1. The system message from `instructions()` (skipped when it returns `None`).
+2. Any prior turns from `messages()`.
+3. The user `message` you passed in.
+4. A multimodal user message for any `attachments` (see [Documents](#documents)).
+
+```python
+class JobAssistant(Agent):
+    def instructions(self) -> str:
+        return "You help users find jobs."
+
+    def messages(self) -> list[dict]:
+        return [
+            {"role": "user", "content": "I'm a Python developer."},
+            {"role": "assistant", "content": "Great — what location?"},
+        ]
+```
+
+A call to `await JobAssistant().prompt("Find me a job")` is sent as:
+
+```python
+[
+    {"role": "system", "content": "You help users find jobs."},
+    {"role": "user", "content": "I'm a Python developer."},
+    {"role": "assistant", "content": "Great — what location?"},
+    {"role": "user", "content": "Find me a job"},
+]
+```
+
+`instructions()` can be computed dynamically — it is a regular method, so you can pull in per-request context, the current user, or configuration.
 
 ---
 
 ## Tools
 
-Define plain Python functions as tools. Each function must have:
-
-- A **docstring** (becomes the tool description)
-- **Type-annotated parameters** (used to build the JSON schema)
-
-The framework auto-wraps them into the Anthropic tool schema format:
+Tools are LangChain tools — define them with the `@tool` decorator from `langchain_core.tools` and return them from `tools()`. The docstring becomes the tool description and the type-annotated parameters build the JSON schema the model sees:
 
 ```python
-def lookup_product(product_id: str) -> str:
-    """Look up a product by its ID and return its name and price."""
-    product = Product.find(product_id)
-    return f"{product.name}: ${product.price}"
+# app/tools/job_search_tool.py
+from langchain_core.tools import tool
 
-def send_email(to: str, subject: str, body: str) -> str:
-    """Send an email to the given address."""
-    mailer.send(to=to, subject=subject, body=body)
-    return "Email sent."
-
-@provider("anthropic")
-@model("claude-sonnet-4-6")
-class SalesAgent(Agent):
-    def messages(self):
-        return [{"role": "system", "content": "You are a sales assistant."}]
-
-    def tools(self):
-        return [lookup_product, send_email]
+@tool
+def job_search_tool(query: str) -> list:
+    """Search the job board for roles matching the query."""
+    return search_jobs(query)
 ```
-
-### How the agentic loop works
-
-1. The model receives the user message plus tool definitions.
-2. If the model decides to call a tool, `prompt()` executes it and feeds the result back.
-3. Steps 2–3 repeat until the model returns a final text reply or `_max_steps` is reached.
 
 ```python
-agent = SalesAgent()
-response = agent.prompt("Look up product P-42 and email alice@example.com about it.")
+# app/agents/chat.py
+from typing import Callable
 
-print(response.content)      # final text reply after tools were called
-print(response.tool_calls)   # list of tool calls made in the last step
+from fastapi_startkit.ai import Agent
+
+from app.tools.job_search_tool import job_search_tool
+
+class JobAgent(Agent):
+    def instructions(self) -> str:
+        return "You are a job-search assistant."
+
+    def tools(self) -> list[Callable]:
+        return [job_search_tool]
 ```
+
+### How tool calls run
+
+1. The agent binds your tools to the chat model and sends the message.
+2. If the model responds with tool calls, the framework executes each tool.
+3. The tool results are returned as the response content.
+
+```python
+agent = JobAgent()
+response = await agent.prompt("Find me a python job")
+print(response.content)   # the tool's output
+```
+
+> [!NOTE]
+> A tool's name must be unique within an agent. Calling a tool the agent didn't register raises `ValueError`.
 
 ---
 
 ## Documents
 
-Attach files to a `prompt()` call using the `Document` helper. Documents are sent as Anthropic content blocks alongside the user message.
+Attach files to a `prompt()` call with the `Document` helper. Each document is converted to a LangChain content block and appended to the user message — text is inlined as a labelled text part, binary content (images, PDFs) becomes a base64 block the model reads natively.
 
 ```python
 from fastapi_startkit.ai import Document
 
 doc = Document(content="Q3 revenue was $1.2M …", name="q3-report.txt")
-response = agent.prompt("Summarise this report.", attachments=[doc])
+response = await agent.prompt("Summarise this report.", attachments=[doc])
 ```
 
-### Loading from disk
+### Loading documents
 
 ```python
+# From a local file (text or binary — binary is detected automatically)
 doc = Document.from_path("reports/q3.txt")
-response = agent.prompt("What are the key takeaways?", attachments=[doc])
-```
 
-### Loading from application storage
+# From application storage (async) — reads storage/<key>
+doc = await Document.from_storage("reports/q3.txt")
 
-```python
-doc = Document.from_storage("reports/q3.txt")  # resolves to storage/reports/q3.txt
+# From a URL (async, uses httpx)
+doc = await Document.from_url("https://example.com/photo.jpg")
 ```
 
 ### Document fields
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `content` | `str` | required | The document text content |
+| `content` | `str \| bytes` | required | The document content (text or binary) |
 | `name` | `str` | `""` | Display name / filename |
 | `media_type` | `str` | `"text/plain"` | MIME type of the content |
 
-### to_anthropic_block()
-
-`doc.to_anthropic_block()` returns the Anthropic-format content block dict. This is called automatically by `prompt()` — you rarely need it directly.
+`Document` also exposes `to_bytes()`, `to_base64()`, and `to_langchain_block()` (called automatically by `prompt()`), plus `to_anthropic_block()` / `to_openai_block()` if you need provider-native blocks directly.
 
 ---
 
 ## Structured Output
 
-Override `schema()` to force the model to return a valid Pydantic model instance. The framework instructs the model to respond in JSON matching the schema, then parses and validates the output.
+Override `schema()` to return a Pydantic model. After the call, the model's JSON reply is validated into that schema and exposed on `response.parsed`:
 
 ```python
 from pydantic import BaseModel
@@ -339,99 +422,101 @@ class LeadSummary(BaseModel):
 @provider("anthropic")
 @model("claude-sonnet-4-6")
 class LeadAgent(Agent):
-    def messages(self):
-        return [{"role": "system", "content": "Analyse leads and return JSON."}]
+    def instructions(self) -> str:
+        return (
+            "Analyse the lead and reply with ONLY a JSON object matching: "
+            '{"name": str, "company": str, "score": int, "next_action": str}.'
+        )
 
     def schema(self):
         return LeadSummary
 
 agent = LeadAgent()
-response = agent.prompt("Lead: Jane Doe, Acme Corp, interested in enterprise plan.")
-summary = LeadSummary(**response.json())   # validated Pydantic model
-print(summary.score)      # 8
-print(summary.next_action) # "Schedule demo call"
+response = await agent.prompt("Lead: Jane Doe, Acme Corp, interested in enterprise plan.")
+
+summary = response.parsed          # a validated LeadSummary instance
+print(summary.score)               # 8
+print(summary.next_action)         # "Schedule demo call"
 ```
+
+The schema is parsed from `response.content` (the raw JSON text). Instruct the model to return JSON that matches your schema — `schema()` validates the reply but does not itself constrain the model's output format. If the content can't be parsed into the schema, the call raises a validation error. When no schema is set, `response.parsed` is `None`.
+
+> [!TIP]
+> Structured output works with the testing helpers too: a faked or recorded JSON string is validated into the schema on the way out, so `response.parsed` is populated in tests.
 
 ---
 
-## Lifecycle Hooks
+## Middleware (Pipeline)
 
-Override `before()` and `after()` to transform messages and responses at the class level.
+Override `middleware()` to wrap each LLM request in a pipeline. A middleware is any object with a `handle(self, model, handler)` method (sync or async). The pipeline composes them as an onion: the first item in the list is the **outermost** layer.
 
-### before()
-
-Called with the user message **before** it is sent to the provider. Return the (possibly modified) message string:
-
-```python
-class LoggingAgent(Agent):
-    def before(self, message: str) -> str:
-        print(f"[agent] sending: {message[:80]}")
-        return message.strip()
-```
-
-### after()
-
-Called with the `AgentResponse` **after** the provider replies. Return the (possibly modified) response:
-
-```python
-class SanitisedAgent(Agent):
-    def after(self, response: AgentResponse) -> AgentResponse:
-        response.content = response.content.replace("<script>", "")
-        return response
-```
-
----
-
-## Middleware
-
-Override `middleware()` to return a list of callables that wrap each LLM request. Middleware follows a `(message, next)` convention — call `next(message)` to continue the chain and return the result.
+- `model` is the built **chat model** (a LangChain `BaseChatModel`) — inspect it, wrap it, or swap it.
+- `handler(model)` continues the chain and returns a `Response` (a deferred, streaming-aware result).
+- Attach an **after-hook** with `.then(callback)` and **return the `Response` without awaiting it** — this keeps streaming intact. The callback receives the final accumulated value once the response is complete.
 
 ```python
 import time
+from collections.abc import Callable
+from typing import Any
 
-def rate_limit(message: str, next) -> AgentResponse:
-    """Throttle requests to avoid hitting provider rate limits."""
-    time.sleep(0.5)
-    return next(message)
+from langchain_core.language_models.chat_models import BaseChatModel
 
-def audit_log(message: str, next) -> AgentResponse:
-    """Log every request to the audit trail."""
-    print(f"[audit] prompt: {message[:120]}")
-    response = next(message)
-    print(f"[audit] response tokens: {response.usage.get('output')}")
-    return response
+from fastapi_startkit.logging import Logger
 
-class AuditedAgent(Agent):
-    def middleware(self):
-        return [rate_limit, audit_log]
+class AgentLogger:
+    def handle(self, model: BaseChatModel, handler: Callable) -> Any:
+        Logger.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
+        started_at = time.monotonic()
+
+        def log_response(final: Any) -> None:
+            elapsed = time.monotonic() - started_at
+            meta = getattr(final, "usage_metadata", None) or {}
+            Logger.info(f"response | {elapsed:.2f}s | out={meta.get('output_tokens', '?')} tokens")
+
+        return handler(model).then(log_response)
 ```
 
-Middleware is applied **left-to-right**: `rate_limit` runs first, then `audit_log`, then the LLM call.
+Register middleware on the agent:
+
+```python
+from fastapi_startkit.ai import Agent, Middleware
+
+from app.middleware.agent_logger import AgentLogger
+
+class RouterAgent(Agent):
+    def middleware(self) -> list[Middleware]:
+        return [AgentLogger()]
+```
+
+You may return instances (as above) or classes — a class is instantiated with no arguments. For a pipeline `[Outer(), Inner()]`, the before-phase runs outer→inner and the after-hooks fire inner→outer.
+
+> [!WARNING]
+> Do **not** `await handler(model)` if you want to preserve streaming — awaiting buffers the entire response before any token is yielded. Use `return handler(model).then(callback)` instead. Awaiting is only appropriate when you deliberately want the full buffered result.
+
+### After-hooks fire exactly once
+
+`.then()` callbacks run exactly once whether the stream is fully drained **or** the consumer closes it early (e.g. a client disconnect or an early `break`). This makes them safe for logging, metrics, auditing, and cleanup. A middleware may also short-circuit the chain by returning a value directly from `handle()` instead of calling `handler`.
 
 ---
 
 ## Provider Options
 
-Override `provider_options()` to pass provider-specific parameters keyed by provider name. These are merged into the SDK call kwargs.
+Override `provider_options()` to pass provider-specific parameters, keyed by provider name. The options for the active provider are merged into the model's keyword arguments:
 
 ```python
 @provider("anthropic")
 class ThinkingAgent(Agent):
     def provider_options(self):
         return {
-            "anthropic": {
-                "thinking": {"type": "enabled", "budget_tokens": 1024},
-            },
-            "openai": {
-                "frequency_penalty": 0.5,
-            },
+            "anthropic": {"thinking": {"type": "enabled", "budget_tokens": 1024}},
+            "openai": {"frequency_penalty": 0.5},
         }
 ```
 
-You can also pass `provider_options` per-call to override for a single request:
+You can also pass `provider_options` per call to override for a single request:
 
 ```python
-response = agent.prompt(
+response = await agent.prompt(
     "Solve this hard maths problem.",
     provider_options={"anthropic": {"thinking": {"type": "enabled", "budget_tokens": 2048}}},
 )
@@ -441,226 +526,240 @@ response = agent.prompt(
 
 ## Multiple Providers
 
-Switch the active provider at runtime by setting `AI_PROVIDER` in `.env`. No code changes required — the `@provider` decorator on each agent class already selects the right backend:
+Switch the active provider by setting `AI_PROVIDER` in `.env` — agents without an explicit `@provider` follow it:
 
 ```ini
-# Use Anthropic by default
-AI_PROVIDER=anthropic
+AI_PROVIDER=anthropic   # or openai, google
 ```
 
-```ini
-# Switch everything to OpenAI
-AI_PROVIDER=openai
-```
-
-Or override per-agent:
+Or pin a provider per agent with the decorator:
 
 ```python
 @provider("openai")
 class DraftAgent(Agent):
-    """Uses GPT-4o regardless of AI_PROVIDER."""
-    ...
+    """Always uses OpenAI, regardless of AI_PROVIDER."""
 
 @provider("anthropic")
 class ReviewAgent(Agent):
-    """Always uses Claude regardless of AI_PROVIDER."""
-    ...
+    """Always uses Anthropic, regardless of AI_PROVIDER."""
 ```
 
 ---
 
 ## Testing
 
+The testing helpers bind a stand-in agent into the container for the duration of a `with` block or a decorated test. Code under test that resolves the agent through the container — via `Agent.make()` — transparently gets the stand-in, so no HTTP calls are made.
+
+> [!NOTE]
+> `Agent.fake()` and `Agent.record()` bind by class name. Resolve the agent with `YourAgent.make()` in code under test, or instantiate it directly (`YourAgent()`) — both pick up the binding while it is active.
+
 ### Faking responses
 
-Call `agent.fake()` with a dict of glob-pattern → `AgentResponse` pairs. Patterns are matched case-insensitively against the prompt text. No HTTP calls are made.
+`YourAgent.fake(responses)` is a classmethod that returns a context manager (also usable as a decorator). `responses` maps a pattern to a reply — either an `AgentResponse` or a plain string. Patterns match the prompt text case-insensitively: a pattern with `*`/`?`/`[` is treated as a glob, otherwise as a substring. The first matching pattern wins; no match raises `NoFakeResponse`.
 
 ```python
 from fastapi_startkit.ai import AgentResponse
 
-agent = SupportAgent()
-agent.fake({
-    "*password*": AgentResponse(content="Click 'Forgot password' on the login page."),
-    "*billing*":  AgentResponse(content="Contact billing@example.com."),
-})
+# As a context manager
+with SupportAgent.fake({"*password*": "Click 'Forgot password' on the login page."}):
+    response = await SupportAgent().prompt("How do I reset my password?")
+    assert response.content == "Click 'Forgot password' on the login page."
 
-response = agent.prompt("How do I reset my password?")
-assert response.content == "Click 'Forgot password' on the login page."
+# Mixing strings and AgentResponse objects
+with SupportAgent.fake({
+    "*billing*": AgentResponse(content="Contact billing@example.com.", usage={"input": 5, "output": 4}),
+}):
+    ...
 ```
 
-### AgentSnapshot — record & replay
-
-`AgentSnapshot` calls the **real API on first run**, saves the response to a JSON file, and replays it from disk on every subsequent run. Tests are fast and deterministic after the first recording.
+Used as a decorator on a test (from the example app's controller test):
 
 ```python
-from fastapi_startkit.ai import AgentSnapshot
+class TestChatController(TestCase):
+    @RouterAgent.fake({"*hello*": "Hello there, hope you are doing well."})
+    async def test_it_responds_without_stream(self):
+        response = await self.post("/chat", json={"message": "hello"})
 
-agent = LeadAgent()
-agent.fake({
-    "*analyse*": AgentSnapshot(path="tests/fixtures/lead_analysis.json"),
-})
-
-response = agent.prompt("Analyse this lead: Jane Doe, Acme Corp")
-# First run: calls the real API, saves tests/fixtures/lead_analysis.json
-# Subsequent runs: loaded instantly from disk — no API call
+        response.assert_ok()
+        response.assert_contents("Hello there, hope you are doing well.")
 ```
 
-The saved fixture is a plain JSON file you can inspect and commit:
+A faked `stream()` splits the reply into word chunks so it behaves like a real token stream while still re-joining to the exact value.
 
-```json
-{
-  "content": "Name: Jane Doe\nCompany: Acme Corp\nScore: 8",
-  "tool_calls": [],
-  "usage": { "input": 142, "output": 34 }
-}
+### Recording & replaying — record()
+
+`YourAgent.record(cassette)` calls the **real agent on the first run**, saves the response to a JSON cassette, and **replays it from disk** on every subsequent run — fast, deterministic tests after the first recording. Responses are keyed by the message (and any attachment names), so distinct prompts are stored separately.
+
+```python
+class TestChatController(TestCase):
+    @RouterAgent.record("record_no_stream.json")
+    async def test_it_records_a_reply(self):
+        response = await self.post(
+            "/chat",
+            json={"message": "Hi, I am Alex. Please respond by calling my name."},
+        )
+        response.assert_ok()
+        response.assert_contents("Alex")
 ```
+
+If you omit the path, a cassette is created next to the test file under `cassettes/<TestQualName>.json`. A relative path is resolved against the test file's directory. Streamed runs record the list of chunks; a later `prompt()` against the same cassette returns the joined content.
 
 ### Assertions
 
+The `Agent` instance tracks its own call log:
+
 | Method | Description |
 |---|---|
-| `assert_prompted()` | Assert `prompt()` or `stream()` was called at least once |
-| `assert_prompted(times=n)` | Assert exactly `n` calls |
-| `assert_not_prompted()` | Assert neither method was ever called |
-| `reset()` | Clear fakes and call log between test cases |
+| `agent.assert_prompted()` | Assert `prompt()` or `stream()` was called at least once |
+| `agent.assert_prompted(times=n)` | Assert exactly `n` calls |
+| `agent.assert_not_prompted()` | Assert neither method was called |
+| `agent.reset()` | Clear the call log (returns the agent for chaining) |
 
 ```python
-def test_agent_is_called_once():
+async def test_agent_is_called_once():
     agent = SupportAgent()
-    agent.fake({"*": AgentResponse(content="OK")})
-
-    agent.prompt("Hello")
-
-    agent.assert_prompted(times=1)
-
-def test_agent_is_not_called_in_cache_hit():
-    agent = SupportAgent()
-    agent.fake({"*": AgentResponse(content="cached")})
-
-    serve_from_cache()   # hypothetical — doesn't call agent
-
-    agent.assert_not_prompted()
+    with SupportAgent.fake({"*": "OK"}):
+        await agent.prompt("Hello")
+        agent.assert_prompted(times=1)
 ```
 
-### Resetting between tests
-
-```python
-def test_multiple_interactions():
-    agent = SupportAgent()
-    agent.fake({"*help*": AgentResponse(content="Here to help!")})
-
-    agent.prompt("I need help.")
-    agent.assert_prompted(times=1)
-
-    agent.reset()   # clear log and fakes
-
-    agent.assert_not_prompted()
-```
+The bound stand-in (yielded by `with ... as fake:`) additionally exposes `fake.prompt_count` and a pattern-aware `fake.assert_prompted("*pattern*")`.
 
 ---
 
 ## Provider Backends
 
-Each backend is a thin wrapper over the official SDK.
+Models are created with LangChain's `init_chat_model`, which selects the integration package for the active provider. Install the matching package alongside `fastapi-startkit[ai]`:
 
 ### Anthropic
 
-Uses the [`anthropic`](https://pypi.org/project/anthropic/) Python SDK. Tool calling and extended thinking are fully supported via `provider_options`.
+```bash
+uv add langchain-anthropic
+```
 
-```python
-# Install
-pip install anthropic
-
-# Required env var
+```ini
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ### OpenAI
 
-Uses the [`openai`](https://pypi.org/project/openai/) Python SDK. Note that tool execution in the agentic loop is currently single-step for the OpenAI backend (the Anthropic backend runs a full multi-step loop).
+```bash
+uv add langchain-openai
+```
 
-```python
-# Install
-pip install openai
-
-# Required env var
+```ini
 OPENAI_API_KEY=sk-...
 ```
 
 ### Google Gemini
 
-Uses the [`google-generativeai`](https://pypi.org/project/google-generativeai/) Python SDK.
-
-```python
-# Install
-pip install google-generativeai
-
-# Required env var (either works)
-GEMINI_API_KEY=AIza...
-GOOGLE_API_KEY=AIza...
+```bash
+uv add langchain-google-genai
 ```
 
-> [!TIP]
-> You can install all three SDKs at once with `pip install "fastapi-startkit[ai]"`.
+```ini
+GEMINI_API_KEY=AIza...   # GOOGLE_API_KEY also works
+```
 
 ---
 
 ## Complete Example
 
-A sales agent with tools, document attachments, middleware, and a full test:
+A support agent with a tool, logging middleware, FastAPI routes, and a controller test — mirroring the structure of the `example/agents` app.
 
 ```python
-# agents/sales_agent.py
-from fastapi_startkit.ai import Agent, provider, model, max_tokens, max_steps
+# app/tools/job_search_tool.py
+from langchain_core.tools import tool
 
-def lookup_crm(lead_id: str) -> str:
-    """Look up a lead record in the CRM by ID."""
-    # ... real CRM lookup
-    return f"Lead {lead_id}: Jane Doe, Acme Corp, budget $50k"
-
-def draft_email(to: str, subject: str) -> str:
-    """Draft a follow-up email to a lead."""
-    return f"Drafted email to {to} — Subject: {subject}"
-
-@provider("anthropic")
-@model("claude-sonnet-4-6")
-@max_tokens(2048)
-@max_steps(5)
-class SalesAgent(Agent):
-    def messages(self):
-        return [
-            {
-                "role": "system",
-                "content": (
-                    "You are an expert sales assistant. "
-                    "Use the available tools to research leads and draft follow-ups."
-                ),
-            }
-        ]
-
-    def tools(self):
-        return [lookup_crm, draft_email]
+@tool
+def job_search_tool(query: str) -> list:
+    """Search the job board for roles matching the query."""
+    return search_jobs(query)
 ```
 
 ```python
-# tests/test_sales_agent.py
-from fastapi_startkit.ai import AgentResponse
-from agents.sales_agent import SalesAgent
+# app/middleware/agent_logger.py
+import time
+from collections.abc import Callable
+from typing import Any
 
-def test_sales_agent_drafts_followup():
-    agent = SalesAgent()
-    agent.fake({
-        "*lead*": AgentResponse(
-            content="I've looked up lead L-99 and drafted a follow-up email.",
-            tool_calls=[
-                {"name": "lookup_crm",  "input": {"lead_id": "L-99"}},
-                {"name": "draft_email", "input": {"to": "jane@acme.com", "subject": "Following up"}},
-            ],
-        )
-    })
+from langchain_core.language_models.chat_models import BaseChatModel
 
-    response = agent.prompt("Research lead L-99 and draft a follow-up.")
+from fastapi_startkit.logging import Logger
 
-    assert "follow-up" in response.content
-    agent.assert_prompted(times=1)
+class AgentLogger:
+    def handle(self, model: BaseChatModel, handler: Callable) -> Any:
+        Logger.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
+        started_at = time.monotonic()
+
+        def log_response(final: Any) -> None:
+            Logger.info(f"response | {time.monotonic() - started_at:.2f}s")
+
+        return handler(model).then(log_response)
+```
+
+```python
+# app/agents/chat.py
+from typing import Callable
+
+from fastapi_startkit.ai import Agent, Middleware
+
+from app.middleware.agent_logger import AgentLogger
+from app.tools.job_search_tool import job_search_tool
+
+class RouterAgent(Agent):
+    def instructions(self) -> str:
+        return "You are a friendly customer support assistant."
+
+    def tools(self) -> list[Callable]:
+        return [job_search_tool]
+
+    def middleware(self) -> list[Middleware]:
+        return [AgentLogger()]
+```
+
+```python
+# routes/api.py
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+
+from app.agents.chat import RouterAgent
+from app.requests.chat import ChatRequest
+
+api = APIRouter()
+
+@api.post("/chat")
+async def chat(request: ChatRequest):
+    response = await RouterAgent().prompt(request.message)
+    return {"content": response.content}
+
+@api.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    async def generate():
+        async for chunk in RouterAgent().stream(request.message):
+            yield f"data: {chunk}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+```
+
+```python
+# tests/features/test_chat_controller.py
+from app.agents.chat import RouterAgent
+
+from tests.test_case import TestCase
+
+class TestChatController(TestCase):
+    @RouterAgent.fake({"*hello*": "Hello there, hope you are doing well."})
+    async def test_it_responds_without_stream(self):
+        response = await self.post("/chat", json={"message": "hello"})
+
+        response.assert_ok()
+        response.assert_contents("Hello there, hope you are doing well.")
+
+    @RouterAgent.fake({"*hello*": "Hello there, this is stream chat."})
+    async def test_it_responds_with_stream(self):
+        response = await self.post("/chat/stream", json={"message": "hello"})
+
+        response.assert_ok()
+        response.assert_stream_contains("Hello there, this is stream chat.")
 ```
