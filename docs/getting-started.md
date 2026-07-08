@@ -19,7 +19,7 @@ FastAPI is excellent for quickly building APIs, but it intentionally leaves many
 
 In our case, we were building multiple microservices, and we found ourselves repeatedly copying the same bootstrap code between projects. Over time, that became repetitive and harder to maintain consistently.
 
-Over the past several months, we've been working on FastAPI Startkit, an open-source application framework that brings proven patterns from mature web frameworks into Python and FastAPI.
+So we decided to open source it as FastAPI Startkit, an application framework that brings proven patterns from mature web frameworks into Python and FastAPI.
 
 The goal is not to replace FastAPI. Instead, it provides a structured foundation for building larger applications while staying modular — you can use only the components you need. That said, **it doesn't enforce you to use FastAPI at all** — you can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components.
 
@@ -35,7 +35,7 @@ Some features include:
 - ⚡ FastAPI integration & routing
 - 🎨 Frontend integration (Vite & Inertia)
 
-An application is composed by **registering providers**. Each provider knows how to register a slice of functionality into the application and boot it once everything is wired up. You pick the providers you need, hand them to the `Application`, and the framework takes care of the rest:
+An application is composed by **registering providers** — you pick the ones you need and hand them to the `Application`:
 
 ```python
 from pathlib import Path
