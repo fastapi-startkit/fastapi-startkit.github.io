@@ -18,7 +18,7 @@ import { Globe, Terminal, Bot, CircleCheck } from 'lucide-vue-next'
                             <Globe :size="20" />
                         </div>
                         <h3 class="font-headline-md text-headline-md font-semibold text-on-surface tracking-[-0.01em]">Asynchronous Core</h3>
-                        <p class="text-body-sm font-body-sm text-on-surface-variant">Fully async stack built on FastAPI, Starlette, Pydantic, and Masonite ORM — providing the fastest possible execution path for Python web applications.</p>
+                        <p class="text-body-sm font-body-sm text-on-surface-variant">Fully async stack built on FastAPI, Starlette, Pydantic, and Masonite ORM — a fully async execution path for Python web applications.</p>
                     </div>
                     <div class="mt-auto space-y-3">
                         <div class="flex items-center gap-3 py-2 border-t border-outline-variant/50">
