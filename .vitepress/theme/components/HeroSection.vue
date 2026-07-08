@@ -197,7 +197,7 @@
 
                 <!-- Description -->
                 <p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl">
-                    FastAPI Startkit is a high-performance boilerplate engineered for speed. Batteries-included components designed to scale with your production requirements.
+                    FastAPI Startkit is a batteries-included boilerplate for building production FastAPI applications. Modular components designed to scale with your requirements.
                 </p>
 
                 <!-- CTAs -->

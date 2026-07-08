@@ -199,7 +199,6 @@ export default defineConfig({
                     { text: 'Process', link: '/docs/process' },
                     { text: 'Broadcasting', link: '/docs/broadcasting' },
                     { text: 'JSON:API Resources', link: '/docs/jsonapi' },
-                    { text: 'Performance & Benchmarks', link: '/docs/benchmarks' },
                 ]
             },
             {
@@ -208,6 +207,10 @@ export default defineConfig({
                     { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
                     { text: 'Database Testing', link: '/docs/testing/database' },
                 ]
+            },
+            {
+                text: 'Performance & Benchmarks',
+                link: '/docs/benchmarks'
             }
         ],
 
