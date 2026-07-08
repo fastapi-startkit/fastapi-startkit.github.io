@@ -33,7 +33,7 @@ from providers.fastapi_provider import FastAPIProvider
 from config.fastapi import FastAPIConfig
 
 app: Application = Application(
-    base_path=str(Path.cwd()),  # This always gives path relative to the execution.
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
         LogProvider,
         (FastAPIProvider, FastAPIConfig),
