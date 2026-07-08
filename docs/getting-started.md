@@ -15,9 +15,25 @@ jsonLd:
 
 ## Introduction
 
-FastAPI is a superb HTTP layer, but it deliberately stops at the request/response boundary. Everything above it — configuration, logging, a database layer, a console for CLI commands, and a predictable way to wire it all together — is left for you to assemble. In practice that means every new service starts by copy-pasting the same bootstrap code, and each team's copy slowly drifts apart. Across a fleet of microservices, that duplicated foundation becomes a maintenance burden of its own.
+FastAPI is excellent for quickly building APIs, but it intentionally leaves many application-level concerns to the developer. Things like environment management (including multiple environments), logging, database setup, configuration, CLI commands, plugins, storage, and other infrastructure are things you typically need to design and wire together yourself.
 
-Fastapi Startkit is a modular, provider-driven framework that packages those app-level concerns into a single, coherent foundation so you can focus on your domain instead of the plumbing. That said, **it doesn't enforce you to use FastAPI at all** — you can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components such as logging, database, and configuration.
+In our case, we were building multiple microservices, and we found ourselves repeatedly copying the same bootstrap code between projects. Over time, that became repetitive and harder to maintain consistently.
+
+Over the past several months, we've been working on FastAPI Startkit, an open-source application framework that brings proven patterns from mature web frameworks into Python and FastAPI.
+
+The goal is not to replace FastAPI. Instead, it provides a structured foundation for building larger applications while staying modular — you can use only the components you need. That said, **it doesn't enforce you to use FastAPI at all** — you can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components.
+
+Some features include:
+
+- 🏗️ Service container & dependency injection
+- ⚙️ Configuration with multi-environment support
+- 🪵 Logging
+- 🗄️ Async database ORM, migrations & seeders
+- 🖥️ CLI console commands
+- 🧩 Providers & plugins
+- 📦 Storage
+- ⚡ FastAPI integration & routing
+- 🎨 Frontend integration (Vite & Inertia)
 
 An application is composed by **registering providers**. Each provider knows how to register a slice of functionality into the application and boot it once everything is wired up. You pick the providers you need, hand them to the `Application`, and the framework takes care of the rest:
 
