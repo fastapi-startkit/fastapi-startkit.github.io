@@ -31,6 +31,7 @@ Some features include:
 - 🖥️ CLI console commands
 - 🧩 Service providers
 - 📦 Storage
+- 🧵 Queue workers with TaskIQ
 - ⚡ FastAPI integration & routing
 - 🎨 Frontend integration (Vite & Inertia)
 
