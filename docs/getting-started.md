@@ -19,7 +19,7 @@ FastAPI is a superb HTTP layer, but it deliberately stops at the request/respons
 
 Fastapi Startkit is a modular, provider-driven framework that packages those app-level concerns into a single, coherent foundation so you can focus on your domain instead of the plumbing. That said, **it doesn't enforce you to use FastAPI at all** — you can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components such as logging, database, configuration, and dependency injection.
 
-An application is composed by **registering providers**. Each provider knows how to register a slice of functionality into the service container and boot it once everything is wired up. You pick the providers you need, hand them to the `Application`, and the framework takes care of the rest:
+An application is composed by **registering providers**. Each provider knows how to register a slice of functionality into the application and boot it once everything is wired up. You pick the providers you need, hand them to the `Application`, and the framework takes care of the rest:
 
 ```python
 from pathlib import Path
