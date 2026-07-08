@@ -24,18 +24,29 @@ An application is composed by **registering providers**. Each provider knows how
 ```python
 from pathlib import Path
 from fastapi_startkit import Application
-from fastapi_startkit.fastapi import FastAPIProvider
 
-app: Application = Application(
+app = Application(
     base_path=Path(__file__).parent.parent,
     providers=[
-        FastAPIProvider,
-        # add your own providers here...
+        LogProvider,
+        (DatabaseProvider, DatabaseConfig),
+        (FastAPIProvider, FastAPIConfig),
+        McpProvider,
+        AISkillProvider,
+        (StorageProvider, StorageConfig),
+        AppProvider,
+        PluginProvider,
+        TerminalProvider,
+        (ViteProvider, ViteConfig),
+        InertiaProvider,
+        (ReverbProvider, BroadcastingConfig),
     ],
 )
 ```
 
-Adding a capability is as simple as adding a provider to that list. The sections below walk you through installing the framework and standing up your first application.
+A provider can be listed on its own, or paired with a config object as a `(Provider, Config)` tuple when it needs configuration. Adding a capability is as simple as adding a provider to that list. For a real-world example, see the [Keera Agent `bootstrap/application.py`](https://github.com/Keera-Labs/keera-agent/blob/main/bootstrap/application.py#L23-L39).
+
+The sections below walk you through installing the framework and standing up your first application.
 
 ## Prerequisites
 
