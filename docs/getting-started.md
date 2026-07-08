@@ -30,7 +30,6 @@ Some features include:
 - 🗄️ Async database ORM, migrations & seeders
 - 🖥️ CLI console commands
 - 🧩 Service providers
-- 📦 Storage
 - 🧵 Queue workers with TaskIQ
 - ⚡ FastAPI integration & routing
 - 🎨 Frontend integration (Vite & Inertia)
