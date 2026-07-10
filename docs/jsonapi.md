@@ -13,7 +13,7 @@ FastAPI Startkit ships a first-class **JSON:API** layer built around the `JsonRe
 The JSON:API module requires no extra dependencies beyond the core package.
 
 ```bash
-pip install fastapi-startkit
+uv add fastapi-startkit
 ```
 
 ## Quick Start
