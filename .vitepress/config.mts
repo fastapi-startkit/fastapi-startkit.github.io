@@ -176,6 +176,7 @@ export default defineConfig({
                 items: [
                     { text: 'Introduction', link: '/docs/database/' },
                     { text: 'Models', link: '/docs/database/models' },
+                    { text: 'Retrieving Models', link: '/docs/database/retrieving-models' },
                     { text: 'Casts', link: '/docs/database/casts' },
                     { text: 'Migrations', link: '/docs/database/migrations' },
                     { text: 'Seeds', link: '/docs/database/seeds' },
