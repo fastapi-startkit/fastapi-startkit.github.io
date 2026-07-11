@@ -143,7 +143,7 @@ async for projects in Project.where("is_active", True).chunk_by_id(100):
         await project.archive()
 ```
 
-Pass `column` to page by a different incrementing column. Use `alias` when the paging column is selected under a different name (for example via a joined or aliased query):
+Pass `column` to page by a different incrementing column. Use `alias` when the paging column is selected under a different name (for example via a joined or aliased query) — its value is read from each row to compute the next cursor:
 
 ```python
 async for users in User.chunk_by_id(500, column="id"):
@@ -155,4 +155,38 @@ async for users in User.chunk_by_id(500, column="id"):
 `chunk_by_id` orders results by the paging column ascending and ignores any `order_by` you set on the query. The paging column should be unique and monotonically increasing (such as an auto-incrementing primary key) for iteration to cover every row.
 :::
 
-Both `chunk` and `chunk_by_id` raise a `ValueError` if the batch size is not a positive integer.
+If the `alias` column is not present in the selected columns of a row, `chunk_by_id` cannot read the next cursor and raises a `RuntimeError`. Make sure the aliased keyset column is part of the query's selection.
+
+### `chunk_by_id_desc(size, column=None, alias=None)`
+
+`chunk_by_id_desc` is the descending counterpart of `chunk_by_id`. It uses the same keyset strategy but walks the table from the highest id to the lowest, ordering by the paging column descending and filtering each subsequent batch with `column < last_id`:
+
+```python
+async for projects in Project.where("is_active", True).chunk_by_id_desc(100):
+    for project in projects:
+        # projects arrive newest-id first, high -> low
+        await project.archive()
+```
+
+Like `chunk_by_id`, it accepts `column` and `alias`, defaults to the model's primary key, and raises a `RuntimeError` if the `alias` column is missing from a row.
+
+### `offset` and `limit` with keyset chunking
+
+`chunk_by_id` and `chunk_by_id_desc` honour a pre-set `offset` and `limit`, which is useful for resuming or bounding a walk:
+
+- **`offset`** is applied to the **first page only**. After the first batch, keyset filtering (`column > last_id` / `column < last_id`) drives every subsequent page, so the offset is not re-applied.
+- **`limit`** uses **limit-remaining** semantics: the limit is a total cap on rows across all batches, not a per-batch size. Each batch fetches at most the smaller of the chunk size and the remaining allowance, and iteration stops once the allowance is exhausted.
+
+For example, a limit of 250 chunked by 100 yields batches of **100 + 100 + 50**:
+
+```python
+# Skip the first 50 rows, then process at most 250 more in batches of 100
+async for users in User.offset(50).limit(250).chunk_by_id(100):
+    for user in users:
+        await user.recalculate_score()
+# -> batches of 100, 100, 50
+```
+
+`chunk` (offset/limit paging) does not support these semantics — it always walks the full result set in fixed-size batches.
+
+All three methods — `chunk`, `chunk_by_id`, and `chunk_by_id_desc` — raise a `ValueError` if the batch size is not a positive integer.
