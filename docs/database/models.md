@@ -137,7 +137,18 @@ users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").
 users = await User.where("name", "Alice").or_where_null("deleted_at").get()
 ```
 
-### Chunking results
+### Retrieving records
+
+Call `get()` to run the current query and retrieve all matching rows as a `Collection` of model instances:
+
+```python
+users = await User.where("is_active", True).get()
+
+for user in users:
+    print(user.email)
+```
+
+#### Chunking large result sets
 
 When you need to process a large number of records, loading them all at once with `all()` or `get()` can exhaust memory. The `chunk` methods retrieve a small batch of records at a time. They return async iterators, so consume them with `async for`:
 
