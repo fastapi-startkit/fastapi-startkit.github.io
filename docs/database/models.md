@@ -137,6 +137,63 @@ users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").
 users = await User.where("name", "Alice").or_where_null("deleted_at").get()
 ```
 
+### Retrieving records
+
+Call `get()` to run the current query and retrieve all matching rows as a `Collection` of model instances:
+
+```python
+users = await User.where("is_active", True).get()
+
+for user in users:
+    print(user.email)
+```
+
+#### Chunking large result sets
+
+When you need to process a large number of records, loading them all at once with `all()` or `get()` can exhaust memory. The `chunk` methods retrieve a small batch of records at a time. They return async iterators, so consume them with `async for`:
+
+```python
+async for users in User.chunk(200):
+    for user in users:
+        print(user.email)
+```
+
+You can chunk a constrained query too:
+
+```python
+async for projects in Project.where("is_active", True).chunk(100):
+    for project in projects:
+        await project.archive()
+```
+
+`chunk(size)` pages with `limit`/`offset` and stops as soon as a batch comes back empty or shorter than `size`.
+
+#### `chunk_by_id(size, column=None, alias=None)`
+
+Pages using a keyset cursor instead of `offset` — it orders by an incrementing column (the primary key by default) and filters each batch with `column > last_id`. This stays correct even when rows are added or removed mid-iteration:
+
+```python
+async for users in User.chunk_by_id(500):
+    for user in users:
+        await user.recalculate_score()
+```
+
+A pre-set `offset` applies to the **first page only**; a pre-set `limit` caps the **total** rows across batches (limit-remaining) — e.g. `.limit(250)` chunked by 100 yields batches of `100 + 100 + 50`. Pass `column` to page by a different column, and `alias` when that column is selected under a different name.
+
+> `chunk_by_id` ignores any `order_by` on the query and raises a `RuntimeError` if the `alias` column is missing from a row.
+
+#### `chunk_by_id_desc(size, column=None, alias=None)`
+
+The descending counterpart of `chunk_by_id` — walks from the highest id to the lowest, filtering each batch with `column < last_id`:
+
+```python
+async for projects in Project.chunk_by_id_desc(100):
+    for project in projects:
+        await project.archive()
+```
+
+> All three chunk methods raise a `ValueError` if the batch size is not a positive integer.
+
 ## Creating Records
 
 ### `create`
