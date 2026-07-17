@@ -548,35 +548,32 @@ class ReviewAgent(Agent):
 
 ## Testing
 
-The testing helpers bind a stand-in agent into the container for the duration of a `with` block or a decorated test. Code under test that resolves the agent through the container — via `Agent.make()` — transparently gets the stand-in, so no HTTP calls are made.
+`Agent.fake()` swaps in a deterministic chat model so `prompt()`/`stream()` run the real message-building, pipeline, and tool-execution path — only the model at the bottom is a fake, so faked tool calls execute for real. `Agent.record()` binds a record-and-replay stand-in into the container for the duration of a `with` block or a decorated test.
 
 > [!NOTE]
-> `Agent.fake()` and `Agent.record()` bind by class name. Resolve the agent with `YourAgent.make()` in code under test, or instantiate it directly (`YourAgent()`) — both pick up the binding while it is active.
+> `Agent.record()` binds by class name. Resolve the agent with `YourAgent.make()` in code under test, or instantiate it directly (`YourAgent()`) — both pick up the binding while it is active. `Agent.fake()` works with any instance of the class, bound or not.
 
 ### Faking responses
 
-`YourAgent.fake(responses)` is a classmethod that returns a context manager (also usable as a decorator). `responses` maps a pattern to a reply — either an `AgentResponse` or a plain string. Patterns match the prompt text case-insensitively: a pattern with `*`/`?`/`[` is treated as a glob, otherwise as a substring. The first matching pattern wins; no match raises `NoFakeResponse`.
+`YourAgent.fake(responses)` is a classmethod that returns a context manager (also usable as a decorator). `responses` is a fixed, ordered list of replies — plain strings or LangChain messages (e.g. `AIMessage(..., tool_calls=[...])` to fake a tool call). Each call to `prompt()`/`stream()` replays the next reply in order; calling past the end of the list raises.
 
 ```python
-from fastapi_startkit.ai import AgentResponse
-
 # As a context manager
-with SupportAgent.fake({"*password*": "Click 'Forgot password' on the login page."}):
+with SupportAgent.fake(["Click 'Forgot password' on the login page."]):
     response = await SupportAgent().prompt("How do I reset my password?")
     assert response.content == "Click 'Forgot password' on the login page."
 
-# Mixing strings and AgentResponse objects
-with SupportAgent.fake({
-    "*billing*": AgentResponse(content="Contact billing@example.com.", usage={"input": 5, "output": 4}),
-}):
-    ...
+# Multiple calls replay in order
+with SupportAgent.fake(["first reply", "second reply"]):
+    await SupportAgent().prompt("one")
+    await SupportAgent().prompt("two")
 ```
 
 Used as a decorator on a test (from the example app's controller test):
 
 ```python
 class TestChatController(TestCase):
-    @RouterAgent.fake({"*hello*": "Hello there, hope you are doing well."})
+    @RouterAgent.fake(["Hello there, hope you are doing well."])
     async def test_it_responds_without_stream(self):
         response = await self.post("/chat", json={"message": "hello"})
 
@@ -584,11 +581,11 @@ class TestChatController(TestCase):
         response.assert_contents("Hello there, hope you are doing well.")
 ```
 
-A faked `stream()` splits the reply into word chunks so it behaves like a real token stream while still re-joining to the exact value.
+A faked `stream()` still streams the reply in chunks so it behaves like a real token stream while re-joining to the exact value.
 
 ### Recording & replaying — record()
 
-`YourAgent.record(cassette)` calls the **real agent on the first run**, saves the response to a JSON cassette, and **replays it from disk** on every subsequent run — fast, deterministic tests after the first recording. Responses are keyed by the message (and any attachment names), so distinct prompts are stored separately.
+`YourAgent.record(cassette)` calls the **real agent on the first run**, saves the response to a JSON cassette, and **replays it from disk** on every subsequent run — fast, deterministic tests after the first recording. Responses are keyed by the conversation so far (seed messages plus prior turns in the session) and the new message (and any attachment names), so distinct prompts — even ones that share the same wording under a different history — are stored separately.
 
 ```python
 class TestChatController(TestCase):
@@ -604,6 +601,54 @@ class TestChatController(TestCase):
 
 If you omit the path, a cassette is created next to the test file under `cassettes/<TestQualName>.json`. A relative path is resolved against the test file's directory. Streamed runs record the list of chunks; a later `prompt()` against the same cassette returns the joined content.
 
+### Fluent record() — prompt() + assertions
+
+Bind `record()` with `as agent` for a fluent handle whose `assert_*()` methods judge the most recent turn, similar to how a browser-testing `page` object exposes assertions against the current page state. `prompt()` is still `async` — the fluent handle runs the same real agent call underneath, it's just cached — so `await` it as usual:
+
+```python
+class TestRouterAgent(IsolatedAsyncioTestCase):
+    async def test_the_router_agent(self):
+        with RouterAgent.record("record_stream.json") as agent:
+            await agent.prompt("hello")
+            agent.assert_text_response()
+            agent.assert_tool_not_called(["job_search_tool"])
+            agent.assert_response_judged(
+                model="gpt-3.5-turbo",
+                expectation="The llm should respond with greetings",
+            )
+            agent.assert_response_time_lt(5)
+
+            await agent.prompt("suggest python developer jobs")
+            agent.assert_tool_called("job_search_tool", lambda tool: tool.name == "job_search_tool")
+```
+
+| Method | Description |
+|---|---|
+| `await agent.prompt(message)` | Run (or replay) one turn; becomes the "current" turn for the assertions below |
+| `agent.assert_text_response()` | Assert the current response has non-empty text content |
+| `agent.assert_tool_called(name, predicate=None)` | Assert a tool named `name` was called in the current turn; `predicate` receives a `ToolCallView` (`.name`, `.args`, `.id`) for each match and must accept at least one |
+| `agent.assert_tool_not_called(names)` | Assert none of `names` were called in the current turn |
+| `agent.assert_response_time_lt(seconds)` | Assert the current turn's `prompt()` call took less than `seconds` |
+| `agent.assert_response_judged(model=..., expectation=...)` | LLM-as-judge: grade the current response against a natural-language `expectation` using `model`. The verdict is cached in the cassette next to the recorded response, so replays after the first run need no live call |
+
+Seed a conversation's prior history with `messages=` — plain dicts or LangChain message objects both work, and they're folded into the cassette key so a seeded session doesn't collide with an unseeded one that happens to send the same follow-up text:
+
+```python
+from langchain_core.messages import AIMessage, HumanMessage
+
+with RouterAgent.record(
+    "record_stream.json",
+    messages=[
+        HumanMessage(content="Hi"),
+        AIMessage(content="Hello, how can I help you?"),
+    ],
+) as agent:
+    await agent.prompt("suggest python developer jobs")
+    agent.assert_tool_called("job_search_tool", lambda tool: tool.name == "job_search_tool")
+```
+
+The bare (no `as agent`) usage from the previous section still works unchanged — it binds the same stand-in into the container so code under test that constructs `YourAgent()` itself (e.g. inside a controller) picks it up automatically.
+
 ### Assertions
 
 The `Agent` instance tracks its own call log:
@@ -618,12 +663,10 @@ The `Agent` instance tracks its own call log:
 ```python
 async def test_agent_is_called_once():
     agent = SupportAgent()
-    with SupportAgent.fake({"*": "OK"}):
+    with SupportAgent.fake(["OK"]):
         await agent.prompt("Hello")
         agent.assert_prompted(times=1)
 ```
-
-The bound stand-in (yielded by `with ... as fake:`) additionally exposes `fake.prompt_count` and a pattern-aware `fake.assert_prompted("*pattern*")`.
 
 ---
 
@@ -749,14 +792,14 @@ from app.agents.chat import RouterAgent
 from tests.test_case import TestCase
 
 class TestChatController(TestCase):
-    @RouterAgent.fake({"*hello*": "Hello there, hope you are doing well."})
+    @RouterAgent.fake(["Hello there, hope you are doing well."])
     async def test_it_responds_without_stream(self):
         response = await self.post("/chat", json={"message": "hello"})
 
         response.assert_ok()
         response.assert_contents("Hello there, hope you are doing well.")
 
-    @RouterAgent.fake({"*hello*": "Hello there, this is stream chat."})
+    @RouterAgent.fake(["Hello there, this is stream chat."])
     async def test_it_responds_with_stream(self):
         response = await self.post("/chat/stream", json={"message": "hello"})
 
