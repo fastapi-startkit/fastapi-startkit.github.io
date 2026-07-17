@@ -603,13 +603,13 @@ If you omit the path, a cassette is created next to the test file under `cassett
 
 ### Fluent record() — prompt() + assertions
 
-Bind `record()` with `as agent` for a fluent handle whose `prompt()` is synchronous — no `async`/`await` needed — and whose `assert_*()` methods judge the most recent turn, similar to how a browser-testing `page` object exposes assertions against the current page state:
+Bind `record()` with `as agent` for a fluent handle whose `assert_*()` methods judge the most recent turn, similar to how a browser-testing `page` object exposes assertions against the current page state. `prompt()` is still `async` — the fluent handle runs the same real agent call underneath, it's just cached — so `await` it as usual:
 
 ```python
-class TestRouterAgent(TestCase):
-    def test_the_router_agent(self):
+class TestRouterAgent(IsolatedAsyncioTestCase):
+    async def test_the_router_agent(self):
         with RouterAgent.record("record_stream.json") as agent:
-            agent.prompt("hello")
+            await agent.prompt("hello")
             agent.assert_text_response()
             agent.assert_tool_not_called(["job_search_tool"])
             agent.assert_response_judged(
@@ -618,13 +618,13 @@ class TestRouterAgent(TestCase):
             )
             agent.assert_response_time_lt(5)
 
-            agent.prompt("suggest python developer jobs")
+            await agent.prompt("suggest python developer jobs")
             agent.assert_tool_called("job_search_tool", lambda tool: tool.name == "job_search_tool")
 ```
 
 | Method | Description |
 |---|---|
-| `agent.prompt(message)` | Run (or replay) one turn synchronously; becomes the "current" turn for the assertions below |
+| `await agent.prompt(message)` | Run (or replay) one turn; becomes the "current" turn for the assertions below |
 | `agent.assert_text_response()` | Assert the current response has non-empty text content |
 | `agent.assert_tool_called(name, predicate=None)` | Assert a tool named `name` was called in the current turn; `predicate` receives a `ToolCallView` (`.name`, `.args`, `.id`) for each match and must accept at least one |
 | `agent.assert_tool_not_called(names)` | Assert none of `names` were called in the current turn |
@@ -643,7 +643,7 @@ with RouterAgent.record(
         AIMessage(content="Hello, how can I help you?"),
     ],
 ) as agent:
-    agent.prompt("suggest python developer jobs")
+    await agent.prompt("suggest python developer jobs")
     agent.assert_tool_called("job_search_tool", lambda tool: tool.name == "job_search_tool")
 ```
 
