@@ -7,6 +7,10 @@ keywords: AI skills, Claude Code, Gemini CLI, artisan, fastapi-startkit
 
 # Skills
 
+::: warning Active development
+The AI package is under active development. APIs may change without notice as we experiment with the best integration patterns. Use with caution in production.
+:::
+
 The Skills module syncs provider-declared `SKILL.md` documents to your local AI coding tools — [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli).
 
 ## Registration

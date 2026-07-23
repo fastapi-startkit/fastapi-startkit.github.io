@@ -7,6 +7,10 @@ keywords: AI agents, Anthropic, OpenAI, Google Gemini, LLM, tool calling, stream
 
 # AI Agents
 
+::: warning Active development
+The AI package is under active development. APIs may change without notice as we experiment with the best integration patterns. Use with caution in production.
+:::
+
 FastAPI Startkit includes a declarative, **LangChain-powered AI agent module** that lets you build provider-agnostic LLM agents as plain Python classes. Swap between Anthropic, OpenAI, and Google with a single environment variable; attach tools, documents, structured-output schemas, and middleware; and test everything offline with built-in faking and record/replay utilities.
 
 ## Introduction

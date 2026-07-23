@@ -7,6 +7,10 @@ keywords: image generation, text-to-image, DALL-E, Imagen, OpenAI, Google Gemini
 
 # Image Generation
 
+::: warning Active development
+The AI package is under active development. APIs may change without notice as we experiment with the best integration patterns. Use with caution in production.
+:::
+
 FastAPI Startkit ships a fluent, provider-agnostic **image generation** API. Describe an image in plain text, optionally attach a source photo for editing, and persist the result to any configured storage disk — all with a single chained expression.
 
 ## Introduction

@@ -7,6 +7,10 @@ keywords: audio generation, text-to-speech, TTS, OpenAI, Google Gemini, ElevenLa
 
 # Audio Generation
 
+::: warning Active development
+The AI package is under active development. APIs may change without notice as we experiment with the best integration patterns. Use with caution in production.
+:::
+
 FastAPI Startkit ships a fluent, provider-agnostic **text-to-speech** API. Turn any string into spoken audio, pick a voice, and persist the result to any configured storage disk — all in a single chained expression.
 
 ## Introduction
