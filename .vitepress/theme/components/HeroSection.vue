@@ -174,7 +174,7 @@
         <div class="max-w-7xl mx-auto px-10 flex flex-col lg:flex-row items-center gap-16 lg:gap-24 relative z-10">
 
             <!-- Left Column -->
-            <div class="flex-1 space-y-10">
+            <div class="flex-1 w-full flex flex-col gap-10">
 
                 <!-- Badge -->
                 <div class="inline-flex items-center gap-2 px-3 py-1 glass-teal rounded-full">
@@ -206,14 +206,6 @@
                         Initialize Project
                         <Terminal :size="18"/>
                     </a>
-                </div>
-
-                <!-- Stats -->
-                <div class="grid grid-cols-2 gap-8 pt-8 border-t border-outline-variant">
-                    <div>
-                        <div class="text-headline-md font-headline-md font-semibold text-brand-teal tracking-[-0.01em]">70%</div>
-                        <div class="text-label-sm font-label-sm text-on-surface-variant uppercase mt-1">Test Coverage</div>
-                    </div>
                 </div>
             </div>
 
