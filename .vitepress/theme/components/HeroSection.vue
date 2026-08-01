@@ -171,10 +171,10 @@
         <!-- Background glow -->
         <div class="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-150 h-150 bg-brand-teal/5 blur-[120px] rounded-full"></div>
 
-        <div class="max-w-7xl mx-auto px-10 flex flex-col lg:flex-row items-center gap-16 lg:gap-24 relative z-10">
+        <div class="max-w-7xl mx-auto px-10 flex flex-col lg:flex-row items-center lg:items-stretch gap-16 lg:gap-24 relative z-10">
 
             <!-- Left Column -->
-            <div class="flex-1 w-full flex flex-col gap-10">
+            <div class="flex-1 w-full flex flex-col justify-between">
 
                 <!-- Badge -->
                 <div class="inline-flex items-center gap-2 px-3 py-1 glass-teal rounded-full">
