@@ -7,6 +7,10 @@ keywords: MCP, Model Context Protocol, JSON-RPC, AI tools, FastAPI, fastapi-star
 
 # MCP (Model Context Protocol)
 
+::: warning Active development
+The AI package is under active development. APIs may change without notice as we experiment with the best integration patterns. Use with caution in production.
+:::
+
 The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-RPC 2.0 standard that lets AI assistants — such as Claude, Cursor, and other MCP-compatible clients — discover and call capabilities exposed by your application. `fastapi-startkit` includes built-in support for MCP: define servers, tools, prompts, and resources as plain Python classes and mount them on your app with a single line.
 
 ## Getting Started
