@@ -7,7 +7,7 @@ keywords: casts, serialization, model attributes, pydantic, json, orm
 
 # Casts
 
-Casts automatically transform model attribute values when reading from or writing to the database. Declare `Field[T]()` or annotate a field with the desired type and the ORM handles the conversion transparently.
+Casts automatically transform model attribute values when reading from or writing to the database. Annotate a field with the desired type and the ORM handles the conversion transparently. The optional `Field[T]()` syntax also supports explicit field types.
 
 ## Built-in Casts
 
@@ -154,7 +154,7 @@ A `NULL` database value will be returned as `time(9, 0, 0)` instead of `None`.
 
 ## Nested Pydantic Models
 
-For embedded value objects, extend Pydantic's `BaseModel` and declare the ORM field with `Field[Address]()`. Values are reconstructed as Pydantic models when read and serialized to JSON when written.
+For embedded value objects, extend Pydantic's `BaseModel` and annotate the ORM field as `address: Address`. Values are reconstructed as Pydantic models when read and serialized to JSON when written.
 
 ### Defining a custom cast
 
@@ -174,18 +174,20 @@ class Address(BaseModel):
 Use your Pydantic model as the field type:
 
 ```python
-from fastapi_startkit.masoniteorm import Field, Model
+from fastapi_startkit.masoniteorm import Model
 from app.casts import Address
 
 class User(Model):
     id: int
     name: str
-    address = Field[Address]()
+    address: Address
 ```
 
 The legacy declaration `address: Address = ModelField()` remains supported.
 `ModelField` is publicly importable from `fastapi_startkit.masoniteorm`, but
-emits a `DeprecationWarning` and is scheduled for removal in **2.x**.
+emits a `DeprecationWarning` and is scheduled for removal in **2.x**. Migrate to
+`address: Address`. If you prefer explicit descriptors, import `Field` and use
+`address = Field[Address]()` instead.
 
 The column should be a `text` or `json` column in your migration:
 

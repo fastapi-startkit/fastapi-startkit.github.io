@@ -11,32 +11,44 @@ Models represent database tables and are the primary interface for reading and w
 
 ## Defining a Model
 
-Extend `Model` from `fastapi_startkit.masoniteorm` and declare columns with `Field[T]()`:
+Extend `Model` from `fastapi_startkit.masoniteorm` and annotate your columns with Python types:
+
+```python
+from fastapi_startkit.masoniteorm import Model
+
+class User(Model):
+    __table__ = "users"
+
+    id: int
+    name: str
+    email: str
+```
+
+### Optional field configuration
+
+Plain annotations supply the types for attribute access and runtime casting.
+Import `Field` when you need a default or field metadata:
 
 ```python
 from fastapi_startkit.masoniteorm import Field, Model
 
 class User(Model):
-    __table__ = "users"
-
-    id = Field[int]()
-    name = Field[str]()
-    email = Field[str]()
-    is_admin = Field(default=False)
+    id: int
+    name: str
+    email: str
+    is_admin: bool = Field(default=False)
 ```
 
-### Field types and compatibility
-
-`Field[int]()` supplies the type for instance access and runtime casting.
-`Field(default=False)` infers `bool` from its default. Existing annotated fields,
-such as `name: str`, remain supported.
+Explicit descriptors such as `id = Field[int]()` and inferred defaults such as
+`is_admin = Field(default=False)` are also supported. You can mix these with
+plain annotations; descriptors participate in `fill()` and `update()` too.
 
 The base `Model` uses `@dataclass_transform` with `Field` and the legacy
 `ModelField` registered as field specifiers. This provides static typing metadata;
 it does not generate a runtime constructor or validate that every field was
-supplied. Descriptor-only fields also participate in `fill()` and `update()`.
+supplied.
 
-For embedded Pydantic models, use `address = Field[Address]()`. The ORM stores
+For embedded Pydantic models, annotate the field as `address: Address`. The ORM stores
 the value as JSON and reconstructs an `Address` on access. See
 [nested model casts](./casts#nested-pydantic-models) for a complete example.
 
@@ -52,7 +64,7 @@ class LegacyUser(Model):
 
 `ModelField()` emits a `DeprecationWarning` and is scheduled for removal in
 **2.x**. Replace `address: Address = ModelField()` with
-`address = Field[Address]()`.
+`address: Address`. The optional `address = Field[Address]()` syntax works too.
 
 ### `__table__`
 
