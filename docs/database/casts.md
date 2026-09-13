@@ -7,7 +7,7 @@ keywords: casts, serialization, model attributes, pydantic, json, orm
 
 # Casts
 
-Casts automatically transform model attribute values when reading from or writing to the database. Annotate a field with the desired type and the ORM handles the conversion transparently.
+Casts automatically transform model attribute values when reading from or writing to the database. Declare `Field[T]()` or annotate a field with the desired type and the ORM handles the conversion transparently.
 
 ## Built-in Casts
 
@@ -152,17 +152,17 @@ class User(Model):
 
 A `NULL` database value will be returned as `time(9, 0, 0)` instead of `None`.
 
-## Custom Casts with `Attribute`
+## Nested Pydantic Models
 
-For complex types — such as embedded value objects — extend `Attribute`. It is a Pydantic `BaseModel` subclass, so fields are validated and the instance is serialized to JSON automatically.
+For embedded value objects, extend Pydantic's `BaseModel` and declare the ORM field with `Field[Address]()`. Values are reconstructed as Pydantic models when read and serialized to JSON when written.
 
 ### Defining a custom cast
 
 ```python
 from typing import Optional
-from fastapi_startkit.masoniteorm import Attribute
+from pydantic import BaseModel
 
-class Address(Attribute):
+class Address(BaseModel):
     street: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -171,17 +171,21 @@ class Address(Attribute):
 
 ### Wiring it to a model
 
-Annotate the field with your `Attribute` subclass:
+Use your Pydantic model as the field type:
 
 ```python
-from fastapi_startkit.masoniteorm import Model
+from fastapi_startkit.masoniteorm import Field, Model
 from app.casts import Address
 
 class User(Model):
     id: int
     name: str
-    address: Address
+    address = Field[Address]()
 ```
+
+The legacy declaration `address: Address = ModelField()` remains supported.
+`ModelField` is publicly importable from `fastapi_startkit.masoniteorm`, but
+emits a `DeprecationWarning` and is scheduled for removal in **2.x**.
 
 The column should be a `text` or `json` column in your migration:
 

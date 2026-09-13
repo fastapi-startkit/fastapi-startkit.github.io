@@ -11,18 +11,48 @@ Models represent database tables and are the primary interface for reading and w
 
 ## Defining a Model
 
-Extend `Model` from `fastapi_startkit.masoniteorm` and annotate your columns as class-level type hints:
+Extend `Model` from `fastapi_startkit.masoniteorm` and declare columns with `Field[T]()`:
 
 ```python
-from fastapi_startkit.masoniteorm import Model
+from fastapi_startkit.masoniteorm import Field, Model
 
 class User(Model):
     __table__ = "users"
 
-    id: int
-    name: str
-    email: str
+    id = Field[int]()
+    name = Field[str]()
+    email = Field[str]()
+    is_admin = Field(default=False)
 ```
+
+### Field types and compatibility
+
+`Field[int]()` supplies the type for instance access and runtime casting.
+`Field(default=False)` infers `bool` from its default. Existing annotated fields,
+such as `name: str`, remain supported.
+
+The base `Model` uses `@dataclass_transform` with `Field` and the legacy
+`ModelField` registered as field specifiers. This provides static typing metadata;
+it does not generate a runtime constructor or validate that every field was
+supplied. Descriptor-only fields also participate in `fill()` and `update()`.
+
+For embedded Pydantic models, use `address = Field[Address]()`. The ORM stores
+the value as JSON and reconstructs an `Address` on access. See
+[nested model casts](./casts#nested-pydantic-models) for a complete example.
+
+`ModelField` is still defined and exported for compatibility:
+
+```python
+from fastapi_startkit.masoniteorm import Model, ModelField
+from app.casts import Address
+
+class LegacyUser(Model):
+    address: Address = ModelField()
+```
+
+`ModelField()` emits a `DeprecationWarning` and is scheduled for removal in
+**2.x**. Replace `address: Address = ModelField()` with
+`address = Field[Address]()`.
 
 ### `__table__`
 
