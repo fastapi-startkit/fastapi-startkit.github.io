@@ -11,7 +11,7 @@ Models represent database tables and are the primary interface for reading and w
 
 ## Defining a Model
 
-Extend `Model` from `fastapi_startkit.masoniteorm` and annotate your columns as class-level type hints:
+Extend `Model` from `fastapi_startkit.masoniteorm` and annotate your columns with Python types:
 
 ```python
 from fastapi_startkit.masoniteorm import Model
