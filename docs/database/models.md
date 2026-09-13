@@ -24,48 +24,6 @@ class User(Model):
     email: str
 ```
 
-### Optional field configuration
-
-Plain annotations supply the types for attribute access and runtime casting.
-Import `Field` when you need a default or field metadata:
-
-```python
-from fastapi_startkit.masoniteorm import Field, Model
-
-class User(Model):
-    id: int
-    name: str
-    email: str
-    is_admin: bool = Field(default=False)
-```
-
-Explicit descriptors such as `id = Field[int]()` and inferred defaults such as
-`is_admin = Field(default=False)` are also supported. You can mix these with
-plain annotations; descriptors participate in `fill()` and `update()` too.
-
-The base `Model` uses `@dataclass_transform` with `Field` and the legacy
-`ModelField` registered as field specifiers. This provides static typing metadata;
-it does not generate a runtime constructor or validate that every field was
-supplied.
-
-For embedded Pydantic models, annotate the field as `address: Address`. The ORM stores
-the value as JSON and reconstructs an `Address` on access. See
-[nested model casts](./casts#nested-pydantic-models) for a complete example.
-
-`ModelField` is still defined and exported for compatibility:
-
-```python
-from fastapi_startkit.masoniteorm import Model, ModelField
-from app.casts import Address
-
-class LegacyUser(Model):
-    address: Address = ModelField()
-```
-
-`ModelField()` emits a `DeprecationWarning` and is scheduled for removal in
-**2.x**. Replace `address: Address = ModelField()` with
-`address: Address`. The optional `address = Field[Address]()` syntax works too.
-
 ### `__table__`
 
 By default the ORM infers the table name from the class name (pluralized, snake_cased). Set `__table__` explicitly to override:
