@@ -62,6 +62,36 @@ A provider can be listed on its own, or paired with a config object as a `(Provi
 
 The sections below walk you through installing the framework and standing up your first application.
 
+## Getting Started Using AI
+
+If you use an AI coding agent — [Claude Code](https://www.anthropic.com/claude-code), Cursor, GitHub Copilot, Windsurf, or similar — you can scaffold a fully structured Fastapi Startkit project without running any of the manual steps below yourself. Open your agent in an empty project directory and paste the prompt:
+
+```text
+Scaffold a new Python project using the Fastapi Startkit framework
+(https://pypi.org/project/fastapi-startkit/, docs at https://fastapi-startkit.github.io).
+
+Requirements:
+1. Use `uv` for environment and dependency management. Target Python 3.12+.
+   Run `uv init` and add the framework with `uv add "fastapi-startkit[fastapi]"`.
+2. Use the recommended structured (provider-driven) layout, not the single-file setup:
+   .
+   ├── artisan                  # CLI entry point
+   ├── bootstrap/
+   │   └── application.py       # builds the Application with its providers
+   ├── config/
+   └── app/
+3. In `bootstrap/application.py`, create the `Application` with `base_path` set to the
+   project root and register `FastAPIProvider` from `fastapi_startkit.fastapi`.
+4. Make `artisan` an executable script that imports `app` from `bootstrap.application`
+   and calls `app.handle_command()`, exiting with its status code.
+5. Verify the server boots with `uv run python artisan serve`.
+
+Follow the conventions in the Fastapi Startkit "Getting Started" guide. Keep the code
+clean and minimal — register only what the requirements ask for.
+```
+
+The agent will install the framework, generate the directory structure, and produce a runnable application. The sections below walk through the same setup manually if you'd rather do it by hand.
+
 ## Prerequisites
 
 Before installing Fastapi Startkit, ensure you have the following installed:
