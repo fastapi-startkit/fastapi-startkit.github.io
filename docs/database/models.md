@@ -194,6 +194,127 @@ async for projects in Project.chunk_by_id_desc(100):
 
 > All three chunk methods raise a `ValueError` if the batch size is not a positive integer.
 
+### Subquery selects
+
+You can select the result of a subquery as an extra column. For example, this loads every user with the time of their most recent login in a single query:
+
+```python
+users = await (
+    User.query()
+    .add_select({
+        "last_login_at": Login.query()
+        .select("created_at")
+        .where_column("user_id", "users.id")
+        .latest()
+        .limit(1)
+    })
+    .get()
+)
+
+users[0].serialize()["last_login_at"]
+```
+
+```sql
+SELECT "users".*, (SELECT "logins"."created_at" FROM "logins" WHERE user_id = users.id ORDER BY "created_at" DESC LIMIT 1) AS last_login_at FROM "users"
+```
+
+#### `select_sub(subquery, alias)`
+
+Adds `(subquery) AS alias` to the columns already selected. `subquery` can be a query builder, or a callable that receives a new builder with no table set and returns the subquery:
+
+```python
+posts = await (
+    Post.query()
+    .select("id")
+    .select_sub(
+        lambda q: q.table("categories")
+        .select("name")
+        .where_column("categories.id", "posts.category_id")
+        .limit(1),
+        "category_name",
+    )
+    .get()
+)
+```
+
+```sql
+SELECT "posts"."id", (SELECT "categories"."name" FROM "categories" WHERE categories.id = posts.category_id LIMIT 1) AS category_name FROM "posts"
+```
+
+Passing a builder instead of a callable gives the same SQL:
+
+```python
+category_name = Category.query().select("name").where_column("categories.id", "posts.category_id").limit(1)
+
+posts = await Post.query().select("id").select_sub(category_name, "category_name").get()
+```
+
+Bindings from the subquery come before bindings from the outer `WHERE` clause, so `?` placeholders stay in the right order. Passing anything other than a builder or a callable raises `TypeError`.
+
+#### `add_select(*columns)`
+
+Adds columns to the current selection instead of replacing it. Pass the columns as separate arguments or as one list. A column that is already selected is not added a second time:
+
+```python
+Post.query().select("id").add_select("title", "category_id")
+Post.query().select("id").add_select(["title", "category_id"])
+Post.query().select("id", "title").add_select("title", "category_id")  # "title" is only selected once
+```
+
+All three produce:
+
+```sql
+SELECT "posts"."id", "posts"."title", "posts"."category_id" FROM "posts"
+```
+
+To add a subquery column, pass a `{alias: subquery}` dict. The subquery can be a builder or a callable, and the entry is passed on to `select_sub(subquery, alias)`. You can mix plain columns and dicts in the same list:
+
+```python
+Post.query().select("id").add_select({"category_name": category_name})
+Post.query().add_select(["id", {"category_name": category_name}])
+```
+
+If nothing has been selected yet, `add_select` first selects `{table}.*`, so the model's own columns are still returned next to the subquery column:
+
+```python
+Post.query().add_select({"category_name": category_name})
+```
+
+```sql
+SELECT "posts".*, (SELECT "categories"."name" FROM "categories" WHERE categories.id = posts.category_id LIMIT 1) AS category_name FROM "posts"
+```
+
+Keep these rules in mind:
+
+- If the dict value is a string, it is a plain column and the key is ignored. `add_select({"ignored": "title"})` does the same thing as `add_select("title")`.
+- A subquery passed without an alias, for example `add_select(Category.query().select("name"))`, raises `TypeError`. Wrap it in a dict or call `select_sub()` instead.
+
+::: warning Migrating from `add_select(alias, callable)`
+Older versions used `add_select(alias, callable)` to add a subquery column. That form has been removed, and `add_select` now only accepts columns. Use `select_sub` instead. Note that the arguments are in the opposite order:
+
+```python
+# Before
+Post.query().add_select("category_name", lambda q: ...)
+
+# After
+Post.query().select_sub(lambda q: ..., "category_name")
+# or
+Post.query().add_select({"category_name": lambda q: ...})
+```
+:::
+
+#### `table(name)`
+
+Changes the table the builder queries. This is most useful inside a `select_sub` callable, where the builder you receive has no table set. You can also use it to point a model query at a different table:
+
+```python
+rows = await Post.query().table("categories").select("name").get()
+```
+
+```sql
+SELECT "categories"."name" FROM "categories"
+```
+
 ## Creating Records
 
 ### `create`
