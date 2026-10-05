@@ -26,6 +26,7 @@ routes and migrations.
 
 ## Contents
 
+- [Installation](#installation)
 - [Registering the providers](#registering-the-providers)
 - [Core: AuthProvider](#core-authprovider)
 - [Sessions: AuthSessionProvider](#sessions-authsessionprovider)
@@ -35,6 +36,34 @@ routes and migrations.
 - [Migrations](#migrations)
 - [Protecting routes](#protecting-routes)
 - [Errors](#errors)
+
+## Installation
+
+Install the package with your package manager:
+
+::: code-group
+
+```sh [uv]
+uv add fastapi-startkit-auth
+```
+
+```sh [pip]
+pip install fastapi-startkit-auth
+```
+
+:::
+
+The package runs standalone on any FastAPI app. Add an extra for the database
+stores and the Startkit integration:
+
+| Extra | Installs | Use it for |
+| --- | --- | --- |
+| `startkit` | `fastapi-startkit[database]` (Python 3.12+) | `store="database"` and registering the providers in a Startkit `Application` |
+| `masoniteorm` | `masonite-orm` | The `masoniteorm` user provider on a standalone app |
+
+```sh
+uv add "fastapi-startkit-auth[startkit]"
+```
 
 ## Registering the providers
 
@@ -133,9 +162,9 @@ python artisan db:migrate
 
 ## Core: AuthProvider
 
-`AuthConfig` declares the guards, user providers and password brokers. It
-mirrors Laravel's `config/auth.php`. Write it as a class whose attributes are
-the settings; a plain dict with the same keys also works.
+`AuthConfig` declares the guards, user providers and password brokers.
+Write it as a class whose attributes are the settings; a plain dict with the
+same keys also works.
 
 ```python
 from fastapi_startkit_auth import AuthConfig
@@ -706,7 +735,7 @@ def reports(ctx=Depends(require_scopes("reports:read"))):   # 403 insufficient_s
 
 - `require_scopes("a", "b")` requires every listed scope.
   `require_scopes("a", "b", mode="any")` requires at least one.
-- `require_abilities` is the same check under the Sanctum name.
+- `require_abilities` is an alias of `require_scopes`.
 - `"*"` satisfies any scope.
 - `auth` returns the `AuthContext` (`user`, `scopes`, `client_id`, `jti`,
   `can(...)`, `can_any(...)`, `can_all(...)`) and rejects user-less tokens.
