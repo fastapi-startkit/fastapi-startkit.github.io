@@ -158,7 +158,8 @@ export default defineConfig({
                     { text: 'FastAPI', link: '/docs/fastapi' },
                     { text: 'Exception Handling', link: '/docs/exception-handling' },
                     { text: 'Logging', link: '/docs/logging' },
-                    { text: 'Console Commands', link: '/docs/console' }
+                    { text: 'Console Commands', link: '/docs/console' },
+                    { text: 'Authentication', link: '/docs/authentication' }
                 ]
             },
             {
