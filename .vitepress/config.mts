@@ -158,8 +158,7 @@ export default defineConfig({
                     { text: 'FastAPI', link: '/docs/fastapi' },
                     { text: 'Exception Handling', link: '/docs/exception-handling' },
                     { text: 'Logging', link: '/docs/logging' },
-                    { text: 'Console Commands', link: '/docs/console' },
-                    { text: 'Authentication', link: '/docs/authentication' }
+                    { text: 'Console Commands', link: '/docs/console' }
                 ]
             },
             {
@@ -195,6 +194,7 @@ export default defineConfig({
             {
                 text: 'Digging Deeper',
                 items: [
+                    { text: 'Authentication', link: '/docs/authentication' },
                     { text: 'Storage', link: '/docs/storage' },
                     { text: 'Queues', link: '/docs/queues' },
                     { text: 'Process', link: '/docs/process' },
