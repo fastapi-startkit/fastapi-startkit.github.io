@@ -196,6 +196,7 @@ export default defineConfig({
                 text: 'Digging Deeper',
                 items: [
                     { text: 'Storage', link: '/docs/storage' },
+                    { text: 'Redis', link: '/docs/redis' },
                     { text: 'Queues', link: '/docs/queues' },
                     { text: 'Process', link: '/docs/process' },
                     { text: 'Broadcasting', link: '/docs/broadcasting' },
