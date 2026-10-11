@@ -1,30 +1,22 @@
 <script setup>
     import DefaultTheme from "vitepress/theme"
-    import CoreModules from "./components/CoreModules.vue"
-    import FinalCTA from "./components/FinalCTA.vue"
-    import HeroSection from "./components/HeroSection.vue"
-    import LogoStrip from "./components/LogoStrip.vue"
-    import PerformanceBenchmarks from "./components/PerformanceBenchmarks.vue"
-    import SiteFooter from "./components/SiteFooter.vue"
-    import SiteHeader from "./components/SiteHeader.vue"
-    import Testimonials from "./components/Testimonials.vue"
+    import { useData } from "vitepress"
+    import { computed } from "vue"
+    import HomeNav from "./home/HomeNav.vue"
+    import HomePage from "./home/HomePage.vue"
 
     const { Layout } = DefaultTheme
+    const { frontmatter } = useData()
+    const isHome = computed(() => frontmatter.value.layout === "home")
 </script>
 
 <template>
     <Layout>
         <template #layout-top>
-            <SiteHeader/>
+            <HomeNav :fixed="!isHome"/>
         </template>
         <template #home-hero-before>
-            <HeroSection/>
-            <LogoStrip/>
-            <CoreModules/>
-            <PerformanceBenchmarks/>
-            <Testimonials/>
-            <FinalCTA/>
-            <SiteFooter/>
+            <HomePage/>
         </template>
     </Layout>
 </template>
