@@ -1,0 +1,194 @@
+.hp,
+.hp-nav {
+    --hp-bg: #fbfaf7;
+    --hp-bg-alt: #f3efe7;
+    --hp-ink: #111110;
+    --hp-ink-soft: #45423c;
+    --hp-muted: #6b665d;
+    --hp-card: #ffffff;
+    --hp-card-off: #f4f1ea;
+    --hp-line: #111110;
+    --hp-line-soft: #d9d4c9;
+    --hp-shadow: #111110;
+    --hp-orange: #ee6633;
+    --hp-orange-ink: #b4461b;
+    --hp-on-orange: #111110;
+    --hp-term: #141312;
+    --hp-term-2: #1e1c1a;
+    --hp-term-line: #141312;
+    --hp-term-rule: #2b2926;
+    --hp-term-ink: #ece7dd;
+    --hp-term-muted: #9a9488;
+    --hp-sans: "Inter Tight", "Inter", system-ui, sans-serif;
+    --hp-serif: "Instrument Serif", Georgia, serif;
+    --hp-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --hp-gutter: 24px;
+
+    color: var(--hp-ink);
+    font-family: var(--hp-sans);
+}
+
+.dark .hp,
+.dark .hp-nav {
+    --hp-bg: #121110;
+    --hp-bg-alt: #1a1917;
+    --hp-ink: #f3efe7;
+    --hp-ink-soft: #cdc7bb;
+    --hp-muted: #a49d91;
+    --hp-card: #1c1b19;
+    --hp-card-off: #171615;
+    --hp-line: #e9e3d7;
+    --hp-line-soft: #3a3733;
+    --hp-shadow: #ee6633;
+    --hp-orange-ink: #ff8a5c;
+    --hp-term: #0b0a0a;
+    --hp-term-2: #181715;
+    --hp-term-line: #3a3733;
+    --hp-term-rule: #2b2926;
+}
+
+.hp {
+    background: var(--hp-bg);
+    overflow-x: clip;
+}
+
+.hp *,
+.hp *::before,
+.hp *::after {
+    box-sizing: border-box;
+}
+
+.hp :focus-visible,
+.hp-nav :focus-visible {
+    outline: 2px solid var(--hp-orange);
+    outline-offset: 3px;
+    border-radius: 6px;
+}
+
+.hp a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.hp-wrap {
+    width: 100%;
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 0 var(--hp-gutter);
+}
+
+.hp-section {
+    padding: 112px 0;
+}
+
+.hp-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 32px 56px;
+    align-items: end;
+    margin-bottom: 40px;
+}
+
+.hp-h2 {
+    margin: 0;
+    font: 800 clamp(2.25rem, 5.4vw, 3.9rem) / 0.98 var(--hp-sans);
+    letter-spacing: -0.05em;
+    color: var(--hp-ink);
+}
+
+.hp-h2 em,
+.hp-h1 em,
+.hp-serif {
+    font-family: var(--hp-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    color: var(--hp-orange);
+}
+
+.hp-blurb {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--hp-ink-soft);
+}
+
+.hp-label {
+    display: block;
+    font: 500 11px/1.2 var(--hp-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hp-muted);
+}
+
+.hp-card {
+    background: var(--hp-card);
+    border: 1.5px solid var(--hp-line);
+    border-radius: 16px;
+    box-shadow: 4px 4px 0 var(--hp-shadow);
+}
+
+.hp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1.5px solid var(--hp-line);
+    border-radius: 999px;
+    background: var(--hp-card);
+    color: var(--hp-ink);
+    font: 600 12px/1 var(--hp-sans);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hp-chip:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 2px 2px 0 var(--hp-shadow);
+}
+
+.hp-chip[aria-pressed="true"],
+.hp-chip[aria-selected="true"] {
+    background: var(--hp-ink);
+    color: var(--hp-bg);
+    box-shadow: 3px 3px 0 var(--hp-orange);
+}
+
+.tk-k { color: #ff9668; }
+.tk-s { color: #b9e3a5; }
+.tk-c { color: #8d877c; font-style: italic; }
+.tk-d { color: #ffb35c; }
+.tk-n { color: #f7c97e; }
+.tk-t { color: #9ec8ff; }
+.tk-f { color: #d7b8ff; }
+.tk-v { color: #f0a3c8; }
+
+.hp-light-code .tk-k { color: #b4461b; }
+.hp-light-code .tk-s { color: #2f7a27; }
+.hp-light-code .tk-c { color: #7a756c; }
+.hp-light-code .tk-t { color: #1d5fb8; }
+.hp-light-code .tk-f { color: #7c3aed; }
+.hp-light-code .tk-v { color: #a1356b; }
+.hp-light-code .tk-n { color: #9a5b00; }
+
+@media (max-width: 900px) {
+    .hp-head {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .hp-section {
+        padding: 80px 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .hp,
+    .hp-nav {
+        --hp-gutter: 16px;
+    }
+
+    .hp-section {
+        padding: 64px 0;
+    }
+}
