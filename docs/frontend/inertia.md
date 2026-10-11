@@ -225,6 +225,8 @@ Shared data is merged with per-render props. Per-render props take precedence.
 Calling `Inertia.share()` while a request is being handled (in a controller or a dependency) only affects that request. It does not leak into later requests:
 
 ```python
+from fastapi import Request
+
 async def edit(request: Request):
     Inertia.share("only_here", True)  # visible on this response only
     return Inertia.render("Users/Edit")
@@ -295,7 +297,7 @@ Wrap a value with one of the `Inertia` helpers to change how and when it is sent
 
 | Helper | Behaviour |
 |---|---|
-| `Inertia.optional(callback)` | Never sent unless requested with `only` |
+| `Inertia.optional(callback)` | Skipped on full visits; sent only on a partial reload that includes it |
 | `Inertia.always(value)` | Always sent, even when a partial reload excludes it |
 | `Inertia.defer(callback, group="default")` | Skipped on the first render, loaded right after by the client |
 | `Inertia.merge(value)` | Appended to the existing client-side value instead of replacing it |
@@ -313,7 +315,7 @@ from fastapi_startkit.inertia import Prop
 
 ### Optional Props
 
-Use `Inertia.optional()` to mark a prop as never included unless explicitly requested via the `only` option:
+Use `Inertia.optional()` to leave a prop out of full visits. It is only sent on a partial reload that includes it, either by naming it in `only` or by an `except`-only reload that doesn't exclude it:
 
 ```python
 async def index():
@@ -411,7 +413,7 @@ return Inertia.render("Billing/Index", {
 - `until(ttl)` sets an expiry, in seconds or as a `timedelta`; the client refetches the prop after it expires.
 - `fresh()` always resolves the prop, while still telling the client to remember it.
 
-Once props can be deferred too: `Inertia.defer(get_plans).once()`. A full page load always resolves them.
+Once props can be deferred too: `Inertia.defer(get_plans).once()`. A full page load (the first HTML response) resolves non-deferred once props again, even if the client already has them. Deferred once props are not resolved on a full page load; they are listed in `deferredProps` and fetched afterwards like any deferred prop.
 
 ### Scroll Props
 
@@ -419,7 +421,7 @@ Once props can be deferred too: `Inertia.defer(get_plans).once()`. A full page l
 
 ```python
 async def index(page: int = 1):
-    users = await User.paginate(15, page)
+    users = await User.query().paginate(15, page)
     return Inertia.render("Users/Index", {
         "users": Inertia.scroll(users),
     })
@@ -443,6 +445,8 @@ To resolve the page lazily, use `Inertia.scroll_with(callback)`. An object can a
 If a prop raises, the whole response fails. Mark a prop with `rescue()` to drop it instead: the error is logged and the prop's path is listed in `rescuedProps`, so the rest of the page still renders:
 
 ```python
+from fastapi_startkit.inertia import Inertia, Prop
+
 return Inertia.render("Dashboard/Index", {
     "user": user,
     "stats": Inertia.defer(get_stats).rescue(),
@@ -524,9 +528,10 @@ Inertia.with_errors({"email": "The email is required."})
 return Inertia.redirect("/users/create").with_errors({"name": ["Taken", "Too short"]})
 ```
 
-Errors can be given as a dict of strings or lists, a `ValidationErrors` object, a pydantic `ValidationError`, or FastAPI's `RequestValidationError` (the leading `body` part of the location is dropped, so `("body", "user", "email")` becomes `user.email`):
+Errors can be given as a dict of strings or lists, a `ValidationErrors` object, a pydantic `ValidationError`, or FastAPI's `RequestValidationError`. For a `RequestValidationError`, the first segment of each error location (such as `body` or `query`) is dropped, so `("body", "user", "email")` becomes `user.email`:
 
 ```python
+from fastapi import Request
 from pydantic import ValidationError
 
 async def store(request: Request):
@@ -565,18 +570,6 @@ return Inertia.redirect("/").with_errors_in("register", {"name": "Taken"})
 ```
 
 The client can also choose the bag: when a request sends `errorBag: "login"` (the `X-Inertia-Error-Bag` header), default-bag errors are nested under that name, e.g. `{"login": {"email": "Required"}}`.
-
-### All Messages Per Field
-
-To send every message instead of the first, set `with_all_errors` on a middleware subclass:
-
-```python
-from fastapi_startkit.inertia import InertiaMiddleware
-
-class AppInertiaMiddleware(InertiaMiddleware):
-    with_all_errors = True
-# props.errors == {"email": ["Required", "Invalid"]}
-```
 
 ### Errors on Partial Reloads
 
@@ -636,14 +629,7 @@ class FastAPIProvider(BaseFastAPIProvider):
         Inertia.version("1.0.0")
 ```
 
-A configured version always wins over the Vite manifest hash. To compute the fallback differently, override `version()` on a middleware subclass:
-
-```python
-class AppInertiaMiddleware(InertiaMiddleware):
-    @staticmethod
-    def version(request):
-        return os.environ.get("RELEASE_SHA")
-```
+A configured version always wins over the Vite manifest hash; the middleware no longer overwrites it.
 
 When the client's `X-Inertia-Version` header mismatches the server version on a `GET` request, the middleware returns `409 Conflict` with `X-Inertia-Location` and `X-Inertia-Version` headers before the controller runs, causing the client to perform a full hard reload. Flash data and errors are kept for the reloaded page.
 
@@ -657,16 +643,7 @@ from fastapi_startkit.inertia import Inertia
 Inertia.set_root_view("app.html")
 ```
 
-To pick the template per request, override `root_view()` on a middleware subclass. It wins over `set_root_view()`:
-
-```python
-class AdminInertiaMiddleware(InertiaMiddleware):
-    @classmethod
-    def root_view(cls, request):
-        return "admin.html" if request.url.path.startswith("/admin") else None
-```
-
-Returning `None` falls back to the configured view. A single response can also use its own template:
+The configured root view is used for every first visit; the middleware no longer overwrites it. A single response can use its own template:
 
 ```python
 return Inertia.render("Reports/Print").with_root_view("print.html")
@@ -690,13 +667,19 @@ Shared props, the per-request version and root view, and the history encryption 
 Flash data, errors and history flags are stored in the session. Without a session middleware, they are kept for the current request only and a warning is logged. In tests, add `FakeSessionMiddleware` to get an in-memory session that persists between requests:
 
 ```python
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastapi_startkit.inertia import Inertia, InertiaMiddleware
 from fastapi_startkit.inertia.testing import FakeSessionMiddleware
 
-def test_flash_appears_on_the_next_page():
+@pytest.fixture
+def inertia_version():
     Inertia.version("test")
+    yield
+    Inertia.version(None)
+
+def test_flash_appears_on_the_next_page(inertia_version):
     session = {}
     app = FastAPI()
     app.add_middleware(InertiaMiddleware)
@@ -717,4 +700,4 @@ def test_flash_appears_on_the_next_page():
     assert page["flash"] == {"success": "Saved"}
 ```
 
-The fixed `Inertia.version("test")` lets this bare FastAPI app run without a booted application, which would otherwise provide the Vite manifest hash. Pass your own dict as `session` to inspect or seed it. `FakeSessionMiddleware` is for tests only; use a real session middleware in your application.
+The `inertia_version` fixture sets a fixed version, so this bare FastAPI app runs without a booted application (which would otherwise provide the Vite manifest hash), and resets it afterwards so it doesn't leak into other tests. Pass your own dict as `session` to inspect or seed it. `FakeSessionMiddleware` is for tests only; use a real session middleware in your application.
