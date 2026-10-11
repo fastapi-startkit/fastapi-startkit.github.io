@@ -24,19 +24,6 @@ routes and migrations.
 | `AuthOAuth2Provider` | `OAuth2Config` | The `oauth2` guard driver, the `/oauth/*` endpoints, the `auth:oauth2:client` command | `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_auth_codes`, `oauth_clients` |
 | `AuthApiTokenProvider` | `ApiTokenConfig` | The `token` guard driver, the `ApiToken` facade, optional SPA mode | `personal_api_tokens` |
 
-## Contents
-
-- [Installation](#installation)
-- [Registering the providers](#registering-the-providers)
-- [Core: AuthProvider](#core-authprovider)
-- [Sessions: AuthSessionProvider](#sessions-authsessionprovider)
-- [API tokens: AuthApiTokenProvider](#api-tokens-authapitokenprovider)
-- [OAuth 2.1: AuthOAuth2Provider](#oauth-21-authoauth2provider)
-- [Stores](#stores)
-- [Migrations](#migrations)
-- [Protecting routes](#protecting-routes)
-- [Errors](#errors)
-
 ## Installation
 
 Install the package with your package manager:
