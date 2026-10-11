@@ -7,7 +7,7 @@ keywords: authentication, fastapi auth, sessions, csrf, api tokens, oauth2, oaut
 
 # Authentication
 
-`fastapi-startkit-auth` gives a FastAPI app three ways to authenticate users:
+FastAPI Startkit provides authentication through its official [`fastapi-startkit-auth`](https://github.com/fastapi-startkit/fastapi-startkit-auth) package, which offers three ways to authenticate users in a FastAPI application:
 
 - cookie sessions for server-rendered pages and same-site SPAs
 - opaque API tokens for mobile apps, CLIs and scripts

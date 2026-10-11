@@ -310,7 +310,7 @@ html:not(.dark) .vp-doc div[class*="language-"] .shiki span {
     border-collapse: separate;
     border-spacing: 0;
     border-radius: 10px;
-    overflow: hidden;
+    overflow-x: auto;
 }
 
 .vp-doc th {
