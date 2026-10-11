@@ -242,19 +242,30 @@
         }
 
         .hero__visual {
-            padding: 14px 10px 0 0;
+            padding: 0 12px 24px 4px;
+        }
+
+        .hero__code {
+            transform: rotate(-1deg);
+            box-shadow: 6px 6px 0 var(--hp-orange);
         }
 
         .hero__code :deep(.code-card__body) {
             min-height: 0;
         }
 
+        .hero__tabs {
+            flex-wrap: wrap;
+            overflow-x: visible;
+        }
+
         .hero__sticker {
+            top: auto;
+            bottom: -36px;
+            right: 8px;
             width: 68px;
             height: 68px;
             font-size: 12px;
-            top: -10px;
-            right: -6px;
         }
     }
 </style>

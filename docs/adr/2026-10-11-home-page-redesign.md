@@ -21,7 +21,7 @@ Option 3. `index.md` keeps `layout: home` with no `hero`/`features`, and `Layout
 - `.vitepress/theme/home/` holds one component per section: `HomeNav`, `HomeHero`, `HomeMarquee`, `HomeProviders`, `HomeBento`, `HomeAgents`, `HomeTesting`, `HomeLaravel`, `HomeSteps`, `HomeCta`, `HomeFooter`, composed by `HomePage`.
 - Shared pieces: `CodeCard` (terminal card), `InstallPill` (copy-to-clipboard), `BrandMark`, `highlight.ts` (a small Python/PHP/Bash token highlighter so snippets need no runtime dependency) and `snippets.ts` (all code shown on the page).
 - `home.css` defines design tokens scoped to `.hp` / `.hp-nav`, so the home styles cannot leak into docs pages. `.dark .hp` remaps the tokens, so the page follows the VitePress appearance toggle.
-- Fonts (Inter Tight, Instrument Serif, JetBrains Mono) load from Google Fonts with the existing font import.
+- Fonts (Inter Tight, Instrument Serif, JetBrains Mono, plus the docs fonts Geist and Inter) load through `preconnect` and a stylesheet `<link>` in the VitePress `head` config instead of a render-blocking CSS `@import`, limited to the family, weight and style combinations that actually render.
 - Interactivity: provider switches use `role="switch"` and an `aria-live` summary; the Laravel comparison is an ARIA tablist with arrow/Home/End keys; hero file tabs are `aria-pressed` buttons; all controls have an orange `:focus-visible` ring.
 - `prefers-reduced-motion` stops the marquee and lets its items wrap.
 - Stacked grids use `minmax(0, 1fr)` so wide code blocks scroll inside their card instead of widening the page on phones.

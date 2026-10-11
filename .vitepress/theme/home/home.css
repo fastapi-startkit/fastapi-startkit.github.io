@@ -171,6 +171,15 @@
 .hp-light-code .tk-v { color: #a1356b; }
 .hp-light-code .tk-n { color: #9a5b00; }
 
+.dark .hp-light-code .tk-k { color: #ff9668; }
+.dark .hp-light-code .tk-s { color: #b9e3a5; }
+.dark .hp-light-code .tk-c { color: #a49d91; }
+.dark .hp-light-code .tk-d { color: #ffb35c; }
+.dark .hp-light-code .tk-n { color: #f7c97e; }
+.dark .hp-light-code .tk-t { color: #9ec8ff; }
+.dark .hp-light-code .tk-f { color: #d7b8ff; }
+.dark .hp-light-code .tk-v { color: #f0a3c8; }
+
 @media (max-width: 900px) {
     .hp-head {
         grid-template-columns: minmax(0, 1fr);
