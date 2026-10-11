@@ -20,7 +20,9 @@
                 <span class="code-card__label">{{ label }}</span>
             </slot>
         </div>
-        <p v-if="caption" class="code-card__caption">{{ caption }}</p>
+        <slot name="caption">
+            <p v-if="caption" class="code-card__caption">{{ caption }}</p>
+        </slot>
         <pre class="code-card__body" :class="{ 'is-numbered': numbered }"><code><span v-for="(line, i) in lines" :key="i" class="code-card__line" v-html="line || ' '"></span></code></pre>
     </div>
 </template>

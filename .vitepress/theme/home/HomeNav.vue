@@ -1,9 +1,13 @@
 <script setup lang="ts">
     import { Moon, Search, Sun } from "lucide-vue-next"
     import { useData } from "vitepress"
+    import { computed } from "vue"
     import BrandMark from "./BrandMark.vue"
 
-    const { isDark } = useData()
+    defineProps<{ fixed?: boolean }>()
+
+    const { isDark, page } = useData()
+    const inDocs = computed(() => page.value.relativePath.startsWith("docs/"))
 
     function openSearch() {
         document.dispatchEvent(new KeyboardEvent("keydown", {
@@ -13,13 +17,18 @@
 </script>
 
 <template>
-    <header class="hp-nav">
+    <header class="hp-nav" :class="{ 'hp-nav--fixed': fixed }">
         <nav class="hp-nav__inner" aria-label="Main">
             <div class="hp-nav__left">
                 <a href="/" class="hp-nav__brand" aria-label="FastAPI Startkit home">
                     <BrandMark/>
                 </a>
-                <a href="/docs/getting-started" class="hp-nav__link" aria-label="Documentation"><span class="hp-nav__link-full">Documentation</span><span class="hp-nav__link-short" aria-hidden="true">Docs</span></a>
+                <a
+                    href="/docs/getting-started"
+                    class="hp-nav__link"
+                    aria-label="Documentation"
+                    :aria-current="inDocs ? 'true' : undefined"
+                ><span class="hp-nav__link-full">Documentation</span><span class="hp-nav__link-short" aria-hidden="true">Docs</span></a>
             </div>
             <div class="hp-nav__right">
                 <button type="button" class="hp-nav__search" @click="openSearch">
@@ -63,6 +72,17 @@
         border-bottom: 1.5px solid var(--hp-line);
     }
 
+    .hp-nav--fixed {
+        position: fixed;
+        left: 0;
+        right: 0;
+    }
+
+    .hp-nav--fixed .hp-nav__inner {
+        max-width: var(--vp-layout-max-width, 1280px);
+        padding: 0 32px;
+    }
+
     .hp-nav__inner {
         display: flex;
         align-items: center;
@@ -99,8 +119,15 @@
         transition: color 0.15s ease;
     }
 
-    .hp-nav__link:hover {
+    .hp-nav__link:hover,
+    .hp-nav__link[aria-current] {
         color: var(--hp-orange-ink);
+    }
+
+    .hp-nav__link[aria-current] {
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 6px;
     }
 
     .hp-nav__search {
@@ -117,6 +144,17 @@
         color: var(--hp-muted);
         font: 500 12px/1 var(--hp-mono);
         cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .hp-nav__search:hover {
+        transform: translate(-1px, -1px);
+        box-shadow: 4px 4px 0 var(--hp-shadow);
+    }
+
+    .hp-nav__search:focus-visible {
+        border-color: var(--hp-orange);
+        box-shadow: 3px 3px 0 var(--hp-orange);
     }
 
     .hp-nav__search-text {
@@ -156,7 +194,17 @@
         color: var(--hp-orange-ink);
     }
 
+    @media (prefers-reduced-motion: reduce) {
+        .hp-nav__search {
+            transition: none;
+        }
+    }
+
     @media (max-width: 760px) {
+        .hp-nav--fixed .hp-nav__inner {
+            padding: 0 var(--hp-gutter);
+        }
+
         .hp-nav__search {
             width: 36px;
             padding: 0;

@@ -3,10 +3,17 @@
     import { computed, ref } from "vue"
     import CodeCard from "./CodeCard.vue"
     import InstallPill from "./InstallPill.vue"
-    import { heroFiles } from "./snippets"
+    import { heroTabs } from "./snippets"
 
+    const activeTab = ref(0)
     const activeFile = ref(0)
-    const file = computed(() => heroFiles[activeFile.value])
+    const tab = computed(() => heroTabs[activeTab.value])
+    const file = computed(() => tab.value.files[activeFile.value])
+
+    function selectTab(index: number) {
+        activeTab.value = index
+        activeFile.value = 0
+    }
 
     const highlights = ["Free & open source", "Async from the ground up", "Use one module or all"]
 </script>
@@ -39,19 +46,33 @@
             </div>
 
             <div class="hero__visual">
-                <CodeCard :code="file.code" :caption="file.path" numbered class="hero__code">
+                <CodeCard :code="file.code" numbered class="hero__code">
                     <template #header>
                         <span class="hero__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                        <div class="hero__tabs" role="group" aria-label="Example files">
+                        <div class="hero__tabs" role="group" aria-label="Example modules">
                             <button
-                                v-for="(item, index) in heroFiles"
+                                v-for="(item, index) in heroTabs"
                                 :key="item.tab"
                                 type="button"
                                 class="hero__tab"
-                                :aria-pressed="activeFile === index"
-                                @click="activeFile = index"
+                                :aria-pressed="activeTab === index"
+                                @click="selectTab(index)"
                             >{{ item.tab }}</button>
                         </div>
+                    </template>
+                    <template #caption>
+                        <div class="hero__files" role="group" :aria-label="`${tab.tab} files`">
+                            <button
+                                v-for="(item, index) in tab.files"
+                                :key="item.path"
+                                type="button"
+                                class="hero__file"
+                                :title="item.path"
+                                :aria-pressed="activeFile === index"
+                                @click="activeFile = index"
+                            >{{ item.name }}</button>
+                        </div>
+                        <p class="hero__path">{{ file.path }}</p>
                     </template>
                 </CodeCard>
                 <span class="hero__sticker" aria-hidden="true">MCP<br>ready</span>
@@ -160,7 +181,42 @@
     }
 
     .hero__code :deep(.code-card__body) {
-        min-height: 300px;
+        height: 432px;
+        overflow-y: auto;
+    }
+
+    .hero__files {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 12px 20px 0;
+    }
+
+    .hero__file {
+        padding: 5px 10px;
+        border: 1px solid var(--hp-term-rule);
+        border-radius: 6px;
+        background: none;
+        color: var(--hp-term-muted);
+        font: 500 11px/1.2 var(--hp-mono);
+        cursor: pointer;
+    }
+
+    .hero__file:hover {
+        color: var(--hp-term-ink);
+    }
+
+    .hero__file[aria-pressed="true"] {
+        border-color: var(--hp-orange);
+        color: var(--hp-term-ink);
+    }
+
+    .hero__path {
+        margin: 0;
+        padding: 10px 20px 0;
+        font: 500 11px/1.4 var(--hp-mono);
+        color: var(--hp-term-muted);
+        overflow-wrap: anywhere;
     }
 
     .hero__dots {
@@ -251,7 +307,14 @@
         }
 
         .hero__code :deep(.code-card__body) {
-            min-height: 0;
+            height: auto;
+            max-height: 380px;
+        }
+
+        .hero__files,
+        .hero__path {
+            padding-left: 16px;
+            padding-right: 16px;
         }
 
         .hero__tabs {

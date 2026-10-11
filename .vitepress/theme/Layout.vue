@@ -2,7 +2,6 @@
     import DefaultTheme from "vitepress/theme"
     import { useData } from "vitepress"
     import { computed } from "vue"
-    import SiteHeader from "./components/SiteHeader.vue"
     import HomeNav from "./home/HomeNav.vue"
     import HomePage from "./home/HomePage.vue"
 
@@ -14,8 +13,7 @@
 <template>
     <Layout>
         <template #layout-top>
-            <HomeNav v-if="isHome"/>
-            <SiteHeader v-else/>
+            <HomeNav :fixed="!isHome"/>
         </template>
         <template #home-hero-before>
             <HomePage/>

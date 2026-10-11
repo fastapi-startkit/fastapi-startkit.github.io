@@ -3,257 +3,412 @@
 @source "../../**/*.md";
 @source "../theme/**/*.{vue,ts}";
 
-/* Tell Tailwind's dark: variant to use VitePress's .dark class instead of prefers-color-scheme */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ===== Design Tokens ===== */
-@theme {
-    --color-brand-teal: #059669;
-    --color-brand-teal-light: #6ee7b7;
-
-    --color-surface: #f8f9ff;
-    --color-surface-dim: #cbdbf5;
-    --color-surface-container: #e5eeff;
-    --color-surface-container-low: #eff4ff;
-    --color-surface-container-high: #dce9ff;
-    --color-surface-container-highest: #d3e4fe;
-    --color-surface-container-lowest: #ffffff;
-    --color-surface-variant: #d3e4fe;
-
-    --color-on-surface: #0b1c30;
-    --color-on-surface-variant: #3d4947;
-    --color-on-primary: #ffffff;
-
-    --color-outline: #6d7a77;
-    --color-outline-variant: #bcc9c6;
-
-    --color-inverse-surface: #213145;
-    --color-inverse-on-surface: #eaf1ff;
-
-    --color-editor-bg: #0d1117;
-    --color-editor-chrome: #161b22;
-
-    --font-family-headline: 'Geist', sans-serif;
-    --font-family-body: 'Inter', sans-serif;
-    --font-family-mono: 'JetBrains Mono', monospace;
-
-    /* ===== Semantic font-family tokens (font-headline-xl, font-body-md, etc.) ===== */
-    --font-headline-xl: 'Geist', sans-serif;
-    --font-headline-lg: 'Geist', sans-serif;
-    --font-headline-md: 'Geist', sans-serif;
-    --font-headline-lg-mobile: 'Geist', sans-serif;
-    --font-body-lg: 'Inter', sans-serif;
-    --font-body-md: 'Inter', sans-serif;
-    --font-body-sm: 'Inter', sans-serif;
-    --font-label-md: 'JetBrains Mono', monospace;
-    --font-label-sm: 'JetBrains Mono', monospace;
-
-    /* ===== Semantic text-size tokens with embedded line-height, letter-spacing, font-weight ===== */
-    --text-headline-xl: 3rem;
-    --text-headline-xl--line-height: 1.1;
-    --text-headline-xl--letter-spacing: -0.04em;
-    --text-headline-xl--font-weight: 700;
-
-    --text-headline-lg: 2rem;
-    --text-headline-lg--line-height: 1.2;
-    --text-headline-lg--letter-spacing: -0.02em;
-    --text-headline-lg--font-weight: 600;
-
-    --text-headline-md: 1.5rem;
-    --text-headline-md--line-height: 1.3;
-    --text-headline-md--letter-spacing: -0.01em;
-    --text-headline-md--font-weight: 600;
-
-    --text-headline-lg-mobile: 1.75rem;
-    --text-headline-lg-mobile--line-height: 1.2;
-    --text-headline-lg-mobile--font-weight: 600;
-
-    --text-body-lg: 1.125rem;
-    --text-body-lg--line-height: 1.6;
-    --text-body-lg--font-weight: 400;
-
-    --text-body-md: 1rem;
-    --text-body-md--line-height: 1.5;
-    --text-body-md--font-weight: 400;
-
-    --text-body-sm: 0.875rem;
-    --text-body-sm--line-height: 1.5;
-    --text-body-sm--font-weight: 400;
-
-    --text-label-md: 0.875rem;
-    --text-label-md--line-height: 1;
-    --text-label-md--font-weight: 500;
-
-    --text-label-sm: 0.75rem;
-    --text-label-sm--line-height: 1;
-    --text-label-sm--font-weight: 500;
-}
-
-
-/* ===== Utility Classes ===== */
-.code-shadow {
-    box-shadow: 0 20px 50px -12px rgba(5, 150, 105, 0.2);
-}
-
-.glass-teal {
-    background: rgba(5, 150, 105, 0.05);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(5, 150, 105, 0.1);
-}
-
-.text-glow {
-    text-shadow: 0 0 20px rgba(5, 150, 105, 0.3);
-}
-
-/* ===== VitePress Overrides ===== */
 :root {
-    --vp-c-brand-1: #059669;
-    --vp-c-brand-2: #047857;
-    --vp-c-brand-3: #065f46;
-    --vp-c-brand-soft: rgba(5, 150, 105, 0.14);
+    --site-bg: #fbfaf7;
+    --site-bg-alt: #f3efe7;
+    --site-card: #ffffff;
+    --site-ink: #111110;
+    --site-ink-soft: #45423c;
+    --site-muted: #6b665d;
+    --site-line: #111110;
+    --site-line-soft: #d9d4c9;
+    --site-shadow: #111110;
+    --site-orange: #ee6633;
+    --site-orange-ink: #b4461b;
+    --site-orange-soft: rgba(238, 102, 51, 0.14);
+    --site-term: #141312;
+    --site-term-ink: #ece7dd;
+    --site-term-rule: #2b2926;
+    --site-sans: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --site-serif: "Instrument Serif", Georgia, serif;
+    --site-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-    --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --vp-c-bg: var(--site-bg);
+    --vp-c-bg-alt: var(--site-bg-alt);
+    --vp-c-bg-elv: var(--site-card);
+    --vp-c-bg-soft: var(--site-bg-alt);
+    --vp-c-text-1: var(--site-ink);
+    --vp-c-text-2: var(--site-ink-soft);
+    --vp-c-text-3: var(--site-muted);
+    --vp-c-divider: var(--site-line-soft);
+    --vp-c-gutter: var(--site-line-soft);
+    --vp-c-border: var(--site-line);
+    --vp-c-brand-1: #a13d17;
+    --vp-c-brand-2: #9a3a14;
+    --vp-c-brand-3: var(--site-orange);
+    --vp-c-brand-soft: var(--site-orange-soft);
+    --vp-c-default-soft: rgba(17, 17, 16, 0.06);
 
-    /* Keep nav height so VitePress offsets content correctly, even though we hide the nav */
+    --vp-font-family-base: var(--site-sans);
+    --vp-font-family-mono: var(--site-mono);
+
+    --vp-code-color: #93360f;
+    --vp-code-bg: rgba(238, 102, 51, 0.1);
+    --vp-code-block-bg: var(--site-term);
+    --vp-code-block-color: var(--site-term-ink);
+    --vp-code-block-divider-color: var(--site-term-rule);
+    --vp-code-lang-color: #9a9488;
+    --vp-code-line-highlight-color: rgba(238, 102, 51, 0.16);
+    --vp-code-copy-code-bg: #1e1c1a;
+    --vp-code-copy-code-hover-bg: #2b2926;
+    --vp-code-copy-code-border-color: var(--site-term-rule);
+    --vp-code-copy-code-hover-border-color: var(--site-orange);
+    --vp-code-tab-text-color: #9a9488;
+    --vp-code-tab-hover-text-color: var(--site-term-ink);
+    --vp-code-tab-active-text-color: var(--site-term-ink);
+    --vp-code-tab-active-bar-color: var(--site-orange);
+
+    --vp-button-brand-text: var(--site-ink);
+    --vp-button-brand-bg: var(--site-orange);
+    --vp-button-brand-hover-text: var(--site-ink);
+    --vp-button-brand-hover-bg: #f27a4c;
+    --vp-button-brand-active-text: var(--site-ink);
+    --vp-button-brand-active-bg: var(--site-orange);
+
+    --vp-local-search-bg: var(--site-bg);
+    --vp-local-search-result-bg: var(--site-card);
+    --vp-local-search-result-border: var(--site-line-soft);
+    --vp-local-search-result-selected-bg: var(--site-card);
+    --vp-local-search-result-selected-border: var(--site-orange);
+    --vp-local-search-highlight-bg: var(--site-orange);
+    --vp-local-search-highlight-text: var(--site-ink);
+
+    --vp-sidebar-bg-color: var(--site-bg-alt);
     --vp-nav-height: 64px;
-
-    /* Match docs content width to the navbar inner container */
     --vp-layout-max-width: 1280px;
 }
 
-/* Hide the default VitePress navbar — replaced by SiteHeader */
-.VPNav {
-    display: none !important;
-}
-
-/* VPLocalNav contains the mobile sidebar "Menu" button and the outline dropdown.
-   Offset it below our fixed SiteHeader so it isn't covered. */
-.VPLocalNav {
-    top: var(--vp-nav-height) !important;
-}
-
-/* On mobile, the VPLocalNav bar sits below the SiteHeader and covers the doc content.
-   Add extra top padding so the page title isn't hidden behind it. */
-@media (max-width: 959px) {
-    .VPDoc {
-        padding-top: calc(var(--vp-local-nav-height, 48px) + 3rem) !important;
-    }
-}
-
-
 .dark {
-    --vp-c-brand-1: #6ee7b7;
-    --vp-c-brand-2: #059669;
-    --vp-c-brand-3: #047857;
+    --site-bg: #121110;
+    --site-bg-alt: #1a1917;
+    --site-card: #1c1b19;
+    --site-ink: #f3efe7;
+    --site-ink-soft: #cdc7bb;
+    --site-muted: #a49d91;
+    --site-line: #e9e3d7;
+    --site-line-soft: #3a3733;
+    --site-shadow: #ee6633;
+    --site-orange-ink: #ff8a5c;
+    --site-orange-soft: rgba(238, 102, 51, 0.18);
+    --site-term: #0b0a0a;
 
-    --color-brand-teal: #6ee7b7;
-    --color-brand-teal-light: #a7f3d0;
-
-    --color-surface: #0f172a;
-    --color-surface-dim: #0b1120;
-    --color-surface-container: #1e293b;
-    --color-surface-container-low: #152033;
-    --color-surface-container-high: #263448;
-    --color-surface-container-highest: #334155;
-    --color-surface-container-lowest: #080e1a;
-    --color-surface-variant: #1e293b;
-
-    --color-on-surface: #e2e8f0;
-    --color-on-surface-variant: #94a3b8;
-    --color-on-primary: #022c22;
-
-    --color-outline: #475569;
-    --color-outline-variant: #64748b;
-
-    --color-inverse-surface: #e2e8f0;
-    --color-inverse-on-surface: #1e293b;
+    --vp-c-brand-1: var(--site-orange-ink);
+    --vp-c-brand-2: #ffa37e;
+    --vp-code-color: var(--site-orange-ink);
+    --vp-c-default-soft: rgba(243, 239, 231, 0.08);
+    --vp-code-bg: rgba(238, 102, 51, 0.16);
+    --vp-local-search-highlight-text: #111110;
 }
 
-/* Hide default VitePress hero and features */
-.VPHero {
-    display: none !important;
-}
-
-.VPFeatures {
-    display: none !important;
-}
-
-.VPHome {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    margin-bottom: 0 !important;
-}
-
-.VPContent.is-home {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
-
-/* Hide VitePress footer on home page */
-.VPHome ~ .VPFooter {
-    display: none !important;
-}
-
-.VPPage .VPFooter {
-    display: block !important;
-}
-
-/* Smooth scrolling */
 html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Selection color */
+body {
+    background: var(--site-bg);
+}
+
 ::selection {
-    background-color: #059669;
-    color: white;
+    background-color: var(--site-orange);
+    color: #111110;
 }
 
-/* ===== Enforce Geist on headline elements (override VitePress font reset) ===== */
-h1, h2, h3, h4 {
-    font-family: 'Geist', sans-serif;
+:focus-visible {
+    outline: 2px solid var(--site-orange);
+    outline-offset: 2px;
 }
 
-/* ===== Hide scrollbar utility ===== */
-.scrollbar-none {
-    scrollbar-width: none;
-}
-.scrollbar-none::-webkit-scrollbar {
-    display: none;
+.VPNav,
+.VPHero,
+.VPFeatures {
+    display: none !important;
 }
 
-/* ===== Syntax Highlighting for Code Editor ===== */
-.code-keyword {
-    color: #ff7b72;
+.VPHome,
+.VPContent.is-home {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
 }
 
-.code-func {
-    color: #d2a8ff;
+.VPHome ~ .VPFooter {
+    display: none !important;
 }
 
-.code-string {
-    color: #a5d6ff;
+.VPLocalNav {
+    top: var(--vp-nav-height) !important;
+    background: color-mix(in srgb, var(--site-bg) 92%, transparent) !important;
+    border-bottom: 1.5px solid var(--site-line) !important;
 }
 
-.code-decorator {
-    color: #ffa657;
+@media (max-width: 959px) {
+    .VPDoc {
+        padding-top: calc(var(--vp-local-nav-height, 48px) + 3rem) !important;
+    }
 }
 
-.code-comment {
-    color: #8b949e;
-    font-style: italic;
+.VPLocalNav .menu,
+.VPLocalNavOutlineDropdown button {
+    font: 600 12px/1 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--site-ink);
 }
 
-.code-type {
-    color: #79c0ff;
+@media (min-width: 960px) {
+    .VPSidebar {
+        border-right: 1.5px solid var(--site-line);
+    }
 }
 
-.code-number {
-    color: #79c0ff;
+.VPSidebarItem.level-0 > .item > .text,
+.VPSidebarItem.level-0 > .item .text {
+    font: 700 11px/1.6 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--site-ink);
 }
 
-.code-builtin {
-    color: #ffa657;
+.VPSidebarItem.level-1 .text {
+    font-weight: 500;
+}
+
+.VPSidebarItem.level-1.is-active > .item > .indicator {
+    background-color: var(--site-orange);
+    width: 3px;
+}
+
+.VPSidebarItem.level-1.is-active > .item .text {
+    font-weight: 700;
+}
+
+.VPDocOutlineItem .outline-link.active,
+.VPDocAsideOutline .outline-link.active {
+    font-weight: 600;
+}
+
+.VPDocAsideOutline .outline-marker {
+    background-color: var(--site-orange);
+    width: 3px;
+}
+
+.VPDocAsideOutline .outline-title {
+    font: 700 11px/1.6 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.vp-doc h1 {
+    font: 800 clamp(2rem, 4vw, 2.75rem) / 1.05 var(--site-sans);
+    letter-spacing: -0.045em;
+}
+
+.vp-doc h2 {
+    border-top: 1.5px solid var(--site-line);
+    font: 800 1.6rem/1.2 var(--site-sans);
+    letter-spacing: -0.035em;
+}
+
+.vp-doc h3,
+.vp-doc h4 {
+    font-family: var(--site-sans);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.vp-doc a {
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--site-orange) 55%, transparent);
+}
+
+.vp-doc a:hover {
+    text-decoration-color: var(--site-orange);
+}
+
+.vp-doc .header-anchor {
+    text-decoration: none;
+}
+
+.vp-doc :not(pre) > code {
+    border-radius: 5px;
+    font-weight: 500;
+}
+
+.vp-doc a > code {
+    color: inherit;
+}
+
+.vp-doc div[class*="language-"],
+.vp-doc .vp-code-group .tabs {
+    border: 1.5px solid var(--site-term);
+}
+
+.vp-doc div[class*="language-"] {
+    border-radius: 12px;
+    box-shadow: 4px 4px 0 var(--site-shadow);
+}
+
+.dark .vp-doc div[class*="language-"] {
+    border-color: #3a3733;
+}
+
+html:not(.dark) .vp-doc div[class*="language-"] .shiki span {
+    color: var(--shiki-dark, inherit);
+}
+
+/* github-dark's comment grey (#6A737D) is below 4.5:1 on the terminal background */
+.vp-doc .shiki span[style*="--shiki-dark:#6A737D"] {
+    color: #a49d91 !important;
+}
+
+.vp-doc .vp-code-group {
+    border-radius: 12px;
+    box-shadow: 4px 4px 0 var(--site-shadow);
+}
+
+.vp-doc .vp-code-group div[class*="language-"] {
+    box-shadow: none;
+    border-top: 0;
+}
+
+.vp-doc .vp-code-group .tabs {
+    border-bottom: 0;
+    border-radius: 12px 12px 0 0;
+    background: var(--site-term);
+}
+
+.vp-doc .vp-code-group div[class*="language-"] {
+    border-radius: 0 0 12px 12px;
+}
+
+@media (max-width: 639px) {
+    .vp-doc div[class*="language-"],
+    .vp-doc .vp-code-group {
+        margin-left: 0;
+        margin-right: 0;
+        box-shadow: 3px 3px 0 var(--site-shadow);
+    }
+
+    .vp-doc .vp-code-group .tabs {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .vp-doc .vp-code-group div[class*="language-"] {
+        box-shadow: none;
+    }
+}
+
+.vp-doc table {
+    border: 1.5px solid var(--site-line);
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.vp-doc th {
+    background: var(--site-bg-alt);
+    font: 700 11px/1.6 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.vp-doc tr {
+    background: var(--site-card);
+}
+
+.vp-doc .custom-block {
+    border: 1.5px solid var(--site-line);
+    border-radius: 10px;
+    box-shadow: 3px 3px 0 var(--site-shadow);
+}
+
+.vp-doc .custom-block-title {
+    font: 700 11px/1.6 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.vp-doc blockquote {
+    border-left: 3px solid var(--site-orange);
+}
+
+.VPDocFooter .pager-link {
+    border: 1.5px solid var(--site-line);
+    border-radius: 12px;
+    background: var(--site-card);
+    box-shadow: 3px 3px 0 var(--site-shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.VPDocFooter .pager-link:hover {
+    border-color: var(--site-line);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--site-orange);
+}
+
+.VPDocFooter .pager-link .desc {
+    font: 600 11px/1.6 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.VPDocFooter .pager-link .title {
+    font-weight: 700;
+    color: var(--site-ink);
+}
+
+.VPLocalSearchBox .shell {
+    border: 1.5px solid var(--site-line);
+    border-radius: 14px !important;
+    box-shadow: 6px 6px 0 var(--site-shadow) !important;
+}
+
+.VPLocalSearchBox .search-bar {
+    border: 1.5px solid var(--site-line) !important;
+    border-radius: 10px !important;
+    background: var(--site-card);
+}
+
+.VPLocalSearchBox .search-bar:focus-within {
+    border-color: var(--site-orange) !important;
+    box-shadow: 0 0 0 2px var(--site-orange-soft);
+}
+
+.VPLocalSearchBox .search-input:focus-visible {
+    outline: none;
+}
+
+.VPLocalSearchBox .result {
+    border-width: 1.5px !important;
+}
+
+.VPLocalSearchBox .result.selected {
+    box-shadow: 3px 3px 0 var(--site-shadow);
+}
+
+.VPLocalSearchBox .titles .title-icon {
+    color: var(--site-orange-ink);
+}
+
+.VPFooter {
+    border-top: 1.5px solid var(--site-line) !important;
+    background: var(--site-bg) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    .VPDocFooter .pager-link {
+        transition: none;
+    }
 }
