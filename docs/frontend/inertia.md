@@ -629,7 +629,7 @@ class FastAPIProvider(BaseFastAPIProvider):
         Inertia.version("1.0.0")
 ```
 
-A configured version always wins over the Vite manifest hash; the middleware no longer overwrites it.
+When a version is configured, it is used instead of the Vite manifest hash.
 
 When the client's `X-Inertia-Version` header mismatches the server version on a `GET` request, the middleware returns `409 Conflict` with `X-Inertia-Location` and `X-Inertia-Version` headers before the controller runs, causing the client to perform a full hard reload. Flash data and errors are kept for the reloaded page.
 
@@ -643,7 +643,7 @@ from fastapi_startkit.inertia import Inertia
 Inertia.set_root_view("app.html")
 ```
 
-The configured root view is used for every first visit; the middleware no longer overwrites it. A single response can use its own template:
+The configured root view is used for every first visit. A single response can use its own template:
 
 ```python
 return Inertia.render("Reports/Print").with_root_view("print.html")
