@@ -26,7 +26,7 @@ Option 3. `index.md` keeps `layout: home` with no `hero`/`features`, and `Layout
 - `prefers-reduced-motion` stops the marquee and lets its items wrap.
 - Stacked grids use `minmax(0, 1fr)` so wide code blocks scroll inside their card instead of widening the page on phones.
 - Every snippet uses the real API: `Application(base_path=..., providers=[...])`, `LogProvider`, `DatabaseProvider`, `FastAPIProvider`, `RedisProvider`, `StorageProvider`, `AIProvider`, `McpProvider`, class-based MCP `Tool`, `Agent.record()` / `assert_tool_called()` / `assert_response_judged()`, and `python artisan db:*` commands.
-- Removed the Vue components used only by the old home page. The `.vitepress/theme/snippets/*.py` files it imported are left in place and are now unreferenced. ADRs under `docs/adr/` are excluded from the VitePress build via `srcExclude`.
+- Removed the Vue components used only by the old home page. The `.vitepress/theme/snippets/*.py` files it imported were removed, as nothing references them. ADRs under `docs/adr/` are excluded from the VitePress build via `srcExclude`.
 
 ## Validation
 
