@@ -23,7 +23,7 @@
     --site-term-rule: #2b2926;
     --site-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --site-serif: "Instrument Serif", Georgia, serif;
-    --site-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --site-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     --vp-c-bg: var(--site-bg);
     --vp-c-bg-alt: var(--site-bg-alt);
@@ -244,6 +244,12 @@ body {
 
 .vp-doc a > code {
     color: inherit;
+}
+
+.vp-doc code,
+.vp-doc pre,
+.vp-doc .shiki {
+    font-family: var(--site-mono);
 }
 
 .vp-doc div[class*="language-"],
