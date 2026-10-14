@@ -169,7 +169,7 @@ body {
 
 .VPSidebarItem.level-0 > .item > .text,
 .VPSidebarItem.level-0 > .item .text {
-    font: 700 11px/1.6 var(--site-mono);
+    font: 700 14px/1.6 var(--site-mono);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--site-ink);
