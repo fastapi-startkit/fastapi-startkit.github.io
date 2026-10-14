@@ -21,9 +21,9 @@
     --site-term: #141312;
     --site-term-ink: #ece7dd;
     --site-term-rule: #2b2926;
-    --site-sans: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --site-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --site-serif: "Instrument Serif", Georgia, serif;
-    --site-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --site-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     --vp-c-bg: var(--site-bg);
     --vp-c-bg-alt: var(--site-bg-alt);
@@ -110,6 +110,8 @@ html {
 
 body {
     background: var(--site-bg);
+    letter-spacing: 0.01em;
+    word-spacing: 0.04em;
 }
 
 ::selection {
@@ -167,14 +169,20 @@ body {
 
 .VPSidebarItem.level-0 > .item > .text,
 .VPSidebarItem.level-0 > .item .text {
-    font: 700 11px/1.6 var(--site-mono);
+    font: 700 14px/1.6 var(--site-mono);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--site-ink);
 }
 
 .VPSidebarItem.level-1 .text {
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.VPDocAsideOutline .outline-link {
+    font-size: 14px;
+    font-weight: 400;
 }
 
 .VPSidebarItem.level-1.is-active > .item > .indicator {
@@ -183,12 +191,12 @@ body {
 }
 
 .VPSidebarItem.level-1.is-active > .item .text {
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .VPDocOutlineItem .outline-link.active,
 .VPDocAsideOutline .outline-link.active {
-    font-weight: 600;
+    font-weight: 400;
 }
 
 .VPDocAsideOutline .outline-marker {
@@ -203,21 +211,27 @@ body {
 }
 
 .vp-doc h1 {
-    font: 800 clamp(2rem, 4vw, 2.75rem) / 1.05 var(--site-sans);
-    letter-spacing: -0.045em;
+    font: 700 clamp(2rem, 4vw, 2.75rem) / 1.1 var(--site-sans);
+    letter-spacing: -0.01em;
 }
 
 .vp-doc h2 {
     border-top: 1.5px solid var(--site-line);
-    font: 800 1.6rem/1.2 var(--site-sans);
-    letter-spacing: -0.035em;
+    font: 700 1.6rem/1.3 var(--site-sans);
+    letter-spacing: 0;
 }
 
 .vp-doc h3,
 .vp-doc h4 {
     font-family: var(--site-sans);
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.005em;
+}
+
+.vp-doc {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.25;
 }
 
 .vp-doc a {
@@ -242,6 +256,12 @@ body {
 
 .vp-doc a > code {
     color: inherit;
+}
+
+.vp-doc code,
+.vp-doc pre,
+.vp-doc .shiki {
+    font-family: var(--site-mono);
 }
 
 .vp-doc div[class*="language-"],
