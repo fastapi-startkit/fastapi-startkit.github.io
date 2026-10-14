@@ -5,7 +5,6 @@
         { text: "Docs", href: "/docs/getting-started" },
         { text: "GitHub", href: "https://github.com/fastapi-startkit/fastapi-startkit" },
         { text: "PyPI", href: "https://pypi.org/project/fastapi-startkit/" },
-        { text: "Benchmarks", href: "/docs/benchmarks" },
     ]
 </script>
 
