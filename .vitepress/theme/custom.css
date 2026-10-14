@@ -177,11 +177,12 @@ body {
 
 .VPSidebarItem.level-1 .text {
     font-size: 15px;
-    font-weight: 500;
+    font-weight: 400;
 }
 
 .VPDocAsideOutline .outline-link {
     font-size: 15px;
+    font-weight: 400;
 }
 
 .VPSidebarItem.level-1.is-active > .item > .indicator {
@@ -190,12 +191,12 @@ body {
 }
 
 .VPSidebarItem.level-1.is-active > .item .text {
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .VPDocOutlineItem .outline-link.active,
 .VPDocAsideOutline .outline-link.active {
-    font-weight: 600;
+    font-weight: 400;
 }
 
 .VPDocAsideOutline .outline-marker {
@@ -229,6 +230,7 @@ body {
 
 .vp-doc {
     font-size: 14px;
+    font-weight: 400;
     line-height: 1.25;
 }
 
