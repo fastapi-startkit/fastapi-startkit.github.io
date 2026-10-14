@@ -22,6 +22,7 @@ The home page keeps Inter Tight, Instrument Serif and its own `--hp-*` tokens, s
 
 - `.vitepress/config.mts`: the Google Fonts stylesheet adds `Instrument+Sans:wght@400..700`. Inter Tight stays in the same request because the home page still uses it.
 - `.vitepress/theme/custom.css`: `--site-sans` becomes `"Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`. Heading rules that used weight 800 use 700.
+- Instrument Sans is set slightly wider than its default spacing: body gets `letter-spacing: 0.01em` and `word-spacing: 0.04em`, and headings use near-zero tracking instead of the tight negative values inherited from Inter Tight.
 - No markup, component, or code block styling changes.
 
 ## Validation
