@@ -21,7 +21,7 @@
     --site-term: #141312;
     --site-term-ink: #ece7dd;
     --site-term-rule: #2b2926;
-    --site-sans: "Inter Tight", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --site-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --site-serif: "Instrument Serif", Georgia, serif;
     --site-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
@@ -203,14 +203,14 @@ body {
 }
 
 .vp-doc h1 {
-    font: 800 clamp(2rem, 4vw, 2.75rem) / 1.05 var(--site-sans);
-    letter-spacing: -0.045em;
+    font: 700 clamp(2rem, 4vw, 2.75rem) / 1.1 var(--site-sans);
+    letter-spacing: -0.03em;
 }
 
 .vp-doc h2 {
     border-top: 1.5px solid var(--site-line);
-    font: 800 1.6rem/1.2 var(--site-sans);
-    letter-spacing: -0.035em;
+    font: 700 1.6rem/1.25 var(--site-sans);
+    letter-spacing: -0.02em;
 }
 
 .vp-doc h3,
