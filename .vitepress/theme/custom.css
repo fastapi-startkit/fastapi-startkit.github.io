@@ -222,6 +222,11 @@ body {
     letter-spacing: 0.005em;
 }
 
+.vp-doc {
+    font-size: 15px;
+    line-height: 1.7;
+}
+
 .vp-doc a {
     text-decoration: underline;
     text-decoration-thickness: 1.5px;
