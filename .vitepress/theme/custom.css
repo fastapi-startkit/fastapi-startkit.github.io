@@ -176,7 +176,12 @@ body {
 }
 
 .VPSidebarItem.level-1 .text {
+    font-size: 15px;
     font-weight: 500;
+}
+
+.VPDocAsideOutline .outline-link {
+    font-size: 15px;
 }
 
 .VPSidebarItem.level-1.is-active > .item > .indicator {
