@@ -64,8 +64,8 @@
 
     const points = [
         { title: "Independent packages", text: "Each component has its own code and config, with no hard dependency on the others." },
-        { title: "Connected by providers", text: "A provider registers the component into the app container — that’s the only seam." },
-        { title: "Pay only for what you load", text: "Skip a provider and its stack stays out of the process — a worker without FastAPIProvider never imports FastAPI." },
+        { title: "Connected by providers", text: "A provider registers the component in the app container. Nothing else connects them." },
+        { title: "Pay only for what you load", text: "Skip a provider and its stack stays out of the process: a worker without FastAPIProvider never imports FastAPI." },
     ]
 </script>
 
@@ -76,7 +76,7 @@
                 <h2 id="providers-title" class="hp-h2">One core. <em>Everything else plugs in.</em></h2>
                 <p class="hp-blurb">
                     Every component is an independent module with its own service provider. Register the provider
-                    and it’s wired into the app — config, container and lifecycle. Leave it out and it never loads.
+                    to wire in its config, container bindings, and lifecycle. Leave it out and it never loads.
                 </p>
             </div>
 

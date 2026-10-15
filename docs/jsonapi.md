@@ -1,16 +1,16 @@
 ---
 outline: deep
 title: JSON:API Resources
-description: Build JSON:API-compliant responses with JsonResource — automatic serialization, hidden fields, pagination meta, fluent chain API for fields and includes.
+description: Return JSON:API documents from FastAPI endpoints with JsonResource, including hidden fields, includes, sparse fieldsets, and pagination meta.
 ---
 
 # JSON:API Resources
 
-FastAPI Startkit ships a first-class **JSON:API** layer built around the `JsonResource` generic base class. It handles type derivation, auto-serialization, hidden fields, relationship side-loading, sparse fieldsets, and paginator meta — all with zero boilerplate.
+`JsonResource` turns a model into a JSON:API document. It derives the resource type from the class name, serializes the model's attributes, and handles `include`, sparse fieldsets, and pagination meta.
 
 ## Installation
 
-The JSON:API module requires no extra dependencies beyond the core package.
+The JSON:API module needs nothing beyond the core package:
 
 ```bash
 uv add fastapi-startkit
@@ -25,7 +25,7 @@ class PostResource(JsonResource["Post"]):
     pass  # type="posts", attributes from Post.serialize() automatically
 ```
 
-Return the resource directly from a FastAPI endpoint — `?include=` and `?fields[*]=` query params are parsed and applied automatically:
+Return the resource from an endpoint. The `?include=` and `?fields[*]=` query parameters are applied for you:
 
 ```python
 @app.get("/api/posts/{id}")
@@ -49,9 +49,7 @@ async def get_post(id: int):
 
 ## Fluent Chain API
 
-Use `.include()` and `.fields()` to control what gets serialized.
-
-`.fields()` takes plain field names for the primary resource, and `"type.field"` dotted specs for related resources:
+Use `.include()` and `.fields()` to choose what is serialized. `.fields()` takes plain names for the primary resource and `"type.field"` for related resources:
 
 ```python
 # Sideload a relationship
@@ -78,7 +76,7 @@ The same chain API works on collections:
 return PostResource.collection(posts).include("author").fields("title", "users.name")
 ```
 
-When the resource is returned directly from a FastAPI endpoint **without** calling chain methods, `?include=` and `?fields[*]=` query params are parsed from the live request automatically. The chain API and automatic query-string parsing are equivalent — use whichever fits your endpoint.
+If you return a resource without calling these methods, the `?include=` and `?fields[*]=` query parameters from the request are used instead. Both produce the same result: the chain fixes the output on the server, and the query string lets the client choose.
 
 ## Auto-Type Derivation
 
@@ -100,7 +98,7 @@ class PostResource(JsonResource[Post]):
 
 ## Auto-Serialization
 
-`to_attributes()` calls `model.serialize()` and exposes all returned fields. Only fields listed in `hidden` are excluded.
+`to_attributes()` returns everything from `model.serialize()` except the fields listed in `hidden`:
 
 ```python
 class PostResource(JsonResource[Post]):
@@ -114,7 +112,7 @@ class UserResource(JsonResource[User]):
     hidden = ["password", "remember_token", "api_key"]
 ```
 
-To also hide `id`, add it explicitly:
+`hidden` only filters `attributes`; the top-level `data.id` is always present. To keep `id` out of `attributes`, list it:
 
 ```python
 class UserResource(JsonResource[User]):
@@ -141,7 +139,7 @@ async def list_posts():
 
 ### Paginated Collections
 
-Pass a `LengthAwarePaginator` or `SimplePaginator` — pagination meta is added automatically:
+Pass a `LengthAwarePaginator` or `SimplePaginator` and the pagination meta is added. A `SimplePaginator` has no `total` or `last_page`:
 
 ```python
 @app.get("/api/posts")
@@ -155,6 +153,7 @@ async def list_posts(page: int = 1):
   "data": [...],
   "meta": {
     "total": 42,
+    "count": 15,
     "per_page": 15,
     "current_page": 1,
     "last_page": 3,
@@ -181,7 +180,7 @@ class ArticleResource(JsonResource[Article]):
 
 ## Relationships
 
-`to_relationships()` returns a plain dict with two intended forms:
+`to_relationships()` returns a dict. Each value is a resource class, a lambda, or a resource instance:
 
 ```python
 class PostResource(JsonResource[Post]):
@@ -225,7 +224,7 @@ return PostResource(post).include("author")
 }
 ```
 
-Nested dot-notation is supported: `.include("author.company")`.
+For nested relationships, include the parent too: `.include("author", "author.company")`. `"author.company"` on its own includes nothing.
 
 ## Sparse Fieldsets
 
@@ -236,7 +235,7 @@ Pass plain field names for the primary resource, and `"type.field"` to restrict 
 return PostResource(post).include("author").fields("title", "created_at", "users.name")
 ```
 
-When returning resources directly (without chain methods), `?fields[posts]=title,created_at` in the URL is applied automatically.
+Without chain methods, `?fields[posts]=title,created_at` in the URL does the same.
 
 ## Overridable Hooks
 

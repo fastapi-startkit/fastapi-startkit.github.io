@@ -13,7 +13,7 @@
         <div class="hp-wrap">
             <div class="foot__top">
                 <p class="foot__meta">
-                    <span>A batteries-included framework for modern Python.</span>
+                    <span>A Laravel-style application framework for Python.</span>
                     <span>© {{ year }} FastAPI Startkit</span>
                 </p>
                 <nav aria-label="Footer">

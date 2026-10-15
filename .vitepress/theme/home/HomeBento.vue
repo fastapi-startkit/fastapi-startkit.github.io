@@ -4,7 +4,7 @@
     const cards = [
         { label: "03 / core", title: "Async core", text: "FastAPI, Starlette and Pydantic underneath. OpenAPI docs and type-hinted requests, end to end.", code: "user = await User.find_or_fail(1)", href: "/docs/fastapi" },
         { label: "04 / data", title: "ORM & migrations", text: "Active-record models, a chainable query builder, migrations, seeders and factories.", code: "await Order.where(\"status\", \"paid\").get()", href: "/docs/database/" },
-        { label: "05 / logs", title: "Logging channels", text: "Terminal, daily files, syslog and Slack — configured, not coded.", code: "Logger.info(\"Order paid\")", href: "/docs/logging" },
+        { label: "05 / logs", title: "Logging channels", text: "Log to the terminal, daily files, syslog, or Slack by changing config.", code: "Logger.info(\"Order paid\")", href: "/docs/logging" },
         { label: "06 / evals", title: "Agent evals", text: "Fake or record agents, assert on tool calls and trajectories, and grade answers with an LLM judge.", code: "agent.assert_tool_called(\"lookup_order\")", href: "/docs/ai/agent#testing", wide: true },
     ]
 </script>
@@ -15,8 +15,8 @@
             <div class="hp-head">
                 <h2 id="bento-title" class="hp-h2">Every layer, <em class="ink">wired together.</em></h2>
                 <p class="hp-blurb">
-                    Each module is a service provider you register. Use the whole stack, or just the core —
-                    nothing loads that you didn’t ask for.
+                    Each module is a service provider you register. Use the whole stack or only the core.
+                    Modules you don’t register never load.
                 </p>
             </div>
 
@@ -24,7 +24,7 @@
                 <a href="/docs/console" class="tile tile--dark">
                     <span class="hp-label">01 / cli</span>
                     <h3 class="tile__title">Artisan, <em class="hp-serif">in Python.</em></h3>
-                    <p class="tile__text">Scaffold models, run migrations, seed data and write your own commands — powered by Cleo.</p>
+                    <p class="tile__text">Scaffold models, run migrations, seed data, and write your own commands on Cleo.</p>
                     <div class="tile__term">
                         <code v-for="cmd in commands" :key="cmd"><span aria-hidden="true">$ </span>{{ cmd }}</code>
                     </div>

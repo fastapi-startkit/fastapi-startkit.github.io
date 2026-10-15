@@ -1,12 +1,12 @@
 ---
 outline: deep
 title: Getting Started
-description: Get up and running with Fastapi Startkit in minutes.
+description: Install Fastapi Startkit and set up your first application.
 keywords: fastapi, starter, framework, python, tutorial
 jsonLd:
   "@type": "TechArticle"
   "headline": "Getting Started with Fastapi Startkit"
-  "description": "A comprehensive guide to installing and setting up Fastapi Startkit for your next Python project."
+  "description": "How to install Fastapi Startkit and set up a new Python project."
   "articleSection": "Guide"
   "author":
     "@type": "Organization"
@@ -64,7 +64,7 @@ The sections below walk you through installing the framework and standing up you
 
 ## Getting Started Using AI
 
-If you use an AI coding agent — [Claude Code](https://www.anthropic.com/claude-code), Cursor, GitHub Copilot, Windsurf, or similar — you can scaffold a fully structured Fastapi Startkit project without running any of the manual steps below yourself. Open your agent in an empty project directory and paste the prompt:
+If you use a coding agent, it can scaffold the project for you. Open the agent in an empty directory and paste this prompt:
 
 ```text
 Scaffold a new Python project using the Fastapi Startkit framework
@@ -90,11 +90,11 @@ Follow the conventions in the Fastapi Startkit "Getting Started" guide. Keep the
 clean and minimal — register only what the requirements ask for.
 ```
 
-The agent will install the framework, generate the directory structure, and produce a runnable application. The sections below walk through the same setup manually if you'd rather do it by hand.
+The agent installs the framework, creates the directories, and leaves you with an application that runs. The rest of this page does the same setup by hand.
 
 ## Prerequisites
 
-Before installing Fastapi Startkit, ensure you have the following installed:
+You need Python, and we recommend uv.
 
 ### 1. Python
 Fastapi Startkit supports **Python 3.12, 3.13, 3.14 and 3.15**. You can download it from [python.org](https://www.python.org/downloads/), or if you have **uv** installed, simply run:
@@ -104,9 +104,8 @@ uv python install 3.12
 ```
 
 ### 2. uv (Recommended)
-We highly recommend using [uv](https://docs.astral.sh/uv/) for package management. It is an extremely fast Python package manager and resolver.
+The examples on this site use [uv](https://docs.astral.sh/uv/) to manage packages and virtual environments. Install it with:
 
-**Installation:**
 ```bash
 # macOS/Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -117,7 +116,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 ## Installation
 
-You can install Fastapi Startkit using `uv` or `pip`:
+Install the package with uv or pip:
 
 ```bash
 uv add fastapi-startkit
@@ -129,31 +128,31 @@ pip install fastapi-startkit
 
 ## Way 1: Simple Setup
 
-For small projects or quick prototypes, you can define everything in a single file (e.g., `main.py`).
+For a small project or a prototype, put everything in one file, such as `main.py`:
 
 ```python
 from pathlib import Path
 from fastapi_startkit import Application
 from fastapi_startkit.fastapi import FastAPIProvider
 
-# Define providers
 providers = [
     FastAPIProvider
 ]
 
-# Initialize Application
 app: Application = Application(
-    base_path=Path(__file__).parent.parent,
+    base_path=Path(__file__).parent,
     providers=providers
 )
 
 if __name__ == "__main__":
     app.handle_command()
 ```
-The `FastAPIProvider` handles the initialization of the FastAPI instance, binds it to the service container, and automatically registers essential CLI commands and application routes.
+
+`FastAPIProvider` creates the FastAPI instance, binds it into the service container, and registers the `serve` command.
 
 ### Running the server
-This setup registers a `serve` command automatically. You can run it directly:
+
+Start the server with `serve`:
 
 ```bash
 uv run python main.py serve
@@ -161,10 +160,11 @@ uv run python main.py serve
 
 ## Way 2: Structured Setup (Recommended)
 
-For larger applications, we recommend a layered, provider-driven structure for better organization and maintainability.
+For a larger application, split the code into a bootstrap file, config classes, and providers.
 
 ### Option A: Use the Boilerplate Repository
-The fastest way to get a fully configured project (including FastAPI, logging, database support, etc.) is to clone our official boilerplate:
+
+Clone the boilerplate to start with FastAPI, logging, and the database already configured:
 
 ```bash
 git clone https://github.com/fastapi-startkit/fastapi_startkit my-project
@@ -173,9 +173,9 @@ uv sync
 ```
 
 ### Option B: Manual Setup
-If you prefer to build your own structure manually, follow this pattern:
 
-**Directory Structure:**
+Create this layout:
+
 ```text
 .
 ├── artisan
@@ -185,8 +185,7 @@ If you prefer to build your own structure manually, follow this pattern:
 └── app/
 ```
 
-**bootstrap/application.py:**
-Initialize the application and register core providers.
+Create the application in `bootstrap/application.py`:
 
 ```python
 from pathlib import Path
@@ -199,8 +198,7 @@ app: Application = Application(
 )
 ```
 
-**artisan:**
-Create a CLI entry point script.
+Then add an `artisan` script as the CLI entry point:
 
 ```python
 #!/usr/bin/env python3
@@ -213,7 +211,8 @@ if __name__ == "__main__":
 ```
 
 ### Running the server
-You can now use the `artisan` script to manage your application:
+
+Run commands through `artisan`:
 
 ```bash
 uv run python artisan serve
@@ -221,8 +220,8 @@ uv run python artisan serve
 
 ## Running with Uvicorn
 
-If you prefer to run the application directly via Uvicorn (e.g., for production or custom flags), you can point it to your app instance:
+To pass your own Uvicorn flags, for example in production, point Uvicorn at the app instance. Calling `app` returns the FastAPI instance, so add `--factory`:
 
 ```bash
-uv run uvicorn bootstrap.application:app --reload
+uv run uvicorn bootstrap.application:app --factory --reload
 ```

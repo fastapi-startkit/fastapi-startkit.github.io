@@ -7,7 +7,7 @@ keywords: authentication, fastapi auth, sessions, csrf, api tokens, oauth2, oaut
 
 # Authentication
 
-FastAPI Startkit provides authentication through its official [`fastapi-startkit-auth`](https://github.com/fastapi-startkit/fastapi-startkit-auth) package, which offers three ways to authenticate users in a FastAPI application:
+Authentication lives in the [`fastapi-startkit-auth`](https://github.com/fastapi-startkit/fastapi-startkit-auth) package. It supports three ways to authenticate users:
 
 - cookie sessions for server-rendered pages and same-site SPAs
 - opaque API tokens for mobile apps, CLIs and scripts
@@ -26,7 +26,7 @@ routes and migrations.
 
 ## Installation
 
-Install the package with your package manager:
+Install the package:
 
 ::: code-group
 
@@ -455,7 +455,7 @@ release.
 | `GET /oauth/authorize` | Validates an authorization request for your consent screen |
 | `POST /oauth/authorize` | Issues a code after consent (`"approved": true`). Returns `code`, `state`, `iss` and `redirect_to` |
 | `POST /oauth/token` | Token endpoint: `authorization_code`, `refresh_token`, `client_credentials`, plus `password` when enabled |
-| `POST /token` | Simple password-grant endpoint, only when `"password"` is enabled |
+| `POST /token` | Simple password-grant endpoint. Answers `unsupported_grant_type` unless `"password"` is enabled |
 | `POST /oauth/introspect` | RFC 7662 introspection. Requires a confidential client |
 | `POST /oauth/revoke` | RFC 7009 revocation. Requires client authentication |
 | `GET /oauth/tokens` | Lists the current user's OAuth tokens |
@@ -681,9 +681,9 @@ Each provider publishes only its own migrations. All of them are reversible.
 | --- | --- |
 | `AuthSessionProvider` | `create_sessions_table` |
 | `AuthApiTokenProvider` | `create_personal_api_tokens_table` |
-| `AuthOAuth2Provider` | `create_oauth_access_tokens_table`, `create_oauth_refresh_tokens_table`, `create_oauth_auth_codes_table`, `add_resource_to_oauth_tables`, `create_oauth_clients_table`, `add_family_id_to_oauth_refresh_tokens_table` |
+| `AuthOAuth2Provider` | `create_oauth_access_tokens_table`, `create_oauth_refresh_tokens_table`, `create_oauth_auth_codes_table`, `add_resource_to_oauth_tables`, `create_oauth_clients_table`, `add_family_id_to_oauth_refresh_tokens_table`, `add_scopes_to_oauth_clients_table` |
 
-The two newest OAuth migrations are additive. They change no existing column, so
+The three newest OAuth migrations are additive. They change no existing column, so
 apps upgrading from v0.6.x only need to publish and run them:
 
 - `2026_10_04_000001_create_oauth_clients_table` creates the `oauth_clients`
@@ -691,6 +691,8 @@ apps upgrading from v0.6.x only need to publish and run them:
 - `2026_10_04_000002_add_family_id_to_oauth_refresh_tokens_table` adds a
   nullable, indexed `family_id` column to `oauth_refresh_tokens`, used for reuse
   detection.
+- `2026_10_05_000001_add_scopes_to_oauth_clients_table` adds the per-client
+  `scopes` allow-list described in [Clients](#clients).
 
 ```sh
 python artisan provider:publish -p auth-oauth2
@@ -734,7 +736,9 @@ facade, for example `Auth.user("api")` or `Auth.check("api")`.
 ## Errors
 
 Every `AuthError` becomes an OAuth-style JSON body,
-`{"error": ..., "error_description": ...}`, with `Cache-Control: no-store`.
+`{"error": ..., "error_description": ...}`, with `Cache-Control: no-store`. The
+`csrf_token_mismatch` response comes from the CSRF middleware instead, with the
+same body and no `Cache-Control` header.
 
 | Error | Status |
 | --- | --- |

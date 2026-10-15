@@ -1,27 +1,21 @@
 ---
 outline: deep
 title: Background Queues with TaskIQ
-description: Run background jobs in Fastapi Startkit by integrating TaskIQ as a Redis-backed task queue using a service provider.
+description: Run background jobs with TaskIQ and a Redis broker, wired in through a service provider.
 keywords: taskiq, background tasks, queue, redis, service provider, fastapi, async jobs
 ---
 
 # Background Queues
 
-Fastapi Startkit does not ship a queue of its own, but its provider and container
-make it straightforward to plug one in. This guide shows how to integrate
-[TaskIQ](https://taskiq-python.github.io/) — an async-native distributed task
-queue — using a Redis broker, wired into the application through a service
-provider.
+Fastapi Startkit has no queue of its own. This guide adds
+[TaskIQ](https://taskiq-python.github.io/), an async task queue, with a Redis
+broker:
 
-The pattern is:
-
-1. A `QueueProvider` builds a TaskIQ broker and binds it into the container as
-   `broker` during `register()`.
-2. In `boot()`, the broker's `startup`/`shutdown` are attached to the FastAPI
-   lifecycle so the connection opens and closes with the web process.
-3. A small `bootstrap/broker.py` module resolves that same `broker` binding from
-   the booted application singleton, and tasks register against it with the
-   `@broker.task` decorator.
+1. A `QueueProvider` builds the broker and binds it into the container as
+   `broker` in `register()`.
+2. Its `boot()` opens and closes the broker connection with the web process.
+3. `bootstrap/broker.py` resolves the same broker from the application, and
+   tasks register on it with `@broker.task`.
 
 ## Installation
 
@@ -33,8 +27,7 @@ uv add taskiq taskiq-redis
 pip install taskiq taskiq-redis
 ```
 
-You also need a running Redis server — either a locally installed instance or
-one started with Docker:
+You also need a Redis server. To start one with Docker:
 
 ```bash
 docker run -p 6379:6379 redis
@@ -42,8 +35,7 @@ docker run -p 6379:6379 redis
 
 ## Configuration
 
-The broker connects to Redis using `REDIS_HOST` and `REDIS_PORT`. Add them to
-your `.env`:
+The broker reads `REDIS_HOST` and `REDIS_PORT`. Add them to your `.env`:
 
 ```ini
 # .env
@@ -51,35 +43,32 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
 
-Read them with the framework's `env()` helper. `env()` infers the type of the
-returned value — a numeric string such as `"6379"` comes back as an `int`,
-everything else stays a `str` — so a small config dataclass keeps the values
-typed:
+Read them in a config dataclass. `env()` casts the value to the type of its
+default, so `REDIS_PORT` comes back as an `int`:
 
 ```python
 # config/queue.py
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from fastapi_startkit.environment import env
 
 
 @dataclass
 class QueueConfig:
-    redis_host: str = field(default_factory=lambda: env("REDIS_HOST", "localhost"))
-    redis_port: int = field(default_factory=lambda: env("REDIS_PORT", "6379"))
+    redis_host: str = env("REDIS_HOST", "localhost")
+    redis_port: int = env("REDIS_PORT", 6379)
 ```
 
 ## The Queue Provider
 
-Create a provider that builds the broker and binds it into the container. The
-`register()` method runs while the application boots, so the `broker` binding is
-available to every other provider and to your task modules.
+The provider builds the broker in `register()` and binds it as `broker`, so other
+providers and your task modules can resolve it:
 
 ```python
 # providers/queue_provider.py
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 
-from fastapi_startkit.providers import Provider
+from fastapi_startkit.support import Provider
 
 from config.queue import QueueConfig
 
@@ -88,7 +77,6 @@ class QueueProvider(Provider):
     provider_key = "queue"
 
     def register(self) -> None:
-        """Build the TaskIQ broker and bind it as `broker`."""
         config = self.resolve_config(QueueConfig)
         url = f"redis://{config['redis_host']}:{config['redis_port']}"
 
@@ -99,40 +87,33 @@ class QueueProvider(Provider):
         self.app.bind("broker", broker)
 
     def boot(self) -> None:
-        """Open and close the broker connection with the web process."""
         broker = self.app.make("broker")
 
         self.app.add_event_handler("startup", broker.startup)
         self.app.add_event_handler("shutdown", broker.shutdown)
 ```
 
-`resolve_config(QueueConfig)` returns a plain dict that merges the dataclass
-defaults with any configuration passed when the provider is registered, so
-`config['redis_host']` and `config['redis_port']` are always populated.
+`resolve_config(QueueConfig)` returns a dict of the dataclass values, with any
+config class passed at registration merged on top.
 
 ::: tip Why bind as `broker`?
-Binding the broker under a stable key (`broker`) means tasks, controllers and
-commands can all resolve the *same* instance from the container with
-`app.make("broker")` — there is only ever one broker per process.
+With one container key, tasks, controllers, and commands all get the same broker
+instance from `app.make("broker")`.
 :::
 
 ### A note on startup/shutdown vs. lifespan
 
-The framework wires the broker through `Application.add_event_handler`, which
-delegates to Starlette's `add_event_handler("startup"/"shutdown", ...)`. This is
-the same mechanism behind the `@app.on_event` decorator, which newer Starlette
-releases mark as **deprecated in favour of lifespan handlers**. It remains fully
-functional and is the lifecycle hook the framework currently exposes:
-`FastAPIProvider` constructs the `FastAPI()` instance internally and does not
-offer a hook to pass a custom `lifespan=`. If you need a lifespan-based broker
-setup, replace the FastAPI instance with your own provider that calls
+`Application.add_event_handler` calls Starlette's
+`add_event_handler("startup"/"shutdown", ...)`, the mechanism behind
+`@app.on_event`. Starlette deprecates it in favour of lifespan handlers, but it
+still works, and `FastAPIProvider` gives you no way to pass `lifespan=`. To use a
+lifespan, register your own provider that calls
 `self.app.use_fastapi(FastAPI(lifespan=...))`.
 
 ## Registering the Provider
 
-Add `QueueProvider` to your application's providers list. Register it **after**
-`FastAPIProvider` so the FastAPI instance exists when the broker attaches its
-startup/shutdown handlers:
+Register `QueueProvider` after `FastAPIProvider`, so the FastAPI instance exists
+when `boot()` adds the event handlers:
 
 ```python
 # bootstrap/application.py
@@ -155,9 +136,8 @@ app: Application = Application(
 
 ## Exposing the Broker
 
-Both your tasks and the TaskIQ worker need to import the *same* broker instance.
-Add a tiny `bootstrap/broker.py` module that resolves it from the application
-singleton and re-exports it as a top-level `broker` variable:
+Your tasks and the TaskIQ worker must import the same broker instance. Resolve it
+in `bootstrap/broker.py`:
 
 ```python
 # bootstrap/broker.py
@@ -166,26 +146,22 @@ from bootstrap.application import app
 broker = app.make("broker")
 ```
 
-This works because `bootstrap/application.py` instantiates `Application(...)` at
-module level, and the constructor runs every provider's `register()` and `boot()`.
-By the time `bootstrap.application` finishes importing, the `QueueProvider` has
-already bound the broker — so `app.make("broker")` resolves it outside of any
-request. The worker then runs against `bootstrap.broker:broker`.
+`bootstrap/application.py` creates the `Application` at import time, and the
+constructor runs every provider's `register()` and `boot()`. So once it is
+imported, `app.make("broker")` works outside a request. The worker loads
+`bootstrap.broker:broker`.
 
 ::: warning Resolving `broker` outside a request
-`app.make("broker")` returns the broker as soon as `bootstrap.application` is
-imported — this works in tasks, commands and scripts, not just inside requests.
-What it does **not** do is *start* the broker: `broker.startup()` only runs from
-the FastAPI startup event (or the worker, below). Inside a request the startup
-event has already fired, so dispatching just works. From a standalone script you
-must start the broker yourself before dispatching — see
+Resolving the broker does not start it. `broker.startup()` runs from the FastAPI
+startup event, or in the worker. Inside a request it has already run. In a
+standalone script, start the broker yourself; see
 [Dispatching outside a request](#dispatching-outside-a-request). If you get
-`MissingContainerBindingNotFound`, the `QueueProvider` was not registered.
+`MissingContainerBindingNotFound`, `QueueProvider` is not registered.
 :::
 
 ## Defining Tasks
 
-Import the shared `broker` and register work with the `@broker.task` decorator:
+Import `broker` and decorate each task with `@broker.task`:
 
 ```python
 # app/tasks.py
@@ -202,8 +178,7 @@ async def send_welcome_email(user_id: int) -> str:
 
 ### From a request
 
-Inside a route or controller, dispatch with `.kiq()`. The FastAPI startup event
-has already called `broker.startup()`, so the broker is connected and ready:
+Inside a route or controller, dispatch with `.kiq()`:
 
 ```python
 # app/http/controllers/users_controller.py
@@ -213,14 +188,13 @@ from app.tasks import send_welcome_email
 async def store(data: UserSchema):
     user = await User.create(**data.model_dump())
 
-    # Hand the work off to the queue and return immediately.
     await send_welcome_email.kiq(user.id)
 
     return user
 ```
 
-`.kiq()` returns a task handle. If you configured a result backend (as the
-provider above does), you can await the result when you need it:
+`.kiq()` returns a task handle. With a result backend, as in the provider above,
+you can wait for the result:
 
 ```python
 task = await send_welcome_email.kiq(user.id)
@@ -232,9 +206,8 @@ if not result.is_err:
 
 ### Dispatching outside a request
 
-When dispatching from a standalone script or a one-off command, the FastAPI
-startup event never fires, so start the broker yourself first and shut it down
-when you're done:
+In a script or command, the FastAPI startup event never fires. Start the broker
+before dispatching and shut it down afterwards:
 
 ```python
 import asyncio
@@ -256,27 +229,21 @@ asyncio.run(main())
 
 ## Running a Worker
 
-Dispatched tasks stay in Redis until a worker picks them up. Start one with the
-TaskIQ CLI, pointing it at the broker (`module:variable`) followed by the modules
-that contain your tasks:
+Tasks wait in Redis until a worker runs them. Start a worker with the broker
+(`module:variable`) and the modules that define your tasks:
 
 ```bash
 taskiq worker bootstrap.broker:broker app.tasks
 ```
 
-`bootstrap.broker:broker` locates the broker instance, and each trailing module
-path (`app.tasks`) is imported so its `@broker.task` functions register with the
-worker. The CLI calls `broker.startup()` and `broker.shutdown()` for the worker
-process itself — you do not need to manage that here.
-
-If your tasks live in several modules, list them all:
+The worker imports each module so its tasks register, and starts and stops the
+broker itself. List every module that defines tasks:
 
 ```bash
 taskiq worker bootstrap.broker:broker app.tasks app.tasks.emails app.tasks.reports
 ```
 
-During development, add `--reload` to restart the worker when your task code
-changes:
+Add `--reload` in development to restart the worker when code changes:
 
 ```bash
 taskiq worker bootstrap.broker:broker app.tasks --reload
