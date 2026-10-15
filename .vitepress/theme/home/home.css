@@ -19,7 +19,7 @@
     --hp-term-rule: #2b2926;
     --hp-term-ink: #ece7dd;
     --hp-term-muted: #9a9488;
-    --hp-sans: "Inter Tight", "Inter", system-ui, sans-serif;
+    --hp-sans: var(--site-sans);
     --hp-serif: "Instrument Serif", Georgia, serif;
     --hp-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
     --hp-gutter: 24px;
