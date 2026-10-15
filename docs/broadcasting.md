@@ -7,7 +7,7 @@ keywords: broadcasting, websockets, reverb, pusher, real-time, fastapi, events, 
 
 # Broadcasting
 
-FastAPI Startkit includes a built-in broadcasting module — **Reverb** — a self-hosted WebSocket server that implements the [Pusher WebSocket protocol](https://pusher.com/docs/channels/library_auth_reference/pusher-websockets-protocol/). This means the official `pusher-js` browser SDK connects to it out of the box with **no external service required**.
+Broadcasting sends server-side events to the browser over WebSockets. FastAPI Startkit ships Reverb, a WebSocket server that speaks the [Pusher WebSocket protocol](https://pusher.com/docs/channels/library_auth_reference/pusher-websockets-protocol/), so the official `pusher-js` client can connect to it without a hosted service.
 
 ## How It Works
 
@@ -16,17 +16,15 @@ FastAPI Startkit includes a built-in broadcasting module — **Reverb** — a se
   broadcast(OrderShipped(order))
         │
         ▼
-  [ReverbManager] ──publishes to──▶ [Reverb WS Server] ◀──pusher-js──▶ [Browser]
+  [BroadcastManager] ──publishes to──▶ [Reverb WS Server] ◀──pusher-js──▶ [Browser]
                                       (Starlette WS)
 ```
 
-The Reverb WebSocket server runs **inside your existing FastAPI process** — no separate service to manage.
-
----
+Reverb runs inside your FastAPI process, so there is no separate service to deploy.
 
 ## Installation
 
-Broadcasting is included in the core package. Register `ReverbProvider` in your application:
+Broadcasting is part of the core package. Register `ReverbProvider` in your application:
 
 ```python
 # bootstrap/application.py
@@ -44,7 +42,7 @@ app = Application(
 
 ### Passing a config object
 
-If your app uses `BroadcastingConfig` to read env-vars explicitly, pass it as a tuple alongside the provider (the same pattern used for `DatabaseProvider`, `FastAPIProvider`, etc.):
+To pass a config class, register the provider as a tuple, the same way as `DatabaseProvider` or `FastAPIProvider`:
 
 ```python
 from fastapi_startkit.broadcasting import ReverbProvider
@@ -59,15 +57,13 @@ app = Application(
 )
 ```
 
----
-
 ## Mounted Pattern
 
-By default `ReverbProvider` registers the Reverb WebSocket server as a standalone ASGI app. When you need the WebSocket endpoint to live **under a sub-path of your existing FastAPI app** (e.g. `/reverb`) — useful when a single-origin constraint applies, or you want to avoid a separate port — mount it from inside your `AppProvider.boot()` method:
+By default, `ReverbProvider` mounts the WebSocket endpoint at `/app/<REVERB_APP_KEY>` on your FastAPI app, on the same host and port. To serve it under a sub-path such as `/reverb` instead, for example behind a reverse proxy that routes that path to FastAPI, mount the server yourself in `AppProvider.boot()`:
 
 ```python
 # providers/app_provider.py
-from fastapi_startkit.providers import Provider
+from fastapi_startkit.support import Provider
 
 class AppProvider(Provider):
     def boot(self) -> None:
@@ -80,15 +76,15 @@ class AppProvider(Provider):
 ```
 
 > [!IMPORTANT]
-> **Order matters.** Call `include_router` **before** `mount`. FastAPI resolves routes in registration order; mounting before the router causes the `/reverb` prefix to shadow any API routes whose paths start with `/r`.
+> Call `include_router` before `mount`. Starlette matches routes in the order they were added, so register your own routes first.
 
-With the mounted pattern the Reverb WebSocket is reachable at:
+The WebSocket is then served at:
 
 ```
 ws://<host>:<port>/reverb/app/<REVERB_APP_KEY>
 ```
 
-The corresponding `pusher-js` config uses `wsPath` to point the client at the mount point:
+In `pusher-js`, set `wsPath` to the mount point:
 
 ```js
 import Pusher from "pusher-js";
@@ -103,20 +99,9 @@ const pusher = new Pusher("local", {
 });
 ```
 
-### When to use the mounted pattern vs the standalone default
-
-| Scenario | Recommendation |
-|---|---|
-| Single-port deployment (e.g. `dist/` build on `:4545`) | **Mounted** — no second port to manage |
-| Separate WebSocket service / different host | Standalone (default) |
-| Reverse-proxy that routes `/reverb` to FastAPI | **Mounted** |
-| Simplest possible setup, two ports are fine | Standalone (default) |
-
----
-
 ## Configuration
 
-Add the following to your `.env` file:
+Add these values to your `.env` file:
 
 ```ini
 BROADCAST_DRIVER=reverb
@@ -129,26 +114,22 @@ REVERB_PORT=8080
 REVERB_SCHEME=http
 ```
 
-All environment variables and their defaults:
-
 | Variable | Default | Description |
 |---|---|---|
 | `BROADCAST_DRIVER` | `log` | Active driver: `reverb` or `log` |
 | `REVERB_APP_ID` | `1` | Reverb application ID |
 | `REVERB_APP_KEY` | `local` | Pusher-compatible app key sent by the client |
-| `REVERB_APP_SECRET` | `secret` | Secret used to sign auth requests |
-| `REVERB_HOST` | `0.0.0.0` | Interface the WS server binds to |
-| `REVERB_PORT` | `8080` | Port the WS server listens on |
+| `REVERB_APP_SECRET` | `secret` | Reverb app secret (not used to sign auth responses yet) |
+| `REVERB_HOST` | `0.0.0.0` | Reverb host (not used by the built-in endpoint, which runs on the FastAPI server) |
+| `REVERB_PORT` | `8080` | Reverb port (not used by the built-in endpoint, which runs on the FastAPI server) |
 | `REVERB_SCHEME` | `http` | URL scheme (`http` or `https`) |
 
 > [!NOTE]
-> The default driver is `log`. Set `BROADCAST_DRIVER=reverb` to enable real WebSocket broadcasting.
-
----
+> The default `log` driver only writes events to the log. Set `BROADCAST_DRIVER=reverb` to send them over WebSockets.
 
 ## Defining Events
 
-Create an event class that extends `BroadcastEvent` and implements `broadcast_on()`:
+An event extends `BroadcastEvent` and returns its channels from `broadcast_on()`:
 
 ```python
 from fastapi_startkit.broadcasting import BroadcastEvent, Channel
@@ -173,7 +154,7 @@ def broadcast_as(self) -> str:
 
 ### Customising the payload
 
-By default `broadcast_with()` returns all instance attributes as a dict. Override it to control exactly what is sent to the client:
+By default, `broadcast_with()` returns the event's `payload` if it is set, or else all instance attributes. Override it to choose what the client receives:
 
 ```python
 def broadcast_with(self) -> dict:
@@ -206,8 +187,6 @@ class OrderShipped(BroadcastEvent):
         }
 ```
 
----
-
 ## Channel Types
 
 | Class | Channel prefix | Use case |
@@ -232,8 +211,6 @@ def broadcast_on(self):
     return [PresenceChannel(f"orders.{self.order_id}")]
 ```
 
----
-
 ## Broadcasting Events
 
 ### Using the helper function
@@ -248,25 +225,21 @@ async def ship_order(order_id: int):
     return {"status": "shipped"}
 ```
 
----
-
 ## Local Development
 
-During development, set `BROADCAST_DRIVER=log` to print events to the console without needing a WebSocket connection:
+Set `BROADCAST_DRIVER=log` to write events to the log instead of sending them:
 
 ```ini
 BROADCAST_DRIVER=log
 ```
 
-When the log driver is active, each `broadcast()` call writes a structured line to the `reverb` logger:
+Each `broadcast()` call then writes a line to the `reverb` logger:
 
 ```
 [Broadcast] channel=orders.1 event=OrderShipped data={'order_id': 1, 'status': 'shipped'}
 ```
 
-`log` is the **default driver**, so if `BROADCAST_DRIVER` is not set at all, events are safely logged and never sent over WebSockets. This makes it safe to leave broadcasting calls in your code during testing without any WebSocket infrastructure.
-
----
+`log` is the default driver, so when `BROADCAST_DRIVER` is unset, events are logged and never sent. Your tests can call `broadcast()` without a WebSocket server.
 
 ## Frontend (pusher-js)
 
@@ -276,16 +249,16 @@ Install `pusher-js` in your frontend project:
 npm install pusher-js
 ```
 
-### Standalone (separate port)
+### Default endpoint
 
-Connect to the Reverb server — point `wsHost` and `wsPort` at your FastAPI app:
+Point `wsHost` and `wsPort` at your FastAPI server:
 
 ```js
 import Pusher from "pusher-js";
 
 const pusher = new Pusher("local", {
     wsHost: "127.0.0.1",
-    wsPort: 8080,
+    wsPort: 8000,
     forceTLS: false,
     enabledTransports: ["ws"],
     cluster: "mt1",
@@ -300,7 +273,7 @@ channel.bind("OrderShipped", (data) => {
 
 ### Mounted (same port, sub-path)
 
-When using the [mounted pattern](#mounted-pattern), add `wsPath` to tell `pusher-js` the mount point:
+With the [mounted pattern](#mounted-pattern), add `wsPath`:
 
 ```js
 import Pusher from "pusher-js";
@@ -324,11 +297,11 @@ channel.bind("OrderShipped", (data) => {
 ```
 
 > [!TIP]
-> The first argument to `new Pusher(...)` is the `REVERB_APP_KEY`. It must match the value configured in your `.env` file.
+> The first argument to `new Pusher(...)` is your `REVERB_APP_KEY` and must match the value in `.env`.
 
 ### React hook
 
-A lightweight custom hook that wraps `pusher-js` and returns an accumulated messages array:
+This hook subscribes to a channel and returns every message received so far:
 
 ```ts
 // hooks/useBroadcastChannel.ts

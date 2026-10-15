@@ -14,7 +14,7 @@ A fully working example is available in the [vite-app](https://github.com/fastap
 
 ## Setup
 
-Install the optional `vite` package to use Vite integration:
+Install the `vite` extra:
 
 ```bash
 pip install "fastapi-startkit[vite]"
@@ -45,7 +45,8 @@ This creates the following files in your project:
 
 - `config/vite.py`: FastAPI configuration for Vite.
 - `package.json`: Vite dependencies and scripts.
-- `vite.config.js`: Vite configuration with Tailwind CSS support.
+- `vite.config.ts`: Vite configuration with Tailwind CSS support.
+- `tsconfig.json`: TypeScript configuration.
 - `resources/js/app.ts`: Main entry point.
 - `resources/css/app.css`: Main CSS entry point.
 - `resources/templates/index.html`: Example template using Vite.
@@ -80,7 +81,7 @@ config = ViteConfig(
 )
 ```
 
-To use your custom configuration, pass the `ViteConfig` class when registering the provider. This is optional; if omitted, the provider will use the default settings.
+To use your own configuration, register the provider as a tuple with your `ViteConfig` class. Without it, the provider uses the defaults above.
 
 ```python
 from config.vite import ViteConfig
@@ -94,15 +95,15 @@ app = Application(
 
 ## Loading a Page with JS and CSS
 
-`ViteProvider` automatically sets up template rendering, so you can return an HTML page directly from a route. Resolve `templates` from the container and return a `TemplateResponse`:
+`ViteProvider` sets up Jinja2 templates for you. Resolve `templates` from the container and return a `TemplateResponse`:
 
 ```python
 from starlette.requests import Request
 
 async def index(request: Request):
-    from fastapi_startkit import app
+    from fastapi_startkit.application import app
     templates = app().make("templates")
-    return templates.TemplateResponse(request, "index.html", {"user": user})
+    return templates.TemplateResponse(request, "index.html", {"title": "Home"})
 ```
 
 In your template, call `vite()` with the entry point to inject the JS and CSS tags:
@@ -121,7 +122,7 @@ In your template, call `vite()` with the entry point to inject the JS and CSS ta
 </html>
 ```
 
-`vite()`, `vite_asset()`, and `vite_react_refresh()` are all available as template globals — see [Template Helpers](#template-helpers) below.
+`vite()`, `vite_asset()`, and `vite_react_refresh()` are available as template globals. See [Template Helpers](#template-helpers).
 
 ## Development Mode (HMR)
 
@@ -147,7 +148,7 @@ Build your assets:
 npm run build
 ```
 
-Vite writes `public/build/manifest.json`. The framework reads this manifest at startup (cached in memory) and generates hashed asset URLs with preload tags.
+Vite writes `public/build/manifest.json`. The framework reads this manifest on first use, caches it in memory, and generates hashed asset URLs with preload tags.
 
 ## Template Helpers
 
@@ -193,7 +194,7 @@ Injects the React Fast Refresh preamble. Required for React HMR. Must appear **b
 ```
 :::
 
-In production mode, `vite_react_refresh()` returns an empty string — safe to always include.
+In production, `vite_react_refresh()` returns an empty string, so you can leave it in your template.
 
 ## CSP Nonce
 
