@@ -201,7 +201,7 @@ class ReadmeResource(Resource):
             return f.read()
 ```
 
-Set `mime_type` to `"application/json"` or another type when the content isn't plain text.
+`mime_type` defaults to `"text/plain"`. Set it to `"application/json"` or another type when the content isn't plain text.
 
 ## Response
 
