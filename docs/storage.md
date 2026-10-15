@@ -180,9 +180,16 @@ Storage.disk("public").put("images/avatar.png", image_bytes)
 # GET /storage/images/avatar.png
 ```
 
+The `s3` disk has a `url()` method that joins `AWS_URL` and the path:
+
+```python
+Storage.disk("s3").url("images/avatar.png")
+# → {AWS_URL}/images/avatar.png
+```
+
 ## Testing with Fake Storage
 
-`Storage.fake()` replaces a disk with a driver that writes to a temporary directory. Call `cleanup()` to remove the directory, or use the fake as a context manager:
+`Storage.fake()` replaces a disk with a driver that writes to a temporary directory. Call `cleanup()` to remove the directory, or use the fake as a context manager. The fake has the same methods as the local driver, plus assertions:
 
 ```python
 fake = Storage.fake("local")
