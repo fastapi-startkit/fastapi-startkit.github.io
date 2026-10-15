@@ -363,7 +363,7 @@ result = await agent.prompt("Summarise this report.", attachments=[doc])
 ### Loading documents
 
 ```python
-# From a local file
+# From a local file: text files load as str, binary files fall back to bytes
 doc = Document.from_path("reports/q3.txt")
 
 # From application storage (async) — reads storage/<key>
@@ -419,7 +419,7 @@ print(summary.score)               # 8
 print(summary.next_action)         # "Schedule demo call"
 ```
 
-The model is called through LangChain's `with_structured_output()`, so providers that support it return data in the schema's shape. If that fails, the agent falls back to parsing JSON from the reply text, so it still helps to ask for JSON in your instructions. When no schema is set, `state.structured()` returns `None`.
+The model is called through LangChain's `with_structured_output()`, so providers that support it return data in the schema's shape. If that fails, the agent falls back to parsing JSON from the reply text, so it still helps to ask for JSON in your instructions. If the reply can't be parsed into the schema, `prompt()` raises a validation error. When no schema is set, `state.structured()` returns `None`.
 
 > [!TIP]
 > A faked or recorded JSON string is validated into the schema too, so `state.structured()` works in tests.
