@@ -105,7 +105,7 @@ class FastAPIConfig(Config):
     )
 ```
 
-Pass the class with the provider, as in [Setup](#setup). The provider merges it over the framework defaults in `register()`.
+Pass the class with the provider, as in [Setup](#setup). The provider merges it over the framework defaults in `register()`, key by key, so the class only needs the fields you change.
 
 ## Advanced: Customizing the Provider
 

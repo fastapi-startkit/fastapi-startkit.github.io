@@ -53,7 +53,7 @@ You can configure logging inline in the providers list, or in a config file.
 
 ### Way 1: Inline Configuration
 
-Pass a dictionary with the provider:
+For a small setup, pass a dictionary with the provider:
 
 ```python
 # bootstrap/application.py
@@ -86,7 +86,7 @@ app: Application = Application(
 
 ### Way 2: Config File (Recommended)
 
-Publish the default config to `config/logging.py`:
+For a larger application, keep the settings in a config file. Publish the default config to `config/logging.py`:
 
 ```bash
 uv run python artisan provider:publish --provider=logging
