@@ -97,7 +97,7 @@ The agent will install the framework, generate the directory structure, and prod
 Before installing Fastapi Startkit, ensure you have the following installed:
 
 ### 1. Python
-Fastapi Startkit requires **Python 3.12** or higher. You can download it from [python.org](https://www.python.org/downloads/), or if you have **uv** installed, simply run:
+Fastapi Startkit supports **Python 3.12, 3.13, 3.14 and 3.15**. You can download it from [python.org](https://www.python.org/downloads/), or if you have **uv** installed, simply run:
 
 ```bash
 uv python install 3.12
@@ -124,6 +124,8 @@ uv add fastapi-startkit
 # or
 pip install fastapi-startkit
 ```
+
+> Python 3.12, 3.13, 3.14 and 3.15 are supported. The `fastapi-startkit[ai]` extra cannot be installed on Python 3.15 or newer yet, because its `langgraph` dependency requires `ormsgpack`, which does not support 3.15. Use Python 3.14 or older for the `ai` extra.
 
 ## Way 1: Simple Setup
 
