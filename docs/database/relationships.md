@@ -7,7 +7,7 @@ keywords: orm, relationships, database, foreign keys, fastapi
 
 # Relationships
 
-Relationships are declared as class-level attributes on your model using the relationship descriptors from `fastapi_startkit.masoniteorm.relationships`. Type hints wrapped in `TYPE_CHECKING` keep imports lazy and prevent circular-import issues.
+Declare a relationship as a class attribute on the model, using the classes in `fastapi_startkit.masoniteorm.relationships`. Import related models under `TYPE_CHECKING` so the type hints don't cause circular imports:
 
 ```python
 from typing import TYPE_CHECKING
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 ## BelongsTo
 
-Use `BelongsTo` when the current model holds the foreign key — a "child" pointing to its "parent".
+Use `BelongsTo` when this model holds the foreign key, such as a post pointing at its author.
 
 **Signature:**
 ```python
@@ -29,10 +29,10 @@ BelongsTo(related_model, local_key, foreign_key)
 | Parameter | Description |
 |---|---|
 | `related_model` | String name of the related model class |
-| `local_key` | Foreign key column on **this** model |
-| `foreign_key` | Primary key column on the **related** model |
+| `local_key` | Foreign key column on this model |
+| `foreign_key` | Primary key column on the related model |
 
-**Example — `Media` belongs to `Post`:**
+`Media` belongs to `Post`:
 
 ```python
 # app/models/media.py
@@ -53,7 +53,7 @@ class Media(Model):
     post: "Post" = BelongsTo("Post")
 ```
 
-**Example — `Post` belongs to `User` with explicit key names:**
+`Post` belongs to `User`, with explicit key names:
 
 ```python
 author: "User" = BelongsTo('User', local_key='user_id', foreign_key="id")
@@ -61,14 +61,14 @@ author: "User" = BelongsTo('User', local_key='user_id', foreign_key="id")
 
 ## HasMany
 
-Use `HasMany` when the related model holds a foreign key pointing back to this model — a "parent" owning many "children".
+Use `HasMany` when the related model holds a foreign key back to this one, such as a user with many posts.
 
 **Signature:**
 ```python
 HasMany(related_model)
 ```
 
-**Example — `User` has many `Post`s:**
+`User` has many `Post`s:
 
 ```python
 # app/models/user.py
@@ -89,7 +89,7 @@ class User(Model):
     posts: list["Post"] = HasMany("Post")
 ```
 
-**Example — `Post` has many `Media` items:**
+`Post` has many `Media` items:
 
 ```python
 media: list["Media"] = HasMany("Media")
@@ -97,28 +97,28 @@ media: list["Media"] = HasMany("Media")
 
 ## BelongsToMany
 
-Use `BelongsToMany` for many-to-many relationships where a pivot table connects two models.
+Use `BelongsToMany` when a pivot table links two models.
 
 **Signature:**
 ```python
-BelongsToMany(related_model, local_foreign_key, related_foreign_key, table)
+BelongsToMany(related_model, local_foreign_key, related_foreign_key, table=pivot_table)
 ```
 
 | Parameter | Description |
 |---|---|
 | `related_model` | String name of the related model class |
-| `local_foreign_key` | Column in the pivot table that references **this** model |
-| `related_foreign_key` | Column in the pivot table that references the **related** model |
-| `table` | Name of the pivot table |
+| `local_foreign_key` | Pivot column that references this model |
+| `related_foreign_key` | Pivot column that references the related model |
+| `table` | Name of the pivot table. Pass it as a keyword argument. |
 
-**Example — `Post` belongs to many `Tag`s:**
+`Post` belongs to many `Tag`s:
 
 ```python
 # app/models/post.py
 tags: list["Tag"] = BelongsToMany("Tag", "post_id", "tag_id", table="post_tag")
 ```
 
-**Example — `Tag` belongs to many `Post`s (inverse side):**
+The inverse, `Tag` belongs to many `Post`s:
 
 ```python
 # app/models/tag.py
@@ -127,7 +127,7 @@ posts: list["Post"] = BelongsToMany("Post")
 
 ### Pivot Model
 
-Define a simple model for the pivot table when you need to insert or query pivot records directly:
+To insert or query pivot rows directly, define a model for the pivot table:
 
 ```python
 # app/models/post_tag.py
@@ -142,7 +142,7 @@ class PostTag(Model):
     tag_id: int
 ```
 
-Attaching tags to a post:
+Attach a tag to a post:
 
 ```python
 await PostTag.first_or_create({"post_id": post.id, "tag_id": tag.id})
@@ -150,7 +150,7 @@ await PostTag.first_or_create({"post_id": post.id, "tag_id": tag.id})
 
 ## HasOneThrough
 
-Use `HasOneThrough` when a model reaches a **distant** model through an **intermediary** model — one result per owner.
+Use `HasOneThrough` when a model reaches one distant model through an intermediate model.
 
 **Schema structure:**
 
@@ -158,30 +158,36 @@ Use `HasOneThrough` when a model reaches a **distant** model through an **interm
 IncomingShipment → (via from_port_id) → Port → (via port_country_id) → Country
 ```
 
-**Signature (decorator form):**
+**Signature:**
 
 ```python
-@HasOneThrough(None, local_key, intermediary_fk, intermediary_pk, distant_pk)
-def relationship_name(self):
-    return [DistantModel, IntermediaryModel]
+relationship_name: "DistantModel" = HasOneThrough(
+    ["DistantModel", "IntermediaryModel"],
+    local_key,
+    intermediary_fk,
+    intermediary_pk,
+    distant_pk,
+)
 ```
 
 | Parameter | Description |
 |---|---|
-| `None` | Always `None` — the decorated method provides the model pair |
-| `local_key` | FK on **this** model that references the intermediary table |
-| `intermediary_fk` | FK on the **intermediary** model that references the distant table |
-| `intermediary_pk` | PK on the **intermediary** model |
-| `distant_pk` | PK on the **distant** model |
+| `["DistantModel", "IntermediaryModel"]` | String names of the distant and intermediate models |
+| `local_key` | Foreign key on this model that references the intermediate table |
+| `intermediary_fk` | Foreign key on the intermediate model that references the distant table |
+| `intermediary_pk` | Primary key on the intermediate model |
+| `distant_pk` | Primary key on the distant model |
 
-**Example — `IncomingShipment` has one `Country` through `Port`:**
+`IncomingShipment` has one `Country` through `Port`:
 
 ```python
 # app/models/incoming_shipment.py
+from typing import TYPE_CHECKING
 from fastapi_startkit.masoniteorm import Model
 from fastapi_startkit.masoniteorm.relationships import HasOneThrough
-from app.models.country import Country
-from app.models.port import Port
+
+if TYPE_CHECKING:
+    from app.models.country import Country
 
 class IncomingShipment(Model):
     __table__ = "incoming_shipments"
@@ -190,20 +196,24 @@ class IncomingShipment(Model):
     name: str
     from_port_id: int
 
-    @HasOneThrough(None, "from_port_id", "port_country_id", "port_id", "country_id")
-    def from_country(self):
-        return [Country, Port]
+    from_country: "Country" = HasOneThrough(
+        ["Country", "Port"],
+        "from_port_id",     # FK on IncomingShipment → Port
+        "port_country_id",  # FK on Port → Country
+        "port_id",          # PK on Port
+        "country_id",       # PK on Country
+    )
 ```
 
-**Lazy access:**
+**Lazy access.** A relationship that was not eager loaded runs a query, so await it:
 
 ```python
 shipment = await IncomingShipment.where("name", "Milk").first()
-country = shipment.from_country   # Country instance
+country = await shipment.from_country
 print(country.name)               # "Australia"
 ```
 
-**Eager loading:**
+**Eager loading.** After `with_()`, the attribute holds the loaded model:
 
 ```python
 shipments = await IncomingShipment.where("name", "Bread").with_("from_country").get()
@@ -222,7 +232,7 @@ shipments = await IncomingShipment.where_has(
 
 ## HasManyThrough
 
-Use `HasManyThrough` when a model reaches **many** distant models through an **intermediary** model — a collection per owner.
+Use `HasManyThrough` when a model reaches many distant models through an intermediate model.
 
 **Schema structure:**
 
@@ -230,7 +240,7 @@ Use `HasManyThrough` when a model reaches **many** distant models through an **i
 Course → (via in_course_id on Enrolment) → Enrolment → (via active_student_id) → Student
 ```
 
-**Signature (class-attribute form):**
+**Signature:**
 
 ```python
 relationship_name: list["DistantModel"] = HasManyThrough(
@@ -244,13 +254,13 @@ relationship_name: list["DistantModel"] = HasManyThrough(
 
 | Parameter | Description |
 |---|---|
-| `["DistantModel", "IntermediaryModel"]` | String names of the distant and intermediary models |
-| `local_foreign_key` | FK on the **intermediary** that references **this** model |
-| `other_foreign_key` | FK on the **intermediary** that references the **distant** model |
-| `local_owner_key` | PK on **this** model |
-| `other_owner_key` | PK on the **distant** model |
+| `["DistantModel", "IntermediaryModel"]` | String names of the distant and intermediate models |
+| `local_foreign_key` | Foreign key on the intermediate model that references this model |
+| `other_foreign_key` | Foreign key on the intermediate model that references the distant model |
+| `local_owner_key` | Primary key on this model |
+| `other_owner_key` | Primary key on the distant model |
 
-**Example — `Course` has many `Student`s through `Enrolment`:**
+`Course` has many `Student`s through `Enrolment`:
 
 ```python
 # app/models/course.py
@@ -284,13 +294,12 @@ students = await course.students   # Collection of Student instances
 print(students.count())
 ```
 
-**Eager loading:**
+**Eager loading.** The loaded collection is already on the model, so don't await it:
 
 ```python
 courses = await Course.with_("students").get()
 for course in courses:
-    students = await course.students
-    print([s.name for s in students])
+    print([s.name for s in course.students])
 ```
 
 **Filtering with `where_has`:**
@@ -304,10 +313,9 @@ courses = await Course.where_has(
 
 ## Eager Loading
 
-Load relationships alongside the main query to avoid N+1 queries. Pass relationship names as strings to `with_()`:
+Accessing a relationship inside a loop runs one query per row (the N+1 problem). Pass relationship names to `with_()` to load them up front:
 
 ```python
-# Load posts with their author and tags in a single query set
 posts = await Post.with_("author", "tags").get()
 
 for post in posts:
@@ -315,7 +323,7 @@ for post in posts:
     print([tag.name for tag in post.tags])
 ```
 
-You can combine as many relationships as needed:
+Pass as many names as you need:
 
 ```python
 posts = await Post.with_("author", "tags", "media").get()
@@ -323,13 +331,13 @@ posts = await Post.with_("author", "tags", "media").get()
 
 ## Full Model Reference
 
-Here is the complete `Post` model showing all three relationship types together:
+The complete `Post` model with `BelongsTo`, `HasMany`, and `BelongsToMany`:
 
 ```python
 # app/models/post.py
 from typing import TYPE_CHECKING
 from fastapi_startkit.masoniteorm import Model
-from fastapi_startkit.masoniteorm.relationships import BelongsTo, HasMany, BelongsToMany, HasOneThrough, HasManyThrough
+from fastapi_startkit.masoniteorm.relationships import BelongsTo, HasMany, BelongsToMany
 
 if TYPE_CHECKING:
     from app.models.user import User

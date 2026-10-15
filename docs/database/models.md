@@ -1,17 +1,17 @@
 ---
 outline: deep
 title: Models
-description: Define your database models using the powerful Masonite ORM integrated into Fastapi Startkit.
+description: Define database models with the Masonite ORM integrated into Fastapi Startkit.
 keywords: orm, models, database, fastapi, active record
 ---
 
 # Models
 
-Models represent database tables and are the primary interface for reading and writing data. Each model maps to a single table and exposes an async query builder.
+Each model maps to one database table. You use it to query, insert, update, and delete rows.
 
 ## Defining a Model
 
-Extend `Model` from `fastapi_startkit.masoniteorm` and annotate your columns with Python types:
+Extend `Model` from `fastapi_startkit.masoniteorm` and annotate the columns with Python types:
 
 ```python
 from fastapi_startkit.masoniteorm import Model
@@ -26,7 +26,7 @@ class User(Model):
 
 ### `__table__`
 
-By default the ORM infers the table name from the class name (pluralized, snake_cased). Set `__table__` explicitly to override:
+By default the table name is the class name, snake_cased and pluralized. Set `__table__` to use a different name:
 
 ```python
 class PostTag(Model):
@@ -35,7 +35,7 @@ class PostTag(Model):
 
 ### `__timestamps__`
 
-Timestamp columns (`created_at`, `updated_at`) are managed automatically. Set `__timestamps__ = False` to disable them:
+The model fills in `created_at` and `updated_at` when it saves. Set `__timestamps__ = False` for tables without those columns:
 
 ```python
 class PostTag(Model):
@@ -45,7 +45,7 @@ class PostTag(Model):
 
 ## Querying
 
-All query methods are async and must be awaited.
+Every method that hits the database is async, so await it.
 
 ### Fetch all records
 
@@ -79,7 +79,7 @@ posts = await Post.where("user_id", 1).get()
 
 ### `find_or_fail(id)` — find or raise
 
-Fetch a record by primary key, raising `ModelNotFoundException` if nothing is found:
+`find_or_fail` raises `ModelNotFoundException` when no row has that primary key:
 
 ```python
 user = await User.find_or_fail(1)
@@ -87,7 +87,7 @@ user = await User.find_or_fail(1)
 
 ### `first_or_fail()` — first or raise
 
-Execute the current query and raise `ModelNotFoundException` if no record matches:
+`first_or_fail` raises `ModelNotFoundException` when the query matches nothing:
 
 ```python
 user = await User.where("email", "admin@example.com").first_or_fail()
@@ -95,15 +95,11 @@ user = await User.where("email", "admin@example.com").first_or_fail()
 
 ### `exists()` — check existence
 
-Return `True` if any record matches the current query, `False` otherwise:
-
 ```python
 active = await User.where("is_active", True).exists()
 ```
 
 ### `count()` — row count
-
-Return the number of rows matching the current query:
 
 ```python
 total = await User.count()
@@ -112,34 +108,31 @@ active_count = await User.where("is_active", True).count()
 
 ### `paginate(per_page, page)` — paginate results
 
-Return a `LengthAwarePaginator` containing the requested slice of records plus total-count metadata:
+`paginate` is a query builder method, so start from `query()` or a `where`. It returns a `LengthAwarePaginator`:
 
 ```python
-page = await User.paginate(per_page=15, page=1)
-# page.items      → list of User instances
-# page.total      → total number of matching rows
-# page.last_page  → last available page number
+page = await User.query().paginate(per_page=15, page=1)
+
+page.result     # the User instances on this page
+page.total      # total number of matching rows
+page.last_page  # last page number
 ```
 
 ### `or_where` / `where_raw` / `or_where_raw` / `or_where_null` — raw & OR variants
 
 ```python
-# OR condition
 users = await User.where("role", "admin").or_where("role", "moderator").get()
 
-# Raw SQL predicate
 users = await User.where_raw("created_at > NOW() - INTERVAL '7 days'").get()
 
-# Raw SQL with OR
 users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").get()
 
-# OR IS NULL
 users = await User.where("name", "Alice").or_where_null("deleted_at").get()
 ```
 
 ### Retrieving records
 
-Call `get()` to run the current query and retrieve all matching rows as a `Collection` of model instances:
+`get()` runs the query and returns a `Collection` of models:
 
 ```python
 users = await User.where("is_active", True).get()
@@ -150,7 +143,7 @@ for user in users:
 
 #### Chunking large result sets
 
-When you need to process a large number of records, loading them all at once with `all()` or `get()` can exhaust memory. The `chunk` methods retrieve a small batch of records at a time. They return async iterators, so consume them with `async for`:
+Loading a large table with `all()` or `get()` can run out of memory. The `chunk` methods fetch a batch at a time. They return async iterators, so loop over them with `async for`:
 
 ```python
 async for users in User.chunk(200):
@@ -158,7 +151,7 @@ async for users in User.chunk(200):
         print(user.email)
 ```
 
-You can chunk a constrained query too:
+You can chunk a filtered query:
 
 ```python
 async for projects in Project.where("is_active", True).chunk(100):
@@ -166,11 +159,11 @@ async for projects in Project.where("is_active", True).chunk(100):
         await project.archive()
 ```
 
-`chunk(size)` pages with `limit`/`offset` and stops as soon as a batch comes back empty or shorter than `size`.
+`chunk(size)` pages with `limit` and `offset`. It stops when a batch is empty or smaller than `size`.
 
 #### `chunk_by_id(size, column=None, alias=None)`
 
-Pages using a keyset cursor instead of `offset` — it orders by an incrementing column (the primary key by default) and filters each batch with `column > last_id`. This stays correct even when rows are added or removed mid-iteration:
+`chunk_by_id` pages by an increasing column instead of an offset. It orders by the primary key by default and fetches each batch with `column > last_id`, so rows added or removed during the loop don't cause skips or repeats:
 
 ```python
 async for users in User.chunk_by_id(500):
@@ -178,13 +171,13 @@ async for users in User.chunk_by_id(500):
         await user.recalculate_score()
 ```
 
-A pre-set `offset` applies to the **first page only**; a pre-set `limit` caps the **total** rows across batches (limit-remaining) — e.g. `.limit(250)` chunked by 100 yields batches of `100 + 100 + 50`. Pass `column` to page by a different column, and `alias` when that column is selected under a different name.
+An `offset` already on the query applies to the first batch only. A `limit` caps the total number of rows, so `.limit(250)` chunked by 100 gives batches of 100, 100, and 50. Pass `column` to page by another column, and `alias` when that column is selected under a different name.
 
-> `chunk_by_id` ignores any `order_by` on the query and raises a `RuntimeError` if the `alias` column is missing from a row.
+> `chunk_by_id` ignores any `order_by` on the query and raises `RuntimeError` if a row is missing the `alias` column.
 
 #### `chunk_by_id_desc(size, column=None, alias=None)`
 
-The descending counterpart of `chunk_by_id` — walks from the highest id to the lowest, filtering each batch with `column < last_id`:
+The same as `chunk_by_id`, but from the highest id down, using `column < last_id`:
 
 ```python
 async for projects in Project.chunk_by_id_desc(100):
@@ -192,11 +185,11 @@ async for projects in Project.chunk_by_id_desc(100):
         await project.archive()
 ```
 
-> All three chunk methods raise a `ValueError` if the batch size is not a positive integer.
+> All three chunk methods raise `ValueError` if the batch size is not a positive integer.
 
 ### Subquery selects
 
-You can select the result of a subquery as an extra column. For example, this loads every user with the time of their most recent login in a single query:
+You can select a subquery as an extra column. This loads every user with the time of their latest login in one query:
 
 ```python
 users = await (
@@ -220,7 +213,7 @@ SELECT "users".*, (SELECT "logins"."created_at" FROM "logins" WHERE user_id = us
 
 #### `select_sub(subquery, alias)`
 
-Adds `(subquery) AS alias` to the columns already selected. `subquery` can be a query builder, or a callable that receives a new builder with no table set and returns the subquery:
+Adds `(subquery) AS alias` to the selected columns. `subquery` is either a query builder, or a callable that receives an empty builder with no table set and returns the subquery:
 
 ```python
 posts = await (
@@ -241,7 +234,7 @@ posts = await (
 SELECT "posts"."id", (SELECT "categories"."name" FROM "categories" WHERE categories.id = posts.category_id LIMIT 1) AS category_name FROM "posts"
 ```
 
-Passing a builder instead of a callable gives the same SQL:
+Passing a builder gives the same SQL:
 
 ```python
 category_name = Category.query().select("name").where_column("categories.id", "posts.category_id").limit(1)
@@ -249,16 +242,16 @@ category_name = Category.query().select("name").where_column("categories.id", "p
 posts = await Post.query().select("id").select_sub(category_name, "category_name").get()
 ```
 
-Bindings from the subquery come before bindings from the outer `WHERE` clause, so `?` placeholders stay in the right order. Passing anything other than a builder or a callable raises `TypeError`.
+Bindings from the subquery come before bindings from the outer `WHERE` clause, so `?` placeholders stay in order. Anything other than a builder or a callable raises `TypeError`.
 
 #### `add_select(*columns)`
 
-Adds columns to the current selection instead of replacing it. Pass the columns as separate arguments or as one list. A column that is already selected is not added a second time:
+`add_select` adds columns to the selection instead of replacing it. Pass the columns as separate arguments or as one list. A column that is already selected is not added twice:
 
 ```python
 Post.query().select("id").add_select("title", "category_id")
 Post.query().select("id").add_select(["title", "category_id"])
-Post.query().select("id", "title").add_select("title", "category_id")  # "title" is only selected once
+Post.query().select("id", "title").add_select("title", "category_id")
 ```
 
 All three produce:
@@ -267,14 +260,14 @@ All three produce:
 SELECT "posts"."id", "posts"."title", "posts"."category_id" FROM "posts"
 ```
 
-To add a subquery column, pass a `{alias: subquery}` dict. The subquery can be a builder or a callable, and the entry is passed on to `select_sub(subquery, alias)`. You can mix plain columns and dicts in the same list:
+To add a subquery column, pass a `{alias: subquery}` dict. The subquery can be a builder or a callable, and each entry is passed to `select_sub(subquery, alias)`. You can mix plain columns and dicts in one list:
 
 ```python
 Post.query().select("id").add_select({"category_name": category_name})
 Post.query().add_select(["id", {"category_name": category_name}])
 ```
 
-If nothing has been selected yet, `add_select` first selects `{table}.*`, so the model's own columns are still returned next to the subquery column:
+If nothing is selected yet, `add_select` selects `{table}.*` first, so the model's own columns come back next to the subquery column:
 
 ```python
 Post.query().add_select({"category_name": category_name})
@@ -284,13 +277,13 @@ Post.query().add_select({"category_name": category_name})
 SELECT "posts".*, (SELECT "categories"."name" FROM "categories" WHERE categories.id = posts.category_id LIMIT 1) AS category_name FROM "posts"
 ```
 
-Keep these rules in mind:
+Two edge cases:
 
-- If the dict value is a string, it is a plain column and the key is ignored. `add_select({"ignored": "title"})` does the same thing as `add_select("title")`.
-- A subquery passed without an alias, for example `add_select(Category.query().select("name"))`, raises `TypeError`. Wrap it in a dict or call `select_sub()` instead.
+- A string dict value is a plain column, and the key is ignored. `add_select({"ignored": "title"})` is the same as `add_select("title")`.
+- A subquery without an alias, such as `add_select(Category.query().select("name"))`, raises `TypeError`. Wrap it in a dict or use `select_sub()`.
 
 ::: warning Migrating from `add_select(alias, callable)`
-Older versions used `add_select(alias, callable)` to add a subquery column. That form has been removed, and `add_select` now only accepts columns. Use `select_sub` instead. Note that the arguments are in the opposite order:
+Older versions added a subquery column with `add_select(alias, callable)`. That form has been removed; `add_select` now only takes columns. Use `select_sub`, and note that the arguments are in the opposite order:
 
 ```python
 # Before
@@ -305,7 +298,7 @@ Post.query().add_select({"category_name": lambda q: ...})
 
 #### `table(name)`
 
-Changes the table the builder queries. This is most useful inside a `select_sub` callable, where the builder you receive has no table set. You can also use it to point a model query at a different table:
+`table` changes the table the builder queries. You mostly need it inside a `select_sub` callable, where the builder has no table yet. It also works on a model query:
 
 ```python
 rows = await Post.query().table("categories").select("name").get()
@@ -319,19 +312,19 @@ SELECT "categories"."name" FROM "categories"
 
 ### `create`
 
-Insert a new record and return the model instance:
+`create` takes a dict of attributes, inserts the row, and returns the model:
 
 ```python
-post = await Post.create(
-    user_id=user.id,
-    title="Hello World",
-    content="My first post."
-)
+post = await Post.create({
+    "user_id": user.id,
+    "title": "Hello World",
+    "content": "My first post.",
+})
 ```
 
 ### `first_or_create`
 
-Fetch a matching record or create it if it does not exist. The first dict is the lookup condition, the second is the data to merge on create:
+`first_or_create` returns the first row matching the first dict. If there is none, it creates one from both dicts merged:
 
 ```python
 user = await User.first_or_create(
@@ -342,7 +335,7 @@ user = await User.first_or_create(
 
 ### `insert` — bulk insert rows
 
-Insert one or many rows without instantiating individual model instances:
+`insert` writes one or many rows without building model instances:
 
 ```python
 await User.insert({"email": "picard@example.com", "votes": 0})
@@ -353,7 +346,7 @@ await User.insert([
 ])
 ```
 
-> Unlike `create`, `insert` does not fire model events, apply timestamps, or return model instances. It is intended for high-volume seed and batch operations.
+> Unlike `create`, `insert` does not fire model events, set timestamps, or return models. Use it for bulk seeding and batch jobs.
 
 ## Updating Records
 
@@ -372,7 +365,7 @@ await user.delete()
 
 ## Accessing Attributes
 
-Model attributes map directly to column names:
+Read columns as attributes:
 
 ```python
 user = await User.first()
@@ -384,7 +377,7 @@ print(user.created_at.diff_for_humans())  # pendulum datetime
 
 ## Complete Example
 
-The `Post` model from the example app shows columns and relationships together:
+The `Post` model from the example app, with columns and relationships:
 
 ```python
 # app/models/post.py
@@ -410,6 +403,4 @@ class Post(Model):
     tags: list["Tag"] = BelongsToMany("Tag", "post_id", "tag_id", table="post_tag")
 ```
 
-Relationship declarations are covered in the [Relationships](./relationships) section.
-
-Automatic type coercion and custom value objects are covered in the [Casts](./casts) section.
+See [Relationships](./relationships) for relationship declarations and [Casts](./casts) for type conversion and value objects.

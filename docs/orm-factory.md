@@ -7,19 +7,15 @@ keywords: orm, factory, seeder, test data, fake data, database, fastapi startkit
 
 # ORM Factories & Seeders
 
-Factories and seeders are two complementary tools for populating your database with data.
+A factory builds one model with random fake data. Use factories in tests, where each call should produce a fresh record.
 
-**Factories** define how to generate a single model instance with realistic fake data. They are designed for tests — each call produces a fresh record with randomised values, and they compose cleanly to handle relationships.
-
-**Seeders** are async classes that insert a known, deterministic dataset. They are typically used to bootstrap a development or staging environment with a curated set of records (admin users, categories, demo content, etc.).
+A seeder inserts a fixed set of rows, such as admin users or categories, to set up a development or staging database.
 
 ## Factories
 
 ### Defining a Factory
 
-Create a factory class in `databases/factories/`. Extend `Factory`, declare the `model` it produces, and implement `definition()` to return a dictionary of field values.
-
-The `fake` attribute is a pre-wired [Faker](https://faker.readthedocs.io/) instance available on every factory:
+Create the factory in `databases/factories/`. Extend `Factory`, set `model`, and return the field values from `definition()`. `self.fake` is a [Faker](https://faker.readthedocs.io/) instance:
 
 ```python
 # databases/factories/UserFactory.py
@@ -42,7 +38,7 @@ class UserFactory(Factory):
 
 ### `factory.create()` — Persist to the Database
 
-Call `Factory.new().create()` to insert a record and return the saved model instance:
+`create()` inserts the record and returns the saved model:
 
 ```python
 user = await UserFactory.new().create()
@@ -50,7 +46,7 @@ print(user.id)         # set by the database
 print(user.email)      # a unique fake email
 ```
 
-Pass keyword arguments to override specific fields:
+Pass keyword arguments to override fields:
 
 ```python
 admin = await UserFactory.new().create(owner=True, email="admin@example.com")
@@ -58,15 +54,15 @@ admin = await UserFactory.new().create(owner=True, email="admin@example.com")
 
 ### `factory.make()` — Build Without Saving
 
-`make()` builds a model instance in memory without writing to the database. Useful for unit tests that do not require a database connection:
+`make()` builds the model in memory and does not touch the database:
 
 ```python
 user = await UserFactory.new().make()
-assert user.first_name  # populated from definition()
-assert user.id is None  # not persisted
+assert user.first_name
+assert user.id is None
 ```
 
-Override fields the same way as `create()`:
+It takes overrides the same way:
 
 ```python
 user = await UserFactory.new().make(email="test@example.com")
@@ -74,21 +70,18 @@ user = await UserFactory.new().make(email="test@example.com")
 
 ### Creating Multiple Records
 
-Chain `.count(n)` before `create()` or `make()` to produce a list of `n` instances:
+Call `.count(n)` first to get a list of `n` models:
 
 ```python
-users = await UserFactory.new().count(10).create()
-# returns a list of 10 User instances, each persisted
-
-drafts = await UserFactory.new().count(5).make()
-# returns a list of 5 User instances, not persisted
+users = await UserFactory.new().count(10).create()   # 10 saved users
+drafts = await UserFactory.new().count(5).make()     # 5 unsaved users
 ```
 
-When `count()` is used the return value is always a list. Without `count()` a single instance is returned.
+With `count()` you always get a list, even for `count(1)`. Without it you get a single model.
 
 ### States / Variations
 
-A **state** applies a partial override on top of `definition()`. Define states as methods on the factory that call `self.state()` with a callback returning the fields to merge:
+A state is a named override applied on top of `definition()`. Define it as a method that calls `self.state()` with a callback returning the fields to change:
 
 ```python
 class UserFactory(Factory):
@@ -109,14 +102,14 @@ class UserFactory(Factory):
         })
 ```
 
-Chain a state method before calling `create()` or `make()`:
+Call the state before `create()` or `make()`:
 
 ```python
 user = await UserFactory.new().suspended().create()
 assert user.account_status == "suspended"
 ```
 
-Multiple states can be stacked — they are applied in order, each receiving the accumulated attributes:
+States chain with each other and with `count()`. They are applied in order, and each callback receives the attributes built so far:
 
 ```python
 user = await UserFactory.new().suspended().count(3).create()
@@ -124,7 +117,7 @@ user = await UserFactory.new().suspended().count(3).create()
 
 ### Lifecycle Hooks
 
-Use `configure()` to register callbacks that run after `make()` or `create()`:
+Register callbacks in `configure()` to run after `make()` or `create()`:
 
 ```python
 class UserFactory(Factory):
@@ -147,18 +140,17 @@ class UserFactory(Factory):
         return self.after_making(after_making).after_creating(after_creating)
 ```
 
-`configure()` is called automatically by `Factory.new()`. It must return `self` (or the result of chaining `.after_making()` / `.after_creating()`).
+`Factory.new()` calls `configure()` for you. It must return `self`, which `after_making()` and `after_creating()` both do.
 
 ### Relationships
 
-`has()` creates a related factory record after the parent is saved. The foreign key is inferred automatically as `{parent_table_singular}_id`:
+`has()` creates related records after the parent is saved. The foreign key is `{parent_table_singular}_id`:
 
 ```python
-# Create an organization and automatically create 3 contacts for it
 org = await OrganizationFactory.new().has(ContactFactory.new().count(3)).create()
 ```
 
-`for_()` creates the parent first and injects its id as a foreign key into the child:
+`for_()` creates the parent first and sets its id on the child:
 
 ```python
 contact = await ContactFactory.new().for_(OrganizationFactory.new()).create()
@@ -168,11 +160,8 @@ contact = await ContactFactory.new().for_(OrganizationFactory.new()).create()
 
 ```python
 # databases/factories/ContactFactory.py
-from faker import Faker
 from fastapi_startkit.masoniteorm.factory import Factory
 from app.models.Contact import Contact
-
-fake = Faker()
 
 
 class ContactFactory(Factory):
@@ -193,11 +182,11 @@ class ContactFactory(Factory):
 
 ### Defining a Seeder
 
-Place seeder files in `databases/seeds/`. Extend `Seeder` and implement an `async run()` method:
+Put seeders in `databases/seeders/`. Extend `Seeder` and implement `async run()`:
 
 ```python
-# databases/seeds/category_seeder.py
-from fastapi_startkit.masoniteorm.seeds import Seeder
+# databases/seeders/category_seeder.py
+from fastapi_startkit.masoniteorm.seeders import Seeder
 from app.models.category import Category
 
 
@@ -208,15 +197,15 @@ class CategorySeeder(Seeder):
             await Category.first_or_create({"name": name})
 ```
 
-Using `first_or_create` makes seeders idempotent — running them multiple times will not create duplicate records.
+`first_or_create` skips rows that already exist, so the seeder is safe to run twice.
 
 ### Combining Factories and Seeders
 
-Factories and seeders work well together. Use factories inside a seeder to generate large volumes of varied data:
+Use factories inside a seeder when you need a lot of varied data:
 
 ```python
-# databases/seeds/database_seeder.py
-from fastapi_startkit.masoniteorm.seeds import Seeder
+# databases/seeders/database_seeder.py
+from fastapi_startkit.masoniteorm.seeders import Seeder
 from app.models.Account import Account
 from app.models.User import User
 from databases.factories.UserFactory import UserFactory
@@ -227,10 +216,8 @@ import random
 
 class DatabaseSeeder(Seeder):
     async def run(self):
-        # Create a root account
         account = await Account.create({"name": "Acme Corporation"})
 
-        # Create a known admin user
         await User.first_or_create(
             {"email": "admin@example.com"},
             {
@@ -242,13 +229,10 @@ class DatabaseSeeder(Seeder):
             },
         )
 
-        # Generate 5 random users with the factory
         await UserFactory.new().count(5).create(account_id=account.id)
 
-        # Generate 100 organizations
         organizations = await OrganizationFactory.new().count(100).create(account_id=account.id)
 
-        # Generate 100 contacts, each tied to a random organization
         for _ in range(100):
             await ContactFactory.new().create(
                 account_id=account.id,
@@ -258,11 +242,11 @@ class DatabaseSeeder(Seeder):
 
 ### Orchestrating Seeders with `self.call()`
 
-The `DatabaseSeeder` is the conventional entry point. Use `self.call()` to run other seeders in a defined order:
+`db:seed` runs `DatabaseSeeder` by default. Call the other seeders from it with `self.call()`:
 
 ```python
-# databases/seeds/database_seeder.py
-from fastapi_startkit.masoniteorm.seeds import Seeder
+# databases/seeders/database_seeder.py
+from fastapi_startkit.masoniteorm.seeders import Seeder
 from .category_seeder import CategorySeeder
 from .user_seeder import UserSeeder
 from .course_seeder import CourseSeeder
@@ -275,48 +259,48 @@ class DatabaseSeeder(Seeder):
         await self.call(CourseSeeder)
 ```
 
-`self.call()` runs each seeder and waits for it to complete before starting the next. Order matters when seeders have dependencies — categories must exist before courses that reference them.
+Each seeder finishes before the next starts. Here categories must exist before the courses that reference them.
 
 ### Running Seeders via Artisan
 
-Run the `DatabaseSeeder` entry point:
+Run `DatabaseSeeder`:
 
 ```bash
 uv run python artisan db:seed
 ```
 
-Run a specific seeder class by name:
+Run one seeder class:
 
 ```bash
 uv run python artisan db:seed --class UserSeeder
 ```
 
-Use a fully qualified dotted path to target a seeder in a sub-directory:
+Give a dotted path for a seeder in another module:
 
 ```bash
-uv run python artisan db:seed --class databases.seeds.user_seeder.UserSeeder
+uv run python artisan db:seed --class databases.seeders.user_seeder.UserSeeder
 ```
 
-Specify a custom seed directory with `--directory`:
+Point at a different seed directory with `--directory` (default `databases/seeders`):
 
 ```bash
-uv run python artisan db:seed --directory databases/seeds
+uv run python artisan db:seed --directory databases/demo_seeders
 ```
 
 ### Generating a Seeder File
 
-The `seed` artisan command scaffolds a new seeder file:
+`seed` generates a seeder stub:
 
 ```bash
 uv run python artisan seed Post
 ```
 
-This creates `databases/seeds/post_table_seeder.py` with a `PostTableSeeder` stub:
+This creates `databases/seeders/post_table_seeder.py` containing a `PostTableSeeder` class:
 
 ```python
 """PostTableSeeder Seeder."""
 
-from fastapi_startkit.masoniteorm.seeds import Seeder
+from fastapi_startkit.masoniteorm.seeders import Seeder
 
 
 class PostTableSeeder(Seeder):

@@ -7,21 +7,21 @@ keywords: fastapi, database, migrations, schema, python, orm
 
 # Migrations
 
-Migrations are version-controlled schema definitions. Each migration file contains an `up` method to apply changes and a `down` method to revert them.
+A migration is a versioned change to your database schema. Each migration has an `up` method that applies the change and a `down` method that reverts it.
 
 ::: warning Migrations are not auto-generated
-Unlike Django or other ORMs that inspect your models and generate migration files automatically, FastAPI Startkit requires you to write migrations by hand. Your model class defines how Python maps to the database, but it does not drive the schema — the migration does. Think of the migration as the authoritative source of truth for what actually exists in the database.
+Fastapi Startkit does not inspect your models to generate migrations, as Django does. You write each migration by hand. The model describes how Python reads a table; the migration decides what the table looks like.
 :::
 
 ## Creating a Migration
 
-Use the `artisan` command to scaffold a new migration file with a timestamp prefix already applied:
+Generate a migration file with a timestamp prefix:
 
 ```bash
 uv run python artisan db:make:migration create_users_table
 ```
 
-This creates a file under `databases/migrations/` ready to fill in:
+The file is created in `databases/migrations/`:
 
 ```text
 databases/migrations/
@@ -30,7 +30,7 @@ databases/migrations/
 
 ## Migration Class
 
-Extend `Migration` and implement `up` and `down` as async methods. Use `self.schema` to build tables:
+Extend `Migration` and implement async `up` and `down` methods. Build tables with `self.schema`:
 
 ```python
 from fastapi_startkit.masoniteorm import Migration
@@ -58,13 +58,11 @@ uv run python artisan db:migrate
 
 ### Checking Status
 
-See which migrations have already run and which are still pending:
+List which migrations have run and which are pending:
 
 ```bash
 uv run python artisan db:migrate:status
 ```
-
-Output example:
 
 ```
 +------+------------------------------------------+-------+
@@ -78,7 +76,7 @@ Output example:
 
 ## Creating Tables
 
-Use `self.schema.create()` inside `up` to build a new table:
+Call `self.schema.create()` in `up`:
 
 ```python
 async def up(self):
@@ -101,6 +99,8 @@ async def down(self):
 
 ### Column Types
 
+The SQL types below are for PostgreSQL. Other databases use their closest equivalent.
+
 | Method | SQL Type | Notes |
 |---|---|---|
 | `table.id()` | `BIGSERIAL PRIMARY KEY` | Auto-incrementing big integer |
@@ -116,49 +116,50 @@ async def down(self):
 | `table.timestamp("col")` | `TIMESTAMP` | |
 | `table.time("col")` | `TIME` | |
 | `table.json("col")` | `JSON` | |
-| `table.text("col")` | `TEXT` | |
 | `table.uuid("col")` | `UUID` | |
-| `table.timestamps()` | `created_at`, `updated_at` | Both managed automatically |
+| `table.timestamps()` | `created_at`, `updated_at` | Filled in by the model on save |
 
 ### Column Modifiers
 
-Chain modifiers on any column:
+Chain modifiers onto a column:
 
 ```python
-table.string("email").unique()       # UNIQUE constraint
-table.string("bio").nullable()       # allow NULL
-table.boolean("active").default(True) # column default
-table.integer("score").unsigned()    # no negative values
+table.string("email").unique()
+table.string("bio").nullable()
+table.boolean("active").default(True)
+table.integer("score").unsigned()
 ```
 
 ## Updating Tables
 
-Use `self.schema.table()` to alter an existing table:
+Call `self.schema.table()` to change an existing table:
 
 ```python
 async def up(self):
     async with await self.schema.table("users") as table:
-        table.string("bio").nullable()          # add a column
-        table.integer("login_count").default(0) # add with default
+        table.string("bio").nullable()
+        table.integer("login_count").default(0)
 ```
 
 ### Dropping Columns
+
+`drop_column` takes one or more column names:
 
 ```python
 async def up(self):
     async with await self.schema.table("users") as table:
         table.drop_column("bio")
-        table.drop_column("login_count", "legacy_flag")  # multiple at once
+        table.drop_column("login_count", "legacy_flag")
 ```
 
 ### Modifying a Column
 
-Add `.change()` to modify an existing column's type or constraints:
+Add `.change()` to change an existing column's type or constraints:
 
 ```python
 async with await self.schema.table("users") as table:
-    table.string("name", 500).change()   # widen VARCHAR length
-    table.text("bio").nullable().change()  # change type
+    table.string("name", 500).change()
+    table.text("bio").nullable().change()
 ```
 
 ### Renaming a Table
@@ -170,14 +171,14 @@ async def up(self):
 
 ## Foreign Keys
 
-Declare a foreign key after the column:
+Declare the column, then the foreign key:
 
 ```python
 table.integer("user_id").unsigned()
 table.foreign("user_id").references("id").on("users")
 ```
 
-Add a cascade rule on delete:
+Add `on_delete` for a cascade rule:
 
 ```python
 table.integer("post_id").unsigned()
@@ -186,7 +187,7 @@ table.foreign("post_id").references("id").on("posts").on_delete("cascade")
 
 ## Full Example
 
-The blog example creates five tables in a single migration:
+This migration creates the five tables used by the blog example:
 
 ```python
 # databases/migrations/2026_04_12_000000_create_blog_tables.py
@@ -194,7 +195,6 @@ from fastapi_startkit.masoniteorm import Migration
 
 class CreateBlogTables(Migration):
     async def up(self):
-        # Users
         async with await self.schema.create("users") as table:
             table.increments("id")
             table.string("name")
@@ -202,7 +202,6 @@ class CreateBlogTables(Migration):
             table.string("password")
             table.timestamps()
 
-        # Posts
         async with await self.schema.create("posts") as table:
             table.increments("id")
             table.integer("user_id").unsigned()
@@ -211,13 +210,12 @@ class CreateBlogTables(Migration):
             table.text("content")
             table.timestamps()
 
-        # Tags
         async with await self.schema.create("tags") as table:
             table.increments("id")
             table.string("name").unique()
             table.timestamps()
 
-        # Post-Tag pivot (no timestamps)
+        # Pivot table, no timestamps
         async with await self.schema.create("post_tag") as table:
             table.increments("id")
             table.integer("post_id").unsigned()
@@ -225,7 +223,6 @@ class CreateBlogTables(Migration):
             table.integer("tag_id").unsigned()
             table.foreign("tag_id").references("id").on("tags").on_delete("cascade")
 
-        # Media
         async with await self.schema.create("media") as table:
             table.increments("id")
             table.integer("post_id").unsigned()
