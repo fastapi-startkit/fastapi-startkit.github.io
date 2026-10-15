@@ -1,17 +1,17 @@
 ---
 outline: deep
 title: FastAPI Provider
-description: Understanding the FastAPI provider and how it integrates with the service container.
+description: Register the FastAPI provider, configure the server, and define routes.
 keywords: fastapi, dependency injection, service provider, container
 ---
 
 # FastAPI Integration
 
-Fastapi Startkit provides a seamless way to integrate and bootstrap FastAPI applications. By using the `FastAPIProvider`, you can maintain a clean separation between your application logic and the framework's configuration.
+`FastAPIProvider` creates your FastAPI application, registers the `serve` command, and routes exceptions through the framework's exception handler.
 
 ## Installation
 
-To use FastAPI Integration, you need to install the `fastapi` extra:
+Install the `fastapi` extra:
 
 ```bash
 uv add fastapi-startkit --extra fastapi
@@ -21,15 +21,15 @@ pip install "fastapi-startkit[fastapi]"
 
 ## Setup
 
-To enable FastAPI support, register the `FastAPIProvider` in your application providers list.
+Add `FastAPIProvider` to your providers:
 
 ```python
 # bootstrap/application.py
 from pathlib import Path
 
 from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
 from fastapi_startkit.logging import LogProvider
-from providers.fastapi_provider import FastAPIProvider
 from config.fastapi import FastAPIConfig
 
 app: Application = Application(
@@ -43,34 +43,27 @@ app: Application = Application(
 
 ## The FastAPI Provider
 
-The `FastAPIProvider` shipped with Fastapi Startkit is the default, batteries-included entry point. Once registered (see [Setup](#setup)), it configures everything needed to run a FastAPI application — you do **not** need to write your own provider to get started.
+You don't need to write your own provider. Once registered, `FastAPIProvider` does the following:
 
-Across its two boot phases it:
-
-- **`register()`** — loads the FastAPI configuration (merging your published `config/fastapi.py` over the framework defaults) and creates the `FastAPI` instance, binding it into the application container via `use_fastapi()`.
-- **`boot()`** — registers the `serve` console command, wires the framework's exception handlers (so `HTTPException`, request-validation errors, and otherwise uncaught exceptions are rendered through the exception manager), and publishes the default `config/fastapi.py` so you can export and edit it.
-
-Registering `FastAPIProvider` in your providers list is all that is required — the FastAPI instance, the `serve` command, and exception handling are wired up for you.
+- **`register()`** loads the FastAPI configuration, merging the config class you pass over the framework defaults, then creates the `FastAPI` instance and binds it into the container with `use_fastapi()`.
+- **`boot()`** registers the `serve` command, sends `HTTPException`, request validation errors, and uncaught exceptions through the exception manager, adds `RequestLifecycleMiddleware`, and makes `config/fastapi.py` available to publish.
 
 ## Configuration
 
 ### Default Configuration
 
-FastAPI settings are defined by the `FastAPIConfig` dataclass, with values sourced from environment variables:
+The `FastAPIConfig` dataclass holds the server settings:
 
-| Field | Environment variable | Default |
-|---|---|---|
-| `app_url` | `APP_URL` | `http://127.0.0.1:8000` |
-| `reload` | `APP_RELOAD` | `True` |
-| `reload_dirs` | — | `None` |
-| `reload_excludes` | — | `["*.log", "tests/*", "node_modules/*"]` |
+| Field | Environment variable | Default | Purpose |
+|---|---|---|---|
+| `app_url` | `APP_URL` | `http://127.0.0.1:8000` | Host and port that `serve` binds to |
+| `app` | — | `bootstrap.application:app` | Import path Uvicorn loads |
+| `reload` | `APP_RELOAD` | `True` | Restart when code changes |
+| `ws` | `APP_WS` | `auto` | Uvicorn WebSocket implementation |
+| `reload_dirs` | — | `None` | Directories to watch; `None` uses Uvicorn's default |
+| `reload_excludes` | — | `["*.log", "tests/*", "node_modules/*"]` | Glob patterns to ignore when watching |
 
-- `app_url` — the host and port the `serve` command binds to.
-- `reload` — whether Uvicorn watches for code changes and restarts automatically.
-- `reload_dirs` — an optional list of directories to watch; `None` lets Uvicorn use its default.
-- `reload_excludes` — glob patterns Uvicorn ignores while watching for changes.
-
-For most applications, setting `APP_URL` and `APP_RELOAD` in your `.env` is all you need:
+Most applications only set `APP_URL` and `APP_RELOAD`:
 
 ```bash
 # .env
@@ -80,25 +73,28 @@ APP_RELOAD=true
 
 ### Publishing the Config
 
-To customise the configuration beyond environment variables — for example to change `reload_dirs` or `reload_excludes` — export the default config file into your project with the `provider:publish` command:
+To change fields that have no environment variable, such as `reload_dirs` or `reload_excludes`, publish the config file:
 
 ```bash
-uv run artisan provider:publish --provider fastapi
+uv run python artisan provider:publish --provider fastapi
 ```
 
-This copies the framework's default configuration into your project at `config/fastapi.py`, where you can edit it directly:
+This writes `config/fastapi.py`:
 
 ```python
 # config/fastapi.py
 import dataclasses
 
+from fastapi_startkit.configuration import Config
 from fastapi_startkit.environment import env
 
 
 @dataclasses.dataclass
-class FastAPIConfig:
-    app_url: str = dataclasses.field(default_factory=lambda: env("APP_URL", "http://127.0.0.1:8000"))
-    reload: bool = dataclasses.field(default_factory=lambda: env("APP_RELOAD", True))
+class FastAPIConfig(Config):
+    app_url: str = env("APP_URL", "http://127.0.0.1:8000")
+    app: str = "bootstrap.application:app"
+    reload: bool = env("APP_RELOAD", True)
+    ws: str = env("APP_WS", "auto")
     reload_dirs: list | None = None
     reload_excludes: list = dataclasses.field(
         default_factory=lambda: [
@@ -109,45 +105,42 @@ class FastAPIConfig:
     )
 ```
 
-The provider merges this file over the framework defaults at boot, so you only need to keep the fields you want to override.
+Pass the class with the provider, as in [Setup](#setup). The provider merges it over the framework defaults in `register()`.
 
 ## Advanced: Customizing the Provider
 
-The default provider is enough for most applications. If you need full control over the `FastAPI` instance — for example to change the title and version, or to add custom middleware — you can write your own provider and register it in place of `FastAPIProvider`:
+To control the `FastAPI` instance yourself, for example to set the title and version or add middleware, write your own provider and register it instead of `FastAPIProvider`:
 
 ```python
 # app/providers/fastapi_provider.py
 from fastapi import FastAPI
-from fastapi_startkit.providers import Provider
+from fastapi_startkit.support import Provider
 from fastapi_startkit.fastapi.commands import ServeCommand
 
 class MyFastAPIProvider(Provider):
     def register(self) -> None:
-        """Create a FastAPI instance and register it."""
         fastapi = FastAPI(
             title="My Custom API",
             version="1.0.0",
         )
 
-        # Register the instance with the application
         self.app.use_fastapi(fastapi)
 
     def boot(self):
-        # Register core commands like 'serve'
         self.commands([
             ServeCommand
         ])
 ```
 
-When you supply your own provider you take over instance creation, so remember to register any commands (such as `ServeCommand`) and exception handlers you still want.
+A custom provider replaces the default one entirely, so register `ServeCommand` and any exception handlers you still need.
 
 ## Routing
 
-Fastapi Startkit supports the standard FastAPI routing approach as well as a `Router` wrapper that adds a more expressive, MVC-style API on top.
+You can use FastAPI's own `APIRouter`, or the framework's `Router`, which registers routes by method call instead of decorator.
 
 ### Standard FastAPI Routing
 
-You can use FastAPI's `APIRouter` with decorators exactly as the FastAPI docs describe:
+`APIRouter` works as described in the FastAPI docs:
 
 ```python
 # routes/api.py
@@ -164,7 +157,7 @@ async def create_item(item: ItemSchema):
     return item
 ```
 
-Register the router in your provider's `boot` method:
+Include the router in your provider's `boot()` method:
 
 ```python
 # app/providers/fastapi_provider.py
@@ -180,11 +173,11 @@ class MyFastAPIProvider(Provider):
 
 ### Startkit Router
 
-Fastapi Startkit also ships a `Router` wrapper that lets you register routes imperatively — passing the path and endpoint as arguments instead of using decorators. This style is closer to how MVC frameworks handle routing.
+`Router` takes the path and the endpoint as arguments, the way Laravel's route files do.
 
 #### Defining Routes
 
-Import `Router` from `fastapi_startkit.fastapi` and register routes by calling HTTP method helpers with a path and an endpoint callable:
+Import `Router` from `fastapi_startkit.fastapi` and call a method helper with a path and an endpoint:
 
 ```python
 # routes/web.py
@@ -201,7 +194,7 @@ router.head("/health", health_controller.check)
 router.options("/cors", cors_controller.preflight)
 ```
 
-All method helpers accept the same keyword options as FastAPI's `add_api_route` (e.g. `response_model`, `status_code`, `tags`, `dependencies`, `summary`, `deprecated`, etc.):
+The helpers accept the same keyword arguments as FastAPI's `add_api_route`, such as `response_model`, `status_code`, `tags`, `dependencies`, `summary`, and `deprecated`:
 
 ```python
 router.get(
@@ -215,25 +208,27 @@ router.get(
 
 #### Resource Routes
 
-`router.resource()` registers the full set of conventional CRUD routes for a controller in one call:
+`router.resource()` registers the standard CRUD routes for a controller:
 
 | Route | HTTP method | Controller method |
 |---|---|---|
 | `/{name}` | GET | `index` |
 | `/{name}/create` | GET | `create` |
 | `/{name}` | POST | `store` |
-| `/{name}/{id}` | GET | `show` |
-| `/{name}/{id}/edit` | GET | `edit` |
-| `/{name}/{id}` | PUT | `update` |
-| `/{name}/{id}` | DELETE | `destroy` |
+| `/{name}/{param}` | GET | `show` |
+| `/{name}/{param}/edit` | GET | `edit` |
+| `/{name}/{param}` | PUT | `update` |
+| `/{name}/{param}` | DELETE | `destroy` |
+
+`{param}` is the resource name without its trailing `s`, so `users` gets `/users/{user}`. Rename it with `parameters`. The examples below name it `user_id`:
 
 ```python
 from app.http.controllers import users_controller
 
-router.resource("users", users_controller)
+router.resource("users", users_controller, parameters={"users": "user_id"})
 ```
 
-The controller can be a **module** (functions at the top level) or a **class** — both work.
+The controller can be a module of functions or a class.
 
 ::: code-group
 
@@ -280,26 +275,24 @@ class UsersController:
 
 :::
 
-Then register with `resource()` — the same call works for either style:
+Pass either one to `resource()`. A class is instantiated for you:
 
 ```python
 # routes/web.py
 from app.http.controllers import users_controller          # module
 from app.http.controllers.users_controller import UsersController  # class
 
-router.resource("users", users_controller)        # module
-router.resource("users", UsersController)         # class (instantiated automatically)
+router.resource("users", users_controller, parameters={"users": "user_id"})   # module
+router.resource("users", UsersController, parameters={"users": "user_id"})    # class
 ```
 
 **Narrowing the registered routes**
 
-Use `only` or `excepts` to register a subset of the standard actions:
+Use `only` or `excepts` to register some of the actions:
 
 ```python
-# Only register index and show
 router.resource("users", users_controller, only={"index", "show"})
 
-# Register everything except create and edit (view-only form pages)
 router.resource("users", users_controller, excepts={"create", "edit"})
 ```
 
@@ -316,7 +309,7 @@ router.resource(
 
 #### Grouping Routes
 
-Create separate `Router` instances to apply shared configuration — such as auth dependencies — to a group of routes:
+To share options such as an auth dependency across routes, put them on their own `Router`:
 
 ```python
 # routes/web.py
@@ -324,13 +317,11 @@ from fastapi import Depends
 from fastapi_startkit.fastapi import Router
 from app.http.middlewares.auth import auth
 
-# Public routes — no auth required
 guest = Router()
 guest.get("/login", auth_controller.create)
 guest.post("/login", auth_controller.store)
 guest.delete("/logout", auth_controller.destroy)
 
-# Protected routes — auth dependency applied to every route
 protected = Router(dependencies=[Depends(auth)])
 protected.get("/", dashboard_controller.index)
 protected.resource("users", users_controller)
@@ -339,11 +330,11 @@ protected.resource("contacts", contacts_controller)
 protected.get("/reports", reports_controller.index)
 ```
 
-`Router(...)` accepts all the same constructor options as FastAPI's `APIRouter` (e.g. `prefix`, `tags`, `dependencies`, `responses`, `deprecated`, `include_in_schema`).
+`Router(...)` takes the same constructor arguments as FastAPI's `APIRouter`, such as `prefix`, `tags`, `dependencies`, `responses`, `deprecated`, and `include_in_schema`.
 
 #### Registering Routers in Your Provider
 
-Include each router in your provider's `boot` method:
+Include each router in your provider's `boot()` method:
 
 ```python
 # app/providers/fastapi_provider.py
@@ -360,14 +351,14 @@ class MyFastAPIProvider(Provider):
 
 ## Serving the Application
 
-The default `FastAPIProvider` registers the `serve` CLI command for you (when you use a custom provider, register `ServeCommand` yourself). Start the server with:
+Start the server with `serve`. With a custom provider, register `ServeCommand` yourself.
 
 ```bash
-uv run artisan serve
+uv run python artisan serve
 ```
 
-This command uses Uvicorn to start your application, honouring the `app_url`, `reload`, `reload_dirs`, and `reload_excludes` values from your [FastAPI configuration](#configuration).
+`serve` runs Uvicorn with the `app_url`, `reload`, `reload_dirs`, and `reload_excludes` values from your [FastAPI configuration](#configuration).
 
 ## Example Application
 
-You can find a complete example of a FastAPI application built with Fastapi Startkit in our [example repository](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/fastapi-app).
+See the [FastAPI example app](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/fastapi-app) for a complete project.

@@ -1,30 +1,20 @@
 # FastAPI Starter Kit Documentation
 
-This repository contains the source code for the documentation site of the **FastAPI Starter Kit**, accessible at [fastapi-startkit.github.io](https://fastapi-startkit.github.io/).
+Source for the documentation site at [fastapi-startkit.github.io](https://fastapi-startkit.github.io/), built with [VitePress](https://vitepress.dev/).
 
-The documentation is built using [VitePress](https://vitepress.dev/), a Vite-native documentation framework.
-
-## 🚀 Development
-
-To run the documentation site locally for development:
+## Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Start local development server
 npm run docs:dev
 ```
 
-## 🏗️ Build and Deployment
+## Build and Deployment
 
-The site is automatically built and deployed to GitHub Pages using **GitHub Actions**.
+Every push to `main` builds the site and deploys it to GitHub Pages through [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
 
-- **Workflow**: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
-- **Automatic Deployment**: Any push to the `main` branch triggers a new build and deployment.
+## Repository Structure
 
-## 📁 Repository Structure
-
-- `docs/`: Contains the Markdown files for the documentation.
-- `.vitepress/`: VitePress configuration and theme customizations.
-- `index.md`: The landing page of the documentation site.
+- `docs/`: documentation pages in Markdown.
+- `.vitepress/`: VitePress configuration and theme.
+- `index.md`: the landing page.

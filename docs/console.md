@@ -1,21 +1,21 @@
 ---
 outline: deep
 title: Console Commands
-description: Build powerful CLI applications and management commands using Fastapi Startkit's console component.
+description: Write CLI commands with Cleo and run them through artisan.
 keywords: cli, console, commands, automation, cleo
 ---
 
 # Console Commands
 
-Fastapi Startkit uses [Cleo](https://cleo.readthedocs.io/en/latest/) to provide a powerful command-line interface, with an Artisan-style design.
+Console commands are built on [Cleo](https://cleo.readthedocs.io/en/latest/) and run through your `artisan` script, as in Laravel.
 
 ## Creating a Command
 
-To create a new console command, define a class that inherits from `cleo.commands.command.Command`. You should specify the `name`, `description`, and any `arguments` or `options`.
+A command is a class that extends `fastapi_startkit.console.Command`, a subclass of Cleo's `Command`. Set its `name` and `description`, declare any `arguments` or `options`, and put the work in `handle()`:
 
 ```python
-from cleo.commands.command import Command
 from cleo.helpers import argument
+from fastapi_startkit.console import Command
 from fastapi_startkit.logging import Logger
 
 class HelloCommand(Command):
@@ -33,29 +33,26 @@ class HelloCommand(Command):
     def handle(self):
         name = self.argument('name')
         text = f"Hello {name}" if name else "Hello"
-        
-        # You can use the Logger facade within your commands
+
         Logger.info(f"Greeting: {text}")
-        
+
         self.line(f"<info>{text}</info>")
 ```
 
-
 ## Registering Commands
 
-The recommended way to register commands is through a **Service Provider**. This keeps your command registration organized and decoupled from the main application logic.
+Register commands from a service provider.
 
 ### 1. Create a Service Provider
 
-Create a service provider and use the `self.commands()` method within the `boot` or `register` method to register your command classes.
+Pass your command classes to `self.commands()` in the provider's `register()` or `boot()` method:
 
 ```python
-from fastapi_startkit.providers import Provider
+from fastapi_startkit.support import Provider
 from app.console.commands.hello_command import HelloCommand
 
 class ConsoleServiceProvider(Provider):
     def boot(self):
-        # Register commands using the self.commands() helper
         self.commands([
             HelloCommand,
         ])
@@ -63,7 +60,7 @@ class ConsoleServiceProvider(Provider):
 
 ### 2. Register the Provider in your Application
 
-Add your new provider to the `providers` list during application initialization (usually in `bootstrap/application.py`):
+Add the provider to the `providers` list, usually in `bootstrap/application.py`:
 
 ```python
 from app.providers.console_service_provider import ConsoleServiceProvider
@@ -79,7 +76,7 @@ app = Application(
 
 ### 3. Handle Commands in Entry Point
 
-In your CLI entry point (e.g., `artisan`), use the `handle_command()` method of the `Application` instance:
+Your `artisan` script hands the command line to `app.handle_command()`:
 
 ```python
 #!/usr/bin/env python3
@@ -93,13 +90,11 @@ if __name__ == "__main__":
 
 ## Running the Command
 
-Once registered, you can run your command using your CLI entry point script (e.g., `artisan`):
-
 ```bash
 uv run python artisan hello
 ```
 
-To see a list of all available commands, simply run:
+Run `artisan` with no arguments to list every command:
 
 ```bash
 uv run python artisan
@@ -107,4 +102,4 @@ uv run python artisan
 
 ## Example Application
 
-You can find a complete example of a Console application built with Fastapi Startkit in our [example repository](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/console-app).
+See the [console example app](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/console-app) for a complete project.

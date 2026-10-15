@@ -1,13 +1,13 @@
 ---
 outline: deep
 title: Exception Handling
-description: Robust exception handling and custom error responses in Fastapi Startkit.
+description: Report exceptions and turn them into HTTP responses with the ExceptionHandler.
 keywords: error handling, exceptions, fastapi, debugging
 ---
 
 # Exception Handling
 
-The framework provides a centralized `ExceptionHandler` that handles reporting (logging) and rendering (HTTP responses) for exceptions across both web and CLI contexts.
+Every exception, whether it comes from an HTTP request or a CLI command, goes through one `ExceptionHandler`. The handler reports it (logs it or sends it to a tracker) and, for HTTP requests, renders it into a response.
 
 ## Overview
 
@@ -17,11 +17,11 @@ ExceptionHandler
 └── render()    — converts the exception into an HTTP response
 ```
 
-`handle()` is the main entry point called by FastAPI. It calls both `report()` and `render()` in sequence.
+FastAPI calls `handle()`, which runs `report()` and then `render()`.
 
 ## Setup
 
-Pass a custom handler class when creating your `Application`:
+Subclass `ExceptionHandler` and pass your class to `Application`:
 
 ```python
 # bootstrap/application.py
@@ -42,14 +42,13 @@ app = Application(
 )
 ```
 
-`register()` is called automatically during application boot. Wire your renders and reports there.
+The application calls `register()` while it boots. Register your renderers and reporters there.
 
 ## Registering Renders
 
-A render callable converts an exception into a Starlette/FastAPI `Response`.
+A renderer takes the request and the exception and returns a `Response`:
 
 ```python
-# Signature: (request, exc) -> Response
 def register(self):
     self.register_render(
         PaymentRequiredException,
@@ -57,11 +56,11 @@ def register(self):
     )
 ```
 
-Renders are matched by **exact type**. If no render is found for the exception, `render()` returns `None` and FastAPI falls back to its own default error handling.
+Renderers match the **exact** exception type. An exception with no renderer goes to the [handler objects](#handler-objects). `FastAPIProvider` registers handler objects for `Exception`, `HTTPException`, and `RequestValidationError`, so every exception raised during a request gets a response.
 
 ## Registering Reports
 
-Custom reporters let you send exceptions to external services (Sentry, Datadog, etc.):
+A reporter takes the exception. Use one to send exceptions to Sentry, Datadog, or a similar service:
 
 ```python
 def register(self):
@@ -71,9 +70,11 @@ def register(self):
     )
 ```
 
+Reporters also match the exact type. This one runs for `Exception` itself, not for subclasses such as `ValueError`.
+
 ## Suppressing Reports
 
-Use `dont_report()` to skip logging for expected exceptions (e.g. 404s, auth redirects):
+Pass expected exceptions, such as 404s and auth redirects, to `dont_report()` to keep them out of the logs:
 
 ```python
 def register(self):
@@ -82,7 +83,7 @@ def register(self):
 
 ## Handler Objects
 
-For complex logic, register a handler object that implements `report(exc)` and/or `render(request, exc)`:
+When a lambda isn't enough, register an object with a `report(exc)` method, a `render(request, exc)` method, or both:
 
 ```python
 class MyHandler:
@@ -96,26 +97,27 @@ def register(self):
     self.register_handler(MyException, MyHandler())
 ```
 
-Handler objects support MRO resolution — a handler registered for `Exception` will also match subclasses unless a more specific handler exists.
+Handler objects match subclasses too: the handler registered for the closest parent class wins. `FastAPIProvider` registers its own handlers for `Exception`, `HTTPException`, and `RequestValidationError` after your `register()` runs, replacing any you registered for those three types.
 
 ## How It Wires to FastAPI
 
-`FastAPIProvider.boot()` registers a catch-all exception handler on the FastAPI instance:
+`FastAPIProvider.boot()` adds exception handlers to the FastAPI instance for you:
 
 ```python
-# Happens automatically — no action needed
+self.app.fastapi.add_exception_handler(HTTPException, handler)
+self.app.fastapi.add_exception_handler(RequestValidationError, handler)
 self.app.fastapi.add_exception_handler(Exception, handler)
 ```
 
-This means every unhandled exception in a request is passed through `exception_manager.handle(exc, {"request": request})`.
+Every unhandled exception in a request then goes through `exception_manager.handle(exc, {"request": request})`.
 
 ## CLI Context
 
-In CLI (non-HTTP) contexts, `install()` wires `sys.excepthook` to call `report()` directly. The render path is never reached because there is no HTTP request. `KeyboardInterrupt` is passed through to the default hook unchanged.
+Outside HTTP, `install()` points `sys.excepthook` at `report()`. Nothing is rendered because there is no request. `KeyboardInterrupt` goes to Python's default hook unchanged.
 
 ## Built-in Exception Types
 
-The framework ships several typed exceptions in `fastapi_startkit.exceptions`:
+The framework includes these exceptions. `ModelNotFoundException` is imported from `fastapi_startkit.masoniteorm`; the others are in `fastapi_startkit.exceptions`.
 
 | Exception | Status |
 |---|---|
@@ -125,7 +127,7 @@ The framework ships several typed exceptions in `fastapi_startkit.exceptions`:
 | `MethodNotAllowedException` | 405 |
 | `ThrottleRequestsException` | 429 |
 
-These carry `get_status()`, `get_response()`, and optionally `get_headers()` methods that your render callables can use:
+Each has `get_status()` and `get_response()`, and some have `get_headers()`. Use them in a renderer:
 
 ```python
 self.register_render(

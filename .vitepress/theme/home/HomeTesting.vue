@@ -20,8 +20,8 @@
                 <span class="hp-label testing__label">07 / testing</span>
                 <h2 id="testing-title" class="hp-h2 testing__title">Test agents like <em>you test routes.</em></h2>
                 <p class="testing__lead">
-                    Fake or record any agent, assert on the tools it called, and grade answers with an LLM judge —
-                    inside the test runner you already use. Cassettes keep CI fast and offline.
+                    Fake or record any agent, assert on the tools it called, and grade answers with an LLM judge,
+                    all in the test runner you already use. Cassettes keep CI fast and offline.
                 </p>
                 <dl class="helpers">
                     <div v-for="helper in helpers" :key="helper.name" class="helpers__row">

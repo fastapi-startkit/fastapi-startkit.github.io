@@ -1,21 +1,20 @@
 ---
 outline: deep
 title: Logging
-description: Advanced logging configurations and channel management in Fastapi Startkit.
+description: Configure log channels and drivers, and write logs with the Logger facade.
 keywords: logging, monitoring, debugging, fastapi
 ---
 
 # Logging
 
-Fastapi Startkit provides a powerful, modular logging system. It is built upon the concepts of **Drivers** and **Channels**, allowing you to easily route logs to files, terminal, Slack, or other services.
+Logging is organised into **channels**. Each channel uses a **driver** that decides where messages go: a file, the terminal, Slack, or syslog.
 
 > [!NOTE]
-> This logging system is based on [Masonite Logging](https://docs.masoniteproject.com/v3.0/official-packages/masonite-logging). We give full credit to the Masonite team for the architecture and design patterns used here.
+> This logging system is based on [Masonite Logging](https://docs.masoniteproject.com/v3.0/official-packages/masonite-logging). Credit to the Masonite team for its design.
 
 ## Setup
 
-
-To enable logging in your application, you need to register the `LogProvider` in your application's bootstrap process.
+Register `LogProvider` in your application:
 
 ```python
 # bootstrap/application.py
@@ -33,12 +32,11 @@ app: Application = Application(
 
 ## Usage
 
-The recommended way to log messages in Fastapi Startkit is using the `Logger` facade. The facade automatically includes the filename and line number where the log was triggered, providing better context in your logs.
+Write logs through the `Logger` facade. Each entry records the file and line number it came from.
 
 ```python
 from fastapi_startkit.logging import Logger
 
-# Log messages with different levels
 Logger.debug("This is a debug message")
 Logger.info("Application is starting...")
 Logger.notice("A formal notice")
@@ -51,11 +49,11 @@ Logger.emergency("System is unusable")
 
 ## Configuration
 
-There are two ways to configure your logging system: **Inline** (within the providers list) or via a **Dedicated Config File**.
+You can configure logging inline in the providers list, or in a config file.
 
 ### Way 1: Inline Configuration
 
-For simple setups or when you want to keep configuration close to the application initialization, you can pass a configuration dictionary directly to the `LogProvider`.
+Pass a dictionary with the provider:
 
 ```python
 # bootstrap/application.py
@@ -88,24 +86,26 @@ app: Application = Application(
 
 ### Way 2: Config File (Recommended)
 
-For more complex applications, it is recommended to use a dedicated configuration file at `config/logging.py`. You can easily publish the default logging configuration file using the `artisan` command:
+Publish the default config to `config/logging.py`:
 
 ```bash
 uv run python artisan provider:publish --provider=logging
 ```
 
-This will create a `config/logging.py` file in your project with the default settings, which you can then customize.
+The published file looks like this:
 
 ```python
 import dataclasses
 
+from fastapi_startkit.configuration import Config
 from fastapi_startkit.environment import env
 from fastapi_startkit.logging.config import StackChannel, DailyChannel, TerminalChannel
 
 
 @dataclasses.dataclass
-class LoggingConfig:
-    default: str = dataclasses.field(default_factory=lambda: env('LOG_CHANNEL', 'stack'))
+class LoggingConfig(Config):
+    default: str = env('LOG_CHANNEL', 'stack')
+    level: str = env('LOG_LEVEL', 'info')
 
     channels: dict = dataclasses.field(default_factory=lambda: {
         'stack': StackChannel(
@@ -122,9 +122,8 @@ class LoggingConfig:
     })
 ```
 
-
 > [!WARNING]
-> The `LogProvider` does not automatically load the `LoggingConfig` from your config file. You must explicitly pass it as a tuple when registering the provider in your application's bootstrap process.
+> `LogProvider` does not load `config/logging.py` on its own. Pass the class with the provider as a tuple.
 
 ```python
 # bootstrap/application.py
@@ -140,48 +139,45 @@ app = Application(
 )
 ```
 
-The `LoggingConfig` class allows you to define your logging strategy using a type-safe dataclass:
+`default` is the channel the `Logger` facade writes to. It reads `LOG_CHANNEL` and falls back to `stack`.
 
-- **`default`**: Specifies the default channel used by the `Logger` facade. It defaults to the `LOG_CHANNEL` environment variable or `stack` if not set.
-- **`channels`**: A dictionary of available logging channels. Each channel uses a specific configuration class (e.g., `StackChannel`, `DailyChannel`, `TerminalChannel`):
-    - **`stack`**: Aggregates multiple channels. In the default config, it sends logs to both `daily` and `terminal`.
-    - **`daily`**: Logs to daily rotating files. You can configure the level and path via `LOG_DAILY_LEVEL` and `LOG_DAILY_PATH`.
-    - **`terminal`**: Outputs logs directly to the console. You can configure the level via `LOG_TERMINAL_LEVEL`.
+`channels` maps channel names to channel config classes:
 
-This structure leverages the `env()` helper, allowing you to easily tune your logging environment via a `.env` file.
-
+| Channel | Class | Behaviour | Environment variables |
+|---|---|---|---|
+| `stack` | `StackChannel` | Sends each message to `daily` and `terminal` | — |
+| `daily` | `DailyChannel` | Writes to a new file each day | `LOG_DAILY_LEVEL`, `LOG_DAILY_PATH` |
+| `terminal` | `TerminalChannel` | Prints to the console | `LOG_TERMINAL_LEVEL` |
 
 ## Available Drivers
 
-Fastapi Startkit comes with several built-in drivers:
-
 ### `single`
-Logs all messages to a single file.
-- `path`: The path to the log file.
-- `level`: Minimum logging level.
+Writes every message to one file.
+- `path`: the log file.
+- `level`: minimum level.
 
 ### `daily`
-Logs messages to daily rotating files (e.g., `2023-10-27.log`).
-- `path`: The directory where log files should be stored.
-- `level`: Minimum logging level.
+Writes to one file per day, such as `2023-10-27.log`.
+- `path`: the directory for the log files.
+- `level`: minimum level.
 
 ### `terminal`
-Outputs logs directly to the console/stderr. Useful for development.
-- `level`: Minimum logging level.
+Prints to the console. Useful in development.
+- `level`: minimum level.
 
 ### `stack`
-Allows you to combine multiple channels into a single logging stack.
-- `channels`: A list of channel names to include in the stack.
+Sends each message to several channels.
+- `channels`: the channel names to include.
 
 ### `slack`
-Sends log messages to a Slack channel via a webhook/token.
-- `token`: Your Slack Bot token.
-- `channel`: The Slack channel name (e.g., `#logs`).
-- `emoji`: Emoji to use for the bot icon.
-- `username`: The username for the bot.
-- `level`: Minimum logging level.
+Posts messages to a Slack channel.
+- `token`: your Slack bot token.
+- `channel`: the Slack channel, such as `#logs`.
+- `emoji`: the bot's icon emoji.
+- `username`: the bot's username.
+- `level`: minimum level.
 
 ### `syslog`
-Sends logs to the system logger.
-- `path`: The syslog path (usually `/dev/log` or `/var/run/syslog`).
-- `level`: Minimum logging level.
+Sends messages to the system logger.
+- `path`: the syslog socket, usually `/dev/log` or `/var/run/syslog`.
+- `level`: minimum level.

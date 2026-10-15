@@ -30,7 +30,7 @@
         <div class="hp-wrap">
             <div class="hp-head">
                 <h2 id="laravel-title" class="hp-h2">Coming from Laravel? <em>You already know it.</em></h2>
-                <p class="hp-blurb">Same ideas, same names, same muscle memory — just Python. Pick a concept and compare.</p>
+                <p class="hp-blurb">The same concepts and names, in Python. Pick a concept to compare.</p>
             </div>
 
             <div class="tabs" role="tablist" aria-label="Compare a concept" @keydown="onKeydown">

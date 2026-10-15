@@ -33,8 +33,8 @@
                     <em>Ready for agents.</em>
                 </h1>
                 <p class="hero__lead">
-                    A batteries-included Python framework. Service providers, an Artisan CLI, ORM and migrations,
-                    logging channels — and first-class MCP servers and agent evals, in one container.
+                    A Python framework with service providers, an Artisan CLI, an ORM with migrations,
+                    logging channels, MCP servers, and agent evals, all in one container.
                 </p>
                 <InstallPill/>
                 <ul class="hero__checks">

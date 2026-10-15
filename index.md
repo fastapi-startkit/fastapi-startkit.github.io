@@ -6,7 +6,7 @@ jsonLd:
   "name": "Fastapi Startkit"
   "operatingSystem": "Linux, macOS, Windows"
   "applicationCategory": "DeveloperApplication"
-  "description": "A modular, provider-driven framework for building robust FastAPI applications."
+  "description": "A modular, provider-driven framework for building FastAPI applications."
   "offers":
     "@type": "Offer"
     "price": "0"

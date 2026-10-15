@@ -12,8 +12,8 @@
             <div class="hp-head">
                 <h2 id="agents-title" class="hp-h2">Your app, <em>callable by agents.</em></h2>
                 <p class="hp-blurb">
-                    Subclass <code>Tool</code> and give it a Pydantic schema — it becomes an MCP tool, served at
-                    <code>POST /mcp</code> beside your HTTP routes and sharing the same config, models and logs.
+                    Subclass <code>Tool</code> and give it a Pydantic schema to make it an MCP tool. It is served at
+                    <code>POST /mcp</code> beside your HTTP routes, with the same config, models, and logs.
                 </p>
             </div>
 

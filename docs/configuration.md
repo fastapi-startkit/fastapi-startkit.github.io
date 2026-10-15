@@ -1,33 +1,34 @@
 ---
 outline: deep
 title: Configuration
-description: Manage your application settings using Fastapi Startkit's flexible configuration system.
+description: Read settings from environment files into typed config classes.
 keywords: configuration, environment, settings, fastapi
 ---
 
 # Configuration
 
-fastapi-startkit uses environment variables as the source of truth for configuration. The application loads the appropriate `.env` file on boot, and config classes read from those variables when instantiated.
+Configuration comes from environment variables. The application loads your `.env` files when it boots, and config classes read those variables when you create them.
 
 ## Loading Environment Variables
 
-`Application` loads your `.env` automatically when it boots — you don't need to call anything extra:
+`Application` loads `.env` when you create it:
 
 ```python
-from fastapi_startkit import Application, Config
+from fastapi_startkit import Application
 from pathlib import Path
 
 app = Application(base_path=Path(__file__).parent.parent)
-# .env is already loaded at this point
 ```
 
-To target an environment-specific file, pass `env` to the constructor:
+The environment name comes from `APP_ENV`, either set in the process or in `.env`. Without it, boot fails: with no `.env` file you get `ValueError: Unable to determine environment.`, and with a `.env` that doesn't set `APP_ENV` you get `ValueError: APP_ENV not set after loading .env`. Under pytest, the environment is always `testing`.
+
+To pick the environment in code, pass `env` to the constructor. It takes priority over `APP_ENV`:
 
 ```python
 app = Application(base_path=Path(__file__).parent.parent, env='production')
 ```
 
-`.env` is always loaded first. If an environment is set and `.env.<environment>` exists, it is loaded on top, overriding any matching keys:
+`.env` is loaded first. If `.env.<environment>` exists, it is loaded on top and its keys win:
 
 ```
 .env                ← always loaded
@@ -37,38 +38,64 @@ app = Application(base_path=Path(__file__).parent.parent, env='production')
 
 ### Choosing the Environment via the CLI
 
-In practice you rarely hardcode the environment. Pass `--env` on the command line instead — the `artisan` entry point picks it up before any command runs:
+Pass `--env` to `artisan`. It is read before any command runs:
 
 ```bash
 uv run python artisan --env=production   # .env → .env.production
 uv run python artisan --env=testing      # .env → .env.testing
-uv run python artisan                     # .env only
+uv run python artisan                     # .env, plus .env.<APP_ENV> if it exists
 ```
 
 ### The `env()` Helper
 
-Inside any config, use `env()` to read a variable. It auto-casts values so you don't have to:
-
-| Raw string in `.env` | Python value |
-|---|---|
-| `"true"` / `"True"` | `True` |
-| `"false"` / `"False"` | `False` |
-| Numeric string | `int` |
-| Everything else | `str` |
-| Missing + default given | the default |
+`env(name, default, cast=True)` reads an environment variable. It returns a dataclass field, so use it as the default of a field on a config class. The variable is read when you create an instance:
 
 ```python
+from dataclasses import dataclass
 from fastapi_startkit.environment import env
 
-env('REDIS_HOST')              # str
-env('REDIS_PORT')              # int (auto-cast)
-env('DEBUG', False)            # False if not set
-env('SOME_VALUE', cast=False)  # always raw str
+@dataclass
+class AppConfig:
+    name: str = env('APP_NAME', 'startkit')
+    port: int = env('APP_PORT', 8000)
+    debug: bool = env('APP_DEBUG', False)
+```
+
+How the value is cast depends on the default:
+
+| Call | Result |
+|---|---|
+| `env('NAME')` or `env('NAME', None)` | `"true"`/`"True"` → `True`, `"false"`/`"False"` → `False`, digits only → `int`, anything else stays `str` |
+| `env('NAME', False)` (a `bool` default) | `"true"`/`"True"`/`"false"`/`"False"` → `bool`; any other value raises `ValueError` |
+| `env('NAME', 6379)` (any other default) | converted to the default's type: `int` here, `str` for `env('NAME', '')` |
+| `env('NAME', ..., cast=False)` | the raw string |
+| Variable unset | the default, or `''` when there is none |
+
+"Digits only" means `str.isnumeric()`, so `'-5'` and `'1.5'` stay strings. A string default never casts: with `REDIS_PORT=8080`, `env('REDIS_PORT', '')` gives `'8080'`.
+
+### Reading a Value Outside a Class
+
+`value()` resolves an `env()` field to its value. Use it when you need one variable outside a config class:
+
+```python
+from fastapi_startkit.environment import env, value
+
+port = value(env('REDIS_PORT', 6379))   # 8080 when REDIS_PORT=8080
+```
+
+`value()` returns anything that isn't a field unchanged, so `value('8080')` is `'8080'`. To cast a value you already have, use `into()`:
+
+```python
+from fastapi_startkit.environment import into
+
+into('8080')    # 8080
+into('false')   # False
+into('redis')   # 'redis'
 ```
 
 ## Defining Config from Environment Variables
 
-Define your config as a plain dataclass. Each field uses `default_factory` so the value is read from the environment at the moment you instantiate it — not when the class is defined. Instantiate only after the application has booted:
+Put each group of settings in its own dataclass under `config/`. Create instances only after the application has booted, so the `.env` files are loaded:
 
 ```python
 # config/redis.py
@@ -77,26 +104,27 @@ from fastapi_startkit.environment import env
 
 @dataclass
 class RedisConfig:
-    host: str  = field(default_factory=lambda: env('REDIS_HOST'))
-    port: int  = field(default_factory=lambda: env('REDIS_PORT'))
-    db: int    = field(default_factory=lambda: env('REDIS_DB'))
+    host: str  = env('REDIS_HOST')
+    port: int  = env('REDIS_PORT')
+    db: int    = env('REDIS_DB')
     options: dict = field(default_factory=lambda: {
         'decode_responses': True
     })
 ```
 
-Once defined, import and instantiate it anywhere — values are read from the active environment at that moment:
+Each new instance reads the environment as it is at that moment:
+
 ```python
 from config.redis import RedisConfig
 
-RedisConfig().host     # str  — value of REDIS_HOST
-RedisConfig().port     # int  — auto-cast from REDIS_PORT
+RedisConfig().host     # 'localhost' when REDIS_HOST=localhost
+RedisConfig().port     # 6379 when REDIS_PORT=6379
 RedisConfig().options  # {'decode_responses': True}
 ```
 
 ## Switching Environment at Runtime
 
-You can change the active environment after boot by calling `set_environment()` followed by `load_environment()`. Any config instantiated after that call will reflect the new environment:
+To change the environment after boot, call `set_environment()` and then `load_environment()`. Config instances created afterwards read the new values. Use this in scripts and test setup that need another environment without restarting the process:
 
 ```python
 # .env         →  REDIS_HOST=host.default
@@ -110,23 +138,24 @@ app.load_environment()
 RedisConfig().host  # 'host.testing'
 ```
 
-This is useful in scripts or test setups where you need to target a specific environment without restarting the process.
-
 ### Registering with Config
 
-If you want to access config via dotted keys, share it across services, or override values at runtime, use the `Config` static class:
+Register an instance with `Config` to read it by dotted key from anywhere:
 
 ```python
 from fastapi_startkit import Config
+from config.redis import RedisConfig
 
 Config.set('redis', RedisConfig())
 
-Config.get('redis.host')                      # 'host.testing'
+Config.get('redis.host')                      # REDIS_HOST when RedisConfig() was created
 Config.get('redis.options')                   # {'decode_responses': True}
 Config.get('redis.options.decode_responses')  # True
 ```
 
-You can also check, override, or inspect at runtime:
+`Config.set()` stores the instance's values as they are. If the environment changes later, create a new instance and call `Config.set()` again.
+
+Check, override, or list values:
 
 ```python
 Config.has('redis.host')               # True

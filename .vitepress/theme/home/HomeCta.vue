@@ -5,7 +5,7 @@
 <template>
     <section class="cta" aria-labelledby="cta-title">
         <div class="hp-wrap cta__inner">
-            <h2 id="cta-title" class="cta__title">Build faster. <em>Ship with confidence.</em></h2>
+            <h2 id="cta-title" class="cta__title">Start with one provider. <em>Add the rest as you need them.</em></h2>
             <div class="cta__actions">
                 <InstallPill tone="dark"/>
                 <a href="/docs/getting-started" class="cta__docs">Read the docs <span aria-hidden="true">→</span></a>
