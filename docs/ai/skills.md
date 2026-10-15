@@ -7,7 +7,7 @@ keywords: AI skills, Claude Code, Gemini CLI, artisan, fastapi-startkit
 
 # Skills
 
-The Skills module syncs provider-declared `SKILL.md` documents to your local AI coding tools — [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli).
+The `ai:skills` command copies the `SKILL.md` files that your registered providers declare into [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli), so those tools know how to work with the framework.
 
 ## Registration
 
@@ -45,11 +45,11 @@ artisan ai:skills --sync
 | `claude` | `.claude/skills/<name>/SKILL.md` |
 | `gemini` | `GEMINI.md` between `<!-- skills:start -->` and `<!-- skills:end -->` markers |
 
-Existing files are skipped unless `--force` is passed.
+When a Claude skill file already exists, the command asks before overwriting it. Pass `--force` to overwrite without asking. The Gemini block between the markers is always rewritten.
 
 ## Built-in skills
 
-The framework ships bundled stubs for the `fastapi` and `database` providers. Running `--sync` copies them into `.ai/fastapi-startkit/` in your project first, then renders them to the AI agent files.
+The framework ships stubs for the `fastapi`, `database`, and `inertia` providers. A stub is only synced when its provider is registered. Running `--sync` copies them into `.ai/fastapi-startkit/` in your project first, then renders them to the AI agent files.
 
 ## SKILL.md format
 
@@ -66,4 +66,4 @@ Body content (markdown).
 
 ## Custom skills
 
-To override a bundled stub or add a new skill, place a `SKILL.md` at `.ai/fastapi-startkit/<key>/SKILL.md` in your project root. The registry checks the project copy first and falls back to the bundled stub.
+To override a bundled stub, edit or create `.ai/fastapi-startkit/<key>/SKILL.md` in your project root, where `<key>` is `fastapi`, `database`, or `inertia`. The registry reads the project copy first and falls back to the bundled stub. Files under other keys are not picked up.

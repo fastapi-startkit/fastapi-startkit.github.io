@@ -7,13 +7,11 @@ keywords: AI agents, Anthropic, OpenAI, Google Gemini, LLM, tool calling, stream
 
 # AI Agents
 
-FastAPI Startkit includes a declarative, **LangChain-powered AI agent module** that lets you build provider-agnostic LLM agents as plain Python classes. Swap between Anthropic, OpenAI, and Google with a single environment variable; attach tools, documents, structured-output schemas, and middleware; and test everything offline with built-in faking and record/replay utilities.
-
 ## Introduction
 
-An agent is a Python class that subclasses `Agent`, configures itself with decorators and overridable methods, and exposes an `async` `prompt()` / `stream()` API. Under the hood the module builds a LangChain chat model for the active provider, binds your tools, runs the request, and wraps the result in an `AgentResponse`.
+An agent is a class that extends `Agent`. You configure it with decorators and by overriding methods, then call `await agent.prompt(...)` or iterate over `agent.stream(...)`. The agent builds a LangChain chat model for the active provider, binds your tools, and returns the turn as a LangChain-style `{"messages": [...]}` dict.
 
-**Supported providers:**
+You can switch between Anthropic, OpenAI, and Google with one environment variable, and test agents offline with fakes and recorded cassettes.
 
 | Provider | `@provider` name | Default text model | LangChain integration package |
 |---|---|---|---|
@@ -22,9 +20,7 @@ An agent is a Python class that subclasses `Agent`, configures itself with decor
 | Google Gemini | `"google"` | `gemini-2.5-flash-lite` | `langchain-google-genai` |
 
 > [!NOTE]
-> The agent module is built on **LangChain** (`langchain` + `langchain-core`) and a small custom runner — not LangGraph. Models are created with `langchain.chat_models.init_chat_model`, so any provider LangChain supports can be wired in.
-
----
+> The agent module is built on LangChain (`langchain` and `langchain-core`) with a small custom runner instead of a LangGraph graph. Models are created with `langchain.chat_models.init_chat_model`, so any provider LangChain supports can be wired in.
 
 ## Installation
 
@@ -44,7 +40,7 @@ uv add langchain-google-genai     # Google Gemini
 
 ### Registering the provider
 
-Register `AIProvider` in your application bootstrap so the AI configuration is merged into the container under the `ai` key:
+Register `AIProvider` so the AI configuration is merged into the `ai` config key:
 
 ```python
 # bootstrap/application.py
@@ -61,8 +57,6 @@ app: Application = Application(
     ],
 )
 ```
-
----
 
 ## Configuration
 
@@ -93,7 +87,7 @@ GEMINI_API_KEY=AIza...
 
 ### AIConfig overview
 
-`AIProvider` reads these variables into an `AIConfig` dataclass and registers it under the `ai` config key:
+`AIProvider` reads these variables into an `AIConfig` dataclass under the `ai` config key:
 
 ```python
 @dataclass
@@ -107,28 +101,21 @@ class AIConfig:
                             #  "anthropic": AnthropicConfig(), "elevenlabs": ElevenLabsConfig()}
 ```
 
-Access the active configuration at runtime via the `AI` facade or the `Config` facade:
+Read it at runtime with the `Config` facade:
 
 ```python
-from fastapi_startkit.facades import AI
 from fastapi_startkit import Config
-
-AI.config()        # the full AIConfig object
-AI.default()       # the default provider name, e.g. "anthropic"
-AI.providers()     # the per-provider config dict
 
 Config.get("ai.providers.anthropic.key")          # dotted access
 Config.get("ai.providers.google.models.default")  # "gemini-2.5-flash-lite"
 ```
 
----
-
 ## Creating an Agent
 
-Subclass `Agent`, apply configuration decorators, and override the methods you need. Define your system prompt with `instructions()`:
+Extend `Agent`, add decorators, and return your system prompt from `instructions()`:
 
 ```python
-from fastapi_startkit.ai import Agent, provider, model, max_tokens
+from fastapi_startkit.ai import Agent, provider, model, max_tokens, state
 
 @provider("anthropic")
 @model("claude-sonnet-4-6")
@@ -138,42 +125,40 @@ class SupportAgent(Agent):
         return "You are a friendly customer support assistant."
 
 agent = SupportAgent()
-response = await agent.prompt("How do I reset my password?")
-print(response.content)  # "To reset your password, click …"
+result = await agent.prompt("How do I reset my password?")
+print(state.text(result))  # "To reset your password, click …"
 ```
 
 > [!IMPORTANT]
-> `prompt()` and `stream()` are **async** — always `await` them (or iterate with `async for`). Call them from an `async` route or any coroutine.
+> `prompt()` is a coroutine and `stream()` is an async generator. `await` the first and iterate the second with `async for`.
 
 ### Overridable methods
 
-Define an agent's behaviour by overriding these methods (all optional):
+All of these methods are optional:
 
 | Method | Returns | Purpose |
 |---|---|---|
-| `instructions()` | `str \| None` | The system prompt — leads the message list |
+| `instructions()` | `str \| None` | The system prompt, sent first in the message list |
 | `messages()` | `list[dict]` | Prior conversation turns to prepend |
 | `tools()` | `list[BaseTool]` | LangChain tools the model may call |
 | `schema()` | `type \| None` | Pydantic model for [structured output](#structured-output) |
 | `middleware()` | `list` | [Middleware](#middleware-pipeline) layers wrapping each request |
 | `provider_options()` | `dict` | Per-provider SDK options |
 
----
-
 ## Decorators Reference
 
-Apply decorators to the class to configure it declaratively. Each sets a class attribute:
+Each decorator sets a class attribute:
 
 | Decorator | Default | Description |
 |---|---|---|
 | `@provider(name)` | `AI_PROVIDER` (default `google`) | LLM provider: `"anthropic"`, `"openai"`, `"google"` |
 | `@model(name)` | provider default | Model identifier (e.g. `"claude-sonnet-4-6"`, `"gpt-4o"`) |
 | `@max_tokens(n)` | `4096` | Maximum output tokens per response |
-| `@max_steps(n)` | `10` | Maximum tool-call rounds |
+| `@max_steps(n)` | `10` | Stored on the agent but not read yet: the runner makes one model call and runs the requested tools once |
 | `@timeout(seconds)` | `30.0` | Per-request timeout in seconds |
 | `@top_p(value)` | `1.0` | Top-p nucleus sampling parameter |
 
-Decorators stack — apply as many as you need:
+Decorators can be stacked:
 
 ```python
 @provider("openai")
@@ -184,7 +169,7 @@ class AnalysisAgent(Agent):
     ...
 ```
 
-Equivalently, set the attributes directly on the class:
+Or set the attributes on the class directly:
 
 ```python
 class AnalysisAgent(Agent):
@@ -193,14 +178,12 @@ class AnalysisAgent(Agent):
     max_tokens = 1024
 ```
 
----
-
 ## prompt()
 
-`Agent.prompt()` sends a user message and returns an `AgentResponse`:
+`Agent.prompt()` sends a user message and returns the turn as a dict:
 
 ```python
-response = await agent.prompt("Summarise this lead and score it 1–10.")
+result = await agent.prompt("Summarise this lead and score it 1–10.")
 ```
 
 ### Signature
@@ -213,39 +196,39 @@ async def prompt(
     model: str | None = None,            # override the model for this call only
     attachments: list[Document] | None = None,  # documents to include
     provider_options: dict | None = None,        # per-provider options for this call
-) -> AgentResponse
+) -> dict
 ```
 
-### AgentResponse fields
+### Reading the result
 
-| Field | Type | Description |
-|---|---|---|
-| `content` | `str` | The final text reply from the model |
-| `tool_calls` | `list[dict]` | Tool calls the model returned on its final turn |
-| `usage` | `dict` | Token counts: `{"input": n, "output": n}` |
-| `raw` | `Any` | The raw runner result |
-| `parsed` | `Any` | Validated schema instance when [`schema()`](#structured-output) is set, else `None` |
+The result has the same shape as LangChain's `create_agent().invoke()`: `{"messages": [HumanMessage, AIMessage, ToolMessage, ...]}`, plus `"structured_response"` when the agent defines a [`schema()`](#structured-output). Read it with the helpers in `fastapi_startkit.ai.state`:
+
+| Helper | Returns |
+|---|---|
+| `state.text(result)` | The last message's text: the model's answer, or the tool's result when a tool ran |
+| `state.tool_calls(result)` | Every tool call the model requested |
+| `state.tool_events(result)` | Each executed tool with its `name`, `args`, `content`, and `response_time` |
+| `state.usage(result)` | Token counts: `{"input": n, "output": n}` |
+| `state.runtime(result)` | Seconds spent on model and tool calls |
+| `state.structured(result)` | The validated schema instance, or `None` |
 
 ```python
-response = await agent.prompt("Analyse Q3 revenue.")
+from fastapi_startkit.ai import state
 
-print(response.content)     # text reply
-print(response.text())      # same — convenience method
-print(response.usage)       # {"input": 312, "output": 78}
-data = response.json()      # parse content as JSON (raises if not valid JSON)
-bool(response)              # True when content is non-empty
-str(response)               # the content
+result = await agent.prompt("Analyse Q3 revenue.")
+
+print(state.text(result))   # text reply
+print(state.usage(result))  # {"input": 312, "output": 78}
 ```
-
----
 
 ## stream()
 
-`Agent.stream()` is an async generator that yields response tokens as they arrive — ideal for server-sent events and live UIs:
+`Agent.stream()` is an async generator. It yields the same event dicts as LangChain's `astream_events`: `on_chat_model_start`, `on_chat_model_stream`, and `on_chat_model_end` for the model turn, then `on_tool_start` and `on_tool_end` around each tool call. The text arrives in `on_chat_model_stream` events, in `event["data"]["chunk"]`:
 
 ```python
-async for chunk in agent.stream("Write a follow-up email to the lead."):
-    print(chunk, end="", flush=True)
+async for event in agent.stream("Write a follow-up email to the lead."):
+    if event["event"] == "on_chat_model_stream":
+        print(event["data"]["chunk"].text, end="", flush=True)
 ```
 
 ### Signature
@@ -257,12 +240,12 @@ async def stream(
     *,
     model: str | None = None,
     provider_options: dict | None = None,
-) -> AsyncIterator[str]
+) -> AsyncIterator[dict]
 ```
 
 ### Streaming in FastAPI
 
-Wrap the generator in a `StreamingResponse` to pipe tokens straight to the browser as SSE:
+Wrap the generator in a `StreamingResponse` to send the text to the browser as server-sent events:
 
 ```python
 from fastapi import APIRouter
@@ -276,19 +259,18 @@ api = APIRouter()
 @api.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     async def generate():
-        async for chunk in SupportAgent().stream(request.message):
-            yield f"data: {chunk}\n\n"
+        async for event in SupportAgent().stream(request.message):
+            if event["event"] == "on_chat_model_stream" and (text := event["data"]["chunk"].text):
+                yield f"data: {text}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```
 
-When the agent uses tools, the stream yields the model's text tokens and then the tool results.
-
----
+When the agent uses tools, the model events are followed by an `on_tool_start` and `on_tool_end` pair for each tool. The tool's result is in `event["data"]["output"]` of the `on_tool_end` event.
 
 ## Prompting
 
-When you call `prompt()` or `stream()`, the agent assembles the message list in this order:
+`prompt()` and `stream()` build the message list in this order:
 
 1. The system message from `instructions()` (skipped when it returns `None`).
 2. Any prior turns from `messages()`.
@@ -318,13 +300,11 @@ A call to `await JobAssistant().prompt("Find me a job")` is sent as:
 ]
 ```
 
-`instructions()` can be computed dynamically — it is a regular method, so you can pull in per-request context, the current user, or configuration.
-
----
+`instructions()` is a regular method, so it can build the prompt from the current user, request data, or configuration.
 
 ## Tools
 
-Tools are LangChain tools — define them with the `@tool` decorator from `langchain_core.tools` and return them from `tools()`. The docstring becomes the tool description and the type-annotated parameters build the JSON schema the model sees:
+Tools are LangChain tools. Define them with `@tool` from `langchain_core.tools` and return them from `tools()`. The docstring becomes the tool's description, and the type hints become its input schema:
 
 ```python
 # app/tools/job_search_tool.py
@@ -355,35 +335,33 @@ class JobAgent(Agent):
 ### How tool calls run
 
 1. The agent binds your tools to the chat model and sends the message.
-2. If the model responds with tool calls, the framework executes each tool.
-3. The tool results are returned as the response content.
+2. If the model responds with tool calls, the framework runs each tool once.
+3. The turn ends with the tool results, so `state.text()` returns the last tool's output.
 
 ```python
 agent = JobAgent()
-response = await agent.prompt("Find me a python job")
-print(response.content)   # the tool's output
+result = await agent.prompt("Find me a python job")
+print(state.text(result))   # the tool's output
 ```
 
 > [!NOTE]
 > A tool's name must be unique within an agent. Calling a tool the agent didn't register raises `ValueError`.
 
----
-
 ## Documents
 
-Attach files to a `prompt()` call with the `Document` helper. Each document is converted to a LangChain content block and appended to the user message — text is inlined as a labelled text part, binary content (images, PDFs) becomes a base64 block the model reads natively.
+Pass files to `prompt()` with the `Document` helper. Attachments are sent in an extra user message that repeats your text. A document whose `media_type` is `text/*` is inlined as a labelled text part; any other type, such as `image/png` or `application/pdf`, is sent as a base64 block.
 
 ```python
 from fastapi_startkit.ai import Document
 
 doc = Document(content="Q3 revenue was $1.2M …", name="q3-report.txt")
-response = await agent.prompt("Summarise this report.", attachments=[doc])
+result = await agent.prompt("Summarise this report.", attachments=[doc])
 ```
 
 ### Loading documents
 
 ```python
-# From a local file (text or binary — binary is detected automatically)
+# From a local file
 doc = Document.from_path("reports/q3.txt")
 
 # From application storage (async) — reads storage/<key>
@@ -401,13 +379,13 @@ doc = await Document.from_url("https://example.com/photo.jpg")
 | `name` | `str` | `""` | Display name / filename |
 | `media_type` | `str` | `"text/plain"` | MIME type of the content |
 
-`Document` also exposes `to_bytes()`, `to_base64()`, and `to_langchain_block()` (called automatically by `prompt()`), plus `to_anthropic_block()` / `to_openai_block()` if you need provider-native blocks directly.
+The loaders don't detect the type: `media_type` stays `text/plain` unless you set it, for example `Document(content=png_bytes, name="chart.png", media_type="image/png")`.
 
----
+`Document` also has `to_bytes()`, `to_base64()`, and `to_langchain_block()` (which `prompt()` calls for you), plus `to_anthropic_block()` and `to_openai_block()` for provider-native blocks.
 
 ## Structured Output
 
-Override `schema()` to return a Pydantic model. After the call, the model's JSON reply is validated into that schema and exposed on `response.parsed`:
+Return a Pydantic model from `schema()` to get a validated object back in `result["structured_response"]`:
 
 ```python
 from pydantic import BaseModel
@@ -432,27 +410,25 @@ class LeadAgent(Agent):
         return LeadSummary
 
 agent = LeadAgent()
-response = await agent.prompt("Lead: Jane Doe, Acme Corp, interested in enterprise plan.")
+result = await agent.prompt("Lead: Jane Doe, Acme Corp, interested in enterprise plan.")
 
-summary = response.parsed          # a validated LeadSummary instance
+summary = state.structured(result)  # a validated LeadSummary instance
 print(summary.score)               # 8
 print(summary.next_action)         # "Schedule demo call"
 ```
 
-The schema is parsed from `response.content` (the raw JSON text). Instruct the model to return JSON that matches your schema — `schema()` validates the reply but does not itself constrain the model's output format. If the content can't be parsed into the schema, the call raises a validation error. When no schema is set, `response.parsed` is `None`.
+The model is called through LangChain's `with_structured_output()`, so providers that support it return data in the schema's shape. If that fails, the agent falls back to parsing JSON from the reply text, so it still helps to ask for JSON in your instructions. When no schema is set, `state.structured()` returns `None`.
 
 > [!TIP]
-> Structured output works with the testing helpers too: a faked or recorded JSON string is validated into the schema on the way out, so `response.parsed` is populated in tests.
-
----
+> A faked or recorded JSON string is validated into the schema too, so `state.structured()` works in tests.
 
 ## Middleware (Pipeline)
 
-Override `middleware()` to wrap each LLM request in a pipeline. A middleware is any object with a `handle(self, model, handler)` method (sync or async). The pipeline composes them as an onion: the first item in the list is the **outermost** layer.
+Override `middleware()` to wrap each model request. A middleware is any object with a `handle(self, model, handler)` method, sync or async. The first item in the list is the outermost layer.
 
-- `model` is the built **chat model** (a LangChain `BaseChatModel`) — inspect it, wrap it, or swap it.
-- `handler(model)` continues the chain and returns a `Response` (a deferred, streaming-aware result).
-- Attach an **after-hook** with `.then(callback)` and **return the `Response` without awaiting it** — this keeps streaming intact. The callback receives the final accumulated value once the response is complete.
+- `model` is the LangChain `BaseChatModel`. You can inspect it, wrap it, or replace it.
+- `handler(model)` calls the next layer and returns a deferred `Response`.
+- To run code after the response, attach a callback with `.then(callback)` and return the `Response` without awaiting it, so streaming still works. The callback receives the final value when the response completes.
 
 ```python
 import time
@@ -488,20 +464,18 @@ class RouterAgent(Agent):
         return [AgentLogger()]
 ```
 
-You may return instances (as above) or classes — a class is instantiated with no arguments. For a pipeline `[Outer(), Inner()]`, the before-phase runs outer→inner and the after-hooks fire inner→outer.
+You can return instances or classes; classes are instantiated with no arguments. For `[Outer(), Inner()]`, the code before `handler()` runs outer to inner, and the `.then()` callbacks run inner to outer.
 
 > [!WARNING]
-> Do **not** `await handler(model)` if you want to preserve streaming — awaiting buffers the entire response before any token is yielded. Use `return handler(model).then(callback)` instead. Awaiting is only appropriate when you deliberately want the full buffered result.
+> Awaiting `handler(model)` buffers the whole response before any token is yielded, which breaks streaming. Return `handler(model).then(callback)` unless you want the buffered result.
 
 ### After-hooks fire exactly once
 
-`.then()` callbacks run exactly once whether the stream is fully drained **or** the consumer closes it early (e.g. a client disconnect or an early `break`). This makes them safe for logging, metrics, auditing, and cleanup. A middleware may also short-circuit the chain by returning a value directly from `handle()` instead of calling `handler`.
-
----
+A `.then()` callback runs once, whether the stream is read to the end or closed early by a client disconnect or a `break`, so you can use it for logging, metrics, and cleanup. A middleware can also skip the rest of the chain by returning a value from `handle()` without calling `handler`.
 
 ## Provider Options
 
-Override `provider_options()` to pass provider-specific parameters, keyed by provider name. The options for the active provider are merged into the model's keyword arguments:
+Return provider-specific parameters from `provider_options()`, keyed by provider name. The options for the agent's `@provider` are merged into the model's keyword arguments. Agents without `@provider` don't get these options:
 
 ```python
 @provider("anthropic")
@@ -513,26 +487,24 @@ class ThinkingAgent(Agent):
         }
 ```
 
-You can also pass `provider_options` per call to override for a single request:
+Pass `provider_options` to `prompt()` to override them for one call:
 
 ```python
-response = await agent.prompt(
+result = await agent.prompt(
     "Solve this hard maths problem.",
     provider_options={"anthropic": {"thinking": {"type": "enabled", "budget_tokens": 2048}}},
 )
 ```
 
----
-
 ## Multiple Providers
 
-Switch the active provider by setting `AI_PROVIDER` in `.env` — agents without an explicit `@provider` follow it:
+Agents without `@provider` use the `AI_PROVIDER` setting:
 
 ```ini
 AI_PROVIDER=anthropic   # or openai, google
 ```
 
-Or pin a provider per agent with the decorator:
+Use the decorator to pin an agent to one provider:
 
 ```python
 @provider("openai")
@@ -544,24 +516,22 @@ class ReviewAgent(Agent):
     """Always uses Anthropic, regardless of AI_PROVIDER."""
 ```
 
----
-
 ## Testing
 
-`Agent.fake()` swaps in a deterministic chat model so `prompt()`/`stream()` run the real message-building, pipeline, and tool-execution path — only the model at the bottom is a fake, so faked tool calls execute for real. `Agent.record()` binds a record-and-replay stand-in into the container for the duration of a `with` block or a decorated test.
+`Agent.fake()` replaces only the chat model. Message building, middleware, and tool execution still run, so a faked tool call executes the real tool. `Agent.record()` calls the real model once, saves the result to a cassette, and replays it on later runs.
 
 > [!NOTE]
-> `Agent.record()` binds by class name. Resolve the agent with `YourAgent.make()` in code under test, or instantiate it directly (`YourAgent()`) — both pick up the binding while it is active. `Agent.fake()` works with any instance of the class, bound or not.
+> `Agent.fake()` is keyed by class name, so any `YourAgent()` created inside the `with` block or decorated test is faked, including one built inside a controller. `Agent.record()` only records and replays calls made through the handle it returns (`with YourAgent.record(...) as agent`). Code that creates its own `YourAgent()` calls the real model.
 
 ### Faking responses
 
-`YourAgent.fake(responses)` is a classmethod that returns a context manager (also usable as a decorator). `responses` is a fixed, ordered list of replies — plain strings or LangChain messages (e.g. `AIMessage(..., tool_calls=[...])` to fake a tool call). Each call to `prompt()`/`stream()` replays the next reply in order; calling past the end of the list raises.
+`YourAgent.fake(responses)` returns a context manager that also works as a decorator. `responses` is an ordered list of replies: strings, or LangChain messages such as `AIMessage(..., tool_calls=[...])` to fake a tool call. Each `prompt()` or `stream()` call uses the next reply, and calling past the end of the list raises an error.
 
 ```python
 # As a context manager
 with SupportAgent.fake(["Click 'Forgot password' on the login page."]):
-    response = await SupportAgent().prompt("How do I reset my password?")
-    assert response.content == "Click 'Forgot password' on the login page."
+    result = await SupportAgent().prompt("How do I reset my password?")
+    assert state.text(result) == "Click 'Forgot password' on the login page."
 
 # Multiple calls replay in order
 with SupportAgent.fake(["first reply", "second reply"]):
@@ -569,7 +539,7 @@ with SupportAgent.fake(["first reply", "second reply"]):
     await SupportAgent().prompt("two")
 ```
 
-Used as a decorator on a test (from the example app's controller test):
+As a decorator on a controller test:
 
 ```python
 class TestChatController(TestCase):
@@ -581,29 +551,25 @@ class TestChatController(TestCase):
         response.assert_contents("Hello there, hope you are doing well.")
 ```
 
-A faked `stream()` still streams the reply in chunks so it behaves like a real token stream while re-joining to the exact value.
+A faked `stream()` yields the reply in several chunks, like a real token stream.
 
 ### Recording & replaying — record()
 
-`YourAgent.record(cassette)` calls the **real agent on the first run**, saves the response to a JSON cassette, and **replays it from disk** on every subsequent run — fast, deterministic tests after the first recording. Responses are keyed by the conversation so far (seed messages plus prior turns in the session) and the new message (and any attachment names), so distinct prompts — even ones that share the same wording under a different history — are stored separately.
+`YourAgent.record(cassette)` calls the real model on the first run, saves each turn to a JSON cassette, and replays it from disk on later runs. Turns are keyed by the conversation so far, the new message, and any attachment names, so the same message after a different history is stored separately.
 
 ```python
-class TestChatController(TestCase):
-    @RouterAgent.record("record_no_stream.json")
+class TestRouterAgent(IsolatedAsyncioTestCase):
     async def test_it_records_a_reply(self):
-        response = await self.post(
-            "/chat",
-            json={"message": "Hi, I am Alex. Please respond by calling my name."},
-        )
-        response.assert_ok()
-        response.assert_contents("Alex")
+        with RouterAgent.record("record_no_stream.json") as agent:
+            result = await agent.prompt("Hi, I am Alex. Please respond by calling my name.")
+            assert "Alex" in state.text(result)
 ```
 
-If you omit the path, a cassette is created next to the test file under `cassettes/<TestQualName>.json`. A relative path is resolved against the test file's directory. Streamed runs record the list of chunks; a later `prompt()` against the same cassette returns the joined content.
+If you omit the path, the cassette is `cassettes/<Test_qualname>.json` next to the test file, with dots in the qualified name replaced by underscores. A relative path is resolved against the test file's directory. Streamed runs record the list of chunks, and a later `prompt()` against the same cassette returns the joined text.
 
 ### Fluent record() — prompt() + assertions
 
-Bind `record()` with `as agent` for a fluent handle whose `assert_*()` methods judge the most recent turn, similar to how a browser-testing `page` object exposes assertions against the current page state. `prompt()` is still `async` — the fluent handle runs the same real agent call underneath, it's just cached — so `await` it as usual:
+The handle's `assert_*()` methods check the most recent turn:
 
 ```python
 class TestRouterAgent(IsolatedAsyncioTestCase):
@@ -612,7 +578,7 @@ class TestRouterAgent(IsolatedAsyncioTestCase):
             await agent.prompt("hello")
             agent.assert_text_response()
             agent.assert_tool_not_called(["job_search_tool"])
-            agent.assert_response_judged(
+            await agent.assert_response_judged(
                 model="gpt-3.5-turbo",
                 expectation="The llm should respond with greetings",
             )
@@ -624,14 +590,14 @@ class TestRouterAgent(IsolatedAsyncioTestCase):
 
 | Method | Description |
 |---|---|
-| `await agent.prompt(message)` | Run (or replay) one turn; becomes the "current" turn for the assertions below |
-| `agent.assert_text_response()` | Assert the current response has non-empty text content |
-| `agent.assert_tool_called(name, predicate=None)` | Assert a tool named `name` was called in the current turn; `predicate` receives a `ToolCallView` (`.name`, `.args`, `.id`) for each match and must accept at least one |
-| `agent.assert_tool_not_called(names)` | Assert none of `names` were called in the current turn |
-| `agent.assert_response_time_lt(seconds)` | Assert the current turn's `prompt()` call took less than `seconds` |
-| `agent.assert_response_judged(model=..., expectation=...)` | LLM-as-judge: grade the current response against a natural-language `expectation` using `model`. The verdict is cached in the cassette next to the recorded response, so replays after the first run need no live call |
+| `await agent.prompt(message)` | Run or replay one turn. It becomes the current turn for the assertions below |
+| `agent.assert_text_response()` | The current response has text |
+| `agent.assert_tool_called(name, predicate=None)` | A tool named `name` was called in the current turn. `predicate` receives an `AssertToolCall` (`.name`, `.args`, `.id`) for each match, and at least one must pass |
+| `agent.assert_tool_not_called(names)` | None of `names` were called in the current turn |
+| `agent.assert_response_time_lt(seconds)` | The recorded response times of all turns so far add up to less than `seconds` |
+| `await agent.assert_response_judged(model=..., expectation=...)` | An LLM judge, using `model`, grades the current response against `expectation`. Verdicts are cached in a `<cassette>.judge.json` file next to the cassette, so replays don't call the judge again |
 
-Seed a conversation's prior history with `messages=` — plain dicts or LangChain message objects both work, and they're folded into the cassette key so a seeded session doesn't collide with an unseeded one that happens to send the same follow-up text:
+Seed earlier history with `messages=`, as dicts or LangChain messages. The seed is part of the cassette key, so a seeded session doesn't collide with an unseeded one that sends the same text:
 
 ```python
 from langchain_core.messages import AIMessage, HumanMessage
@@ -647,28 +613,23 @@ with RouterAgent.record(
     agent.assert_tool_called("job_search_tool", lambda tool: tool.name == "job_search_tool")
 ```
 
-The bare (no `as agent`) usage from the previous section still works unchanged — it binds the same stand-in into the container so code under test that constructs `YourAgent()` itself (e.g. inside a controller) picks it up automatically.
-
 ### Assertions
 
-The `Agent` instance tracks its own call log:
+The handles returned by `fake()` and `record()` count the calls made through them:
 
 | Method | Description |
 |---|---|
-| `agent.assert_prompted()` | Assert `prompt()` or `stream()` was called at least once |
-| `agent.assert_prompted(times=n)` | Assert exactly `n` calls |
-| `agent.assert_not_prompted()` | Assert neither method was called |
-| `agent.reset()` | Clear the call log (returns the agent for chaining) |
+| `agent.assert_prompted()` | `prompt()` or `stream()` was called at least once |
+| `agent.assert_prompted(times=n)` | Exactly `n` calls were made |
+| `agent.assert_not_prompted()` | No calls were made |
+| `agent.reset()` | Clear the call log and return the handle |
 
 ```python
 async def test_agent_is_called_once():
-    agent = SupportAgent()
-    with SupportAgent.fake(["OK"]):
+    with SupportAgent.fake(["OK"]) as agent:
         await agent.prompt("Hello")
         agent.assert_prompted(times=1)
 ```
-
----
 
 ## Provider Backends
 
@@ -704,11 +665,9 @@ uv add langchain-google-genai
 GEMINI_API_KEY=AIza...   # GOOGLE_API_KEY also works
 ```
 
----
-
 ## Complete Example
 
-A support agent with a tool, logging middleware, FastAPI routes, and a controller test — mirroring the structure of the `example/agents` app.
+A support agent with a tool, logging middleware, FastAPI routes, and a controller test, laid out like the `example/agents` app.
 
 ```python
 # app/tools/job_search_tool.py
@@ -766,6 +725,8 @@ class RouterAgent(Agent):
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
+from fastapi_startkit.ai import state
+
 from app.agents.chat import RouterAgent
 from app.requests.chat import ChatRequest
 
@@ -773,14 +734,15 @@ api = APIRouter()
 
 @api.post("/chat")
 async def chat(request: ChatRequest):
-    response = await RouterAgent().prompt(request.message)
-    return {"content": response.content}
+    result = await RouterAgent().prompt(request.message)
+    return {"content": state.text(result)}
 
 @api.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     async def generate():
-        async for chunk in RouterAgent().stream(request.message):
-            yield f"data: {chunk}\n\n"
+        async for event in RouterAgent().stream(request.message):
+            if event["event"] == "on_chat_model_stream" and (text := event["data"]["chunk"].text):
+                yield f"data: {text}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```

@@ -7,55 +7,49 @@ keywords: audio generation, text-to-speech, TTS, OpenAI, Google Gemini, ElevenLa
 
 # Audio Generation
 
-FastAPI Startkit ships a fluent, provider-agnostic **text-to-speech** API. Turn any string into spoken audio, pick a voice, and persist the result to any configured storage disk — all in a single chained expression.
-
 ## Introduction
 
-The `Audio` builder synthesizes speech from text. The active backend is selected from a single environment variable, so you can swap between OpenAI, Google Gemini, and ElevenLabs without changing application code.
+The `Audio` builder turns text into speech and can save the result to a storage disk. The backend comes from the `AI_DEFAULT_AUDIO_PROVIDER` environment variable, so you can switch between OpenAI, Google Gemini, and ElevenLabs without changing your code.
 
-**Supported providers:**
-
-| Provider | Default model | Output | SDK |
+| Provider | Model to use | Output | SDK |
 |---|---|---|---|
 | `openai` | `tts-1` | MP3 (configurable) | `openai` |
 | `google` | `gemini-2.5-flash-preview-tts` | WAV | `google-genai` |
 | `elevenlabs` | `eleven_multilingual_v2` | MP3 | `elevenlabs` |
 
-`openai` is the default.
-
----
+`openai` is the default. The builder sends `tts-1` unless you call [`.model()`](#model-speed-and-format), so set the model yourself when you use Google or ElevenLabs.
 
 ## Installation
 
-Text-to-speech with OpenAI is covered by the `ai` extra:
+Install the `ai` extra and the SDK for your provider. The `ai` extra does not include the OpenAI SDK:
 
 ```bash
-uv add "fastapi-startkit[ai]"
+uv add "fastapi-startkit[ai]" openai
 ```
 
-The other backends use their own SDKs — install whichever you intend to use:
+> The `fastapi-startkit[ai]` extra cannot be installed on Python 3.15 or newer yet, because its `langgraph` dependency requires `ormsgpack`, which does not support 3.15. Use Python 3.14 or older for the `ai` extra.
+
+For Google or ElevenLabs, install their SDK instead of `openai`:
 
 ```bash
-uv add google-genai   # for AI_AUDIO_PROVIDER=google
-uv add elevenlabs     # for AI_AUDIO_PROVIDER=elevenlabs
+uv add google-genai   # for AI_DEFAULT_AUDIO_PROVIDER=google
+uv add elevenlabs     # for AI_DEFAULT_AUDIO_PROVIDER=elevenlabs
 ```
-
----
 
 ## Configuration
 
-Select the active audio provider and supply the matching API key in `.env`:
+Set the provider and its API key in `.env`:
 
 ```ini
 # .env
-AI_AUDIO_PROVIDER=openai
+AI_DEFAULT_AUDIO_PROVIDER=openai
 
 OPENAI_API_KEY=sk-...
 # For Google Gemini TTS:
-# AI_AUDIO_PROVIDER=google
+# AI_DEFAULT_AUDIO_PROVIDER=google
 # GEMINI_API_KEY=AIza...        # GOOGLE_API_KEY is also accepted
 # For ElevenLabs:
-# AI_AUDIO_PROVIDER=elevenlabs
+# AI_DEFAULT_AUDIO_PROVIDER=elevenlabs
 # ELEVENLABS_API_KEY=...
 ```
 
@@ -63,19 +57,17 @@ OPENAI_API_KEY=sk-...
 
 | Variable | Default | Description |
 |---|---|---|
-| `AI_AUDIO_PROVIDER` | `openai` | Active TTS backend: `openai`, `google`, or `elevenlabs` |
+| `AI_DEFAULT_AUDIO_PROVIDER` | `openai` | Active TTS backend: `openai`, `google`, or `elevenlabs` |
 | `OPENAI_API_KEY` | — | API key for OpenAI TTS |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI base URL (override for proxies / Azure) |
 | `GEMINI_API_KEY` | — | API key for Google Gemini TTS (`GOOGLE_API_KEY` is also accepted) |
 | `ELEVENLABS_API_KEY` | — | API key for ElevenLabs |
 
-These are read into the `AIConfig` dataclass — `audio_provider` selects the backend, and the provider's API key (and base URL, for OpenAI) are pulled from the matching entry in `providers`.
-
----
+These values are loaded into the `AIConfig` dataclass. `default_audio` selects the backend, and the API key (plus the base URL for OpenAI) comes from the matching entry in `providers`.
 
 ## Generating Audio
 
-Call `Audio.of()` with the text to speak and `await` the `generate()` coroutine. It returns an [`AudioResponse`](#the-audioresponse-object):
+Pass the text to `Audio.of()` and await `generate()`. It returns an [`AudioResponse`](#the-audioresponse-object):
 
 ```python
 from fastapi_startkit.ai import Audio
@@ -85,11 +77,9 @@ audio = await Audio.of("Hello world, welcome to FastAPI Startkit.").generate()
 path = await audio.store()   # save to the default disk
 ```
 
-`generate()` is fully async — call it from any `async` endpoint or command.
-
 ### Voices
 
-The quickest way to pick a voice is the gender presets. For full control, set an explicit voice name:
+Use the `female()` and `male()` presets, or name a voice with `voice()`:
 
 ```python
 await Audio.of("Hello world").female().generate()        # nova
@@ -103,9 +93,9 @@ await Audio.of("Hello world").voice("shimmer").generate()
 | `.male()` | `onyx` |
 | `.voice(name)` | explicit name (default `alloy`) |
 
-**OpenAI voices:** `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`.
+OpenAI offers `alloy`, `echo`, `fable`, `onyx`, `nova`, and `shimmer`.
 
-The same preset and alias names work across providers — when you select Google or ElevenLabs, OpenAI-style names are mapped automatically to that vendor's voices (see [Voices across providers](#voices-across-providers)). You can also pass a native voice name (a Google voice like `Kore`, or an ElevenLabs voice ID) directly to `.voice()`.
+The presets and OpenAI voice names also work with Google and ElevenLabs, where they map to that vendor's voices (see [Voices across providers](#voices-across-providers)). You can also pass a native voice name, such as the Google voice `Kore` or an ElevenLabs voice ID, to `.voice()`.
 
 ### Model, speed, and format
 
@@ -126,14 +116,12 @@ audio = await (
 | `.format(fmt)` | `mp3` | `mp3`, `opus`, `aac`, or `flac` (OpenAI) |
 
 ::: tip Provider differences
-`speed` is accepted for API compatibility but is **not** applied by the Google or ElevenLabs backends. The **Google** backend always returns **WAV** audio (Gemini TTS yields raw PCM that is wrapped in a WAV container) regardless of the requested format.
+The Google and ElevenLabs backends accept `speed` but ignore it. The Google backend always returns WAV, whatever format you request, because Gemini TTS returns raw PCM that is wrapped in a WAV container. ElevenLabs always returns MP3.
 :::
-
----
 
 ## Voices Across Providers
 
-When you use a provider other than OpenAI, the OpenAI-style preset/alias names are mapped automatically so your code stays portable.
+With a provider other than OpenAI, the OpenAI voice names map to that provider's voices, so the same code works on every backend.
 
 ### Google Gemini
 
@@ -161,11 +149,9 @@ Pass any ElevenLabs voice ID directly to `.voice()`, or use an alias:
 | `echo` | Antoni | male |
 | `fable` | Arnold | male |
 
----
-
 ## The `AudioResponse` Object
 
-`generate()` returns an `AudioResponse` holding the raw audio bytes plus async helpers to persist them.
+`generate()` returns an `AudioResponse` with the raw audio bytes and async methods for saving them.
 
 ### Accessing raw bytes
 
@@ -177,7 +163,7 @@ raw: bytes = audio.data
 
 ### Storing to a disk
 
-The storage helpers write to a configured [storage disk](/docs/storage) and return the stored path/filename. All are coroutines:
+These methods write to a [storage disk](/docs/storage) and return the stored filename. All of them are coroutines:
 
 ```python
 path = await audio.store()                         # auto-named, private "local" disk
@@ -193,13 +179,11 @@ path = await audio.storePubliclyAs("greeting.mp3") # custom name, public disk
 | `storePublicly()` | `public` | Auto-generated (UUID) |
 | `storePubliclyAs(name)` | `public` | `name` |
 
-Auto-generated filenames use a UUID with the output extension (e.g. `2f1c….mp3`). If the [Storage](/docs/storage) facade is unavailable, the bytes fall back to a file in the system temp directory and that absolute path is returned.
-
----
+Auto-generated filenames use a UUID with the extension of the requested format (e.g. `2f1c….mp3`), even when the provider returned WAV. If the [Storage](/docs/storage) facade is unavailable, the bytes fall back to a file in the system temp directory and that absolute path is returned.
 
 ## Full Example
 
-Synthesizing speech inside a FastAPI route and returning its public URL:
+This route generates speech and returns its public URL:
 
 ```python
 from fastapi_startkit.ai import Audio
@@ -211,10 +195,8 @@ async def narrate(text: str):
     return {"url": Storage.disk("public").url(filename)}
 ```
 
----
-
 ## See Also
 
-- [Image Generation](/docs/ai/image) — text-to-image and editing with the same fluent API
-- [AI Agents](/docs/ai/agent) — LangChain-powered agents and provider configuration
-- [Storage](/docs/storage) — disks, public URLs, and fake storage for tests
+- [Image Generation](/docs/ai/image): text-to-image and image editing with the same builder API
+- [AI Agents](/docs/ai/agent): LangChain agents and provider configuration
+- [Storage](/docs/storage): disks, public URLs, and fake storage for tests

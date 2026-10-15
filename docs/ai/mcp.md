@@ -7,7 +7,7 @@ keywords: MCP, Model Context Protocol, JSON-RPC, AI tools, FastAPI, fastapi-star
 
 # MCP (Model Context Protocol)
 
-The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-RPC 2.0 standard that lets AI assistants — such as Claude, Cursor, and other MCP-compatible clients — discover and call capabilities exposed by your application. `fastapi-startkit` includes built-in support for MCP: define servers, tools, prompts, and resources as plain Python classes and mount them on your app with a single line.
+The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-RPC 2.0 standard that lets AI clients such as Claude and Cursor discover and call features of your application. In Fastapi Startkit, you define servers, tools, prompts, and resources as Python classes and mount the server as a router.
 
 ## Getting Started
 
@@ -21,7 +21,7 @@ from fastapi_startkit.mcp import McpProvider
 app = Application(providers=[FastAPIProvider, McpProvider])
 ```
 
-That's all the setup required. Define your tools, prompts, and resources as classes (see below), then mount the server router on the app:
+Then define your tools, prompts, and resources as classes and mount the server's router on the app:
 
 ```python
 from fastapi_startkit.mcp import Server
@@ -36,7 +36,7 @@ app.include_router(server.router(prefix="/mcp"))
 
 ## Creating a Server
 
-A server is the top-level object that groups your tools, prompts, and resources. Subclass `Server`, set the `name` (required), and override `tools()`, `prompts()`, and `resources()` to return lists of the classes you want to register.
+A server groups your tools, prompts, and resources. Subclass `Server`, set the required `name`, and override `tools()`, `prompts()`, and `resources()` to return the classes to register.
 
 ```python
 from fastapi_startkit.mcp import Server, Tool, Prompt, Resource
@@ -62,11 +62,11 @@ class MyServer(Server):
 | `description` | `str \| None` | Human-readable description |
 | `instructions` | `str \| None` | Usage hints surfaced to AI clients |
 
-Return `None` (the default) from any of the three list methods to omit that capability entirely.
+Return `None` (the default) from any of the three methods to register nothing for it. The server still advertises all three capabilities in `initialize` and returns an empty list.
 
 ## Mounting the Router on FastAPI
 
-Call `server.router(prefix)` to get a FastAPI `APIRouter` and include it in your app:
+`server.router(prefix)` returns a FastAPI `APIRouter` that you include in your app:
 
 ```python
 from fastapi_startkit import Application
@@ -90,7 +90,7 @@ Pass `prefix=""` to mount at the application root.
 
 ## Defining Tools
 
-Tools are callable actions that an AI client can invoke. Subclass `Tool`, set `name` and `description`, define the input shape with a Pydantic model returned from `schema()`, and implement `handle()`.
+A tool is an action the AI client can call. Subclass `Tool`, set `name` and `description`, return a Pydantic model describing the input from `schema()`, and implement `handle()`.
 
 ```python
 from pydantic import BaseModel
@@ -114,7 +114,7 @@ class AddTool(Tool):
 
 ### Optional output schema
 
-Provide an output schema by overriding `output_schema()`. When set, its JSON schema is included in `tools/list` under `outputSchema`:
+Override `output_schema()` to describe the result. Its JSON schema appears in `tools/list` under `outputSchema`:
 
 ```python
 class SumOutput(BaseModel):
@@ -137,7 +137,7 @@ class AddTool(Tool):
 
 ## Defining Prompts
 
-Prompts are parameterised message templates that AI clients can retrieve. Subclass `Prompt`, declare your arguments via `arguments()`, and generate the content in `handle()`.
+A prompt is a message template with arguments that AI clients can fetch. Subclass `Prompt`, declare the arguments in `arguments()`, and build the message in `handle()`.
 
 ```python
 from fastapi_startkit.mcp import Prompt, Argument, Response
@@ -159,9 +159,11 @@ class GreetPrompt(Prompt):
 
 ### Conditional registration
 
-Override `should_register()` to skip a prompt at boot time — useful for feature-flagging prompts at startup:
+Override `should_register()` to hide a prompt, for example behind a feature flag. It is checked on every `prompts/list` and `prompts/get` request:
 
 ```python
+import os
+
 class BetaPrompt(Prompt):
     name = "beta-feature"
     description = "Only available when beta flag is on."
@@ -183,7 +185,7 @@ class BetaPrompt(Prompt):
 
 ## Defining Resources
 
-Resources expose readable data (files, database records, API responses) that AI clients can fetch by URI. Subclass `Resource`, set `uri` and `name`, and implement `read()`.
+A resource is read-only data, such as a file or a database record, that AI clients fetch by URI. Subclass `Resource`, set `uri` and `name`, and implement `read()`.
 
 ```python
 from fastapi_startkit.mcp import Resource
@@ -199,11 +201,11 @@ class ReadmeResource(Resource):
             return f.read()
 ```
 
-`mime_type` defaults to `"text/plain"`. Set it to `"application/json"` or another MIME type as appropriate for the resource content.
+Set `mime_type` to `"application/json"` or another type when the content isn't plain text.
 
 ## Response
 
-`Response` wraps the content returned from tools and prompts into MCP's content format. Two factory methods are available:
+`Response` converts what your tools and prompts return into MCP's content format. It has two factory methods:
 
 | Method | Use case |
 |---|---|
@@ -220,7 +222,7 @@ return Response.structure({"status": "ok", "count": 42})
 
 ## JSON-RPC methods
 
-The router handles the full set of standard MCP methods automatically:
+The router handles these MCP methods:
 
 | Method | Description |
 |---|---|
@@ -236,7 +238,7 @@ Notifications (requests without an `id`) return HTTP `202` with an empty body.
 
 ## Complete example
 
-The following self-contained example puts all the pieces together — a calculator server that adds numbers, a greeting prompt, and a resource that exposes a status string.
+This example defines a calculator server with an `add` tool, a greeting prompt, and a status resource.
 
 ```python
 from pydantic import BaseModel
@@ -324,7 +326,7 @@ app = Application(providers=[FastAPIProvider])
 app.include_router(server.router(prefix="/mcp"))
 ```
 
-Once running, point any MCP-compatible client at `POST /mcp` and call `initialize` to start a session:
+Point an MCP client at `POST /mcp` and send `initialize` to start a session:
 
 ```json
 {

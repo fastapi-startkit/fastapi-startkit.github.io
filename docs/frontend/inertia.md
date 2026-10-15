@@ -7,11 +7,9 @@ keywords: inertia, spa, frontend, fastapi, monolithic
 
 # Inertia
 
-[Inertia.js](https://inertiajs.com) is a protocol that bridges your server and frontend, letting you build full-stack single-page applications without building a separate API. Instead of writing REST endpoints and consuming them with `fetch()`, you write controllers that return component names and props — Inertia takes care of the rest.
+[Inertia.js](https://inertiajs.com) lets you build a single-page app with server-side routing and controllers, without a separate API. Your controllers return a component name and props, and a React, Vue, or Svelte component renders the page.
 
-For FastAPI developers, this means you get the speed and structure of server-side routing with the interactivity of a modern frontend, using your choice of React, Vue, or Svelte — with far less boilerplate than a traditional API-driven SPA. 
-
-The `InertiaProvider` wires Inertia into your application: it binds the `Inertia` renderer to the container, registers `InertiaMiddleware`, and injects the <code v-pre>{{ inertia(page) }}</code> Jinja2 helper into your templates.
+`InertiaProvider` binds the `Inertia` renderer to the container, registers `InertiaMiddleware`, and injects the <code v-pre>{{ inertia(page) }}</code> Jinja2 helper into your templates.
 
 ## Setup
 
@@ -33,7 +31,7 @@ app = Application(
 )
 ```
 
-Your backend is ready to serve Inertia pages, return the `Inertia.render()` response:
+Controllers can now return `Inertia.render()`:
 ```python
 from fastapi_startkit.inertia import Inertia
 
@@ -41,23 +39,27 @@ async def index():
     return Inertia.render("Dashboard/Index")
 ```
 
-
 ### Client-Side Setup
 Inertia requires Vite for asset bundling. If you haven't set it up yet, follow the [Vite docs](/docs/frontend/vite) first.
 
-While Inertia supports Vue and Svelte as well, this guide focuses on React. Install the React adapter and the Vite plugin:
+This guide uses React. Install the Inertia React adapter, React, and its Vite plugin:
 
 ```bash
-npm install react react-dom @vitejs/plugin-react
+npm install @inertiajs/react react react-dom @vitejs/plugin-react
 ```
 
-and for the types:
+Then install the type definitions:
+
 ```bash
 npm i --save-dev @types/react-dom @types/react
 ```
 
-```js
-// vite.config.js
+Add the React plugin and the new entry point to `vite.config.ts`:
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react' // [!code ++]
 import fastapi from 'fastapi-vite-plugin'
 
 export default defineConfig({
@@ -98,13 +100,14 @@ await createInertiaApp({
 })
 ```
 
-after defining the `root` component, define the `pages` as 
+Then add a page component under `resources/js/Pages`:
+
 ```tsx
 // resources/js/Pages/Dashboard/Index.tsx
 export default function Dashboard() {
     return (
         <div>
-            <p>Hello from the Fastapi Starkit</p>
+            <p>Hello from Fastapi Startkit</p>
         </div>
     )
 }
@@ -131,7 +134,7 @@ Create `resources/templates/index.html`. The <code v-pre>{{ inertia(page) }}</co
 
 ## Passing Props
 
-Use `Inertia.render()` in your controller. It takes the component name and an optional props dict — no `request` argument is needed, because `InertiaMiddleware` stores the current request in a context variable automatically:
+`Inertia.render()` takes the component name and an optional props dict. You don't pass the request: `InertiaMiddleware` keeps the current request in a context variable.
 
 ```python
 from fastapi_startkit.inertia import Inertia
@@ -142,21 +145,20 @@ async def index():
     })
 ```
 
-Props are optional. When a controller has no props to pass, omit the second argument:
+Omit the second argument when there are no props:
 
 ```python
 async def index():
     return Inertia.render("Dashboard/Index")
 ```
 
-You can also add props to the response after creating it with `with_()`, which accepts a key and value or a dict:
+Add props to an existing response with `with_()`, which takes a key and value or a dict:
 
 ```python
 return Inertia.render("Dashboard/Index").with_("user", user).with_({"stats": stats})
 ```
 
-- On the **first page load**, returns an HTML response using the root template.
-- On **Inertia XHR requests** (`X-Inertia: true` header), returns a JSON response with component name, props, and URL.
+On the first page load, the response is HTML rendered from the root template. On Inertia requests (with the `X-Inertia: true` header), it is JSON with the component name, props, and URL.
 
 ### Nested Props
 
@@ -171,7 +173,7 @@ return Inertia.render("Dashboard/Index", {
 })
 ```
 
-A key containing a dot is expanded into the nested structure. This is useful for adding a single value under a shared prop without replacing it:
+A key containing a dot is expanded into the nested structure, so you can add one value under a shared prop without replacing it:
 
 ```python
 Inertia.share("auth", {"user": "taylor"})
@@ -185,7 +187,7 @@ A dot key under a value that is not a dict raises a `TypeError`.
 
 ## Shared Data
 
-Share data globally — available as props on every component. The right place to call `share()` is inside a provider's `boot()` method, after all providers have been registered:
+Shared data is sent as props to every page. Call `share()` in a provider's `boot()` method:
 
 ```python
 # providers/fastapi_provider.py
@@ -211,7 +213,7 @@ class FastAPIProvider(BaseFastAPIProvider):
 Inertia.share({"app_name": "PingCRM", "locale": "en"})
 ```
 
-You can also call `Inertia.share()` via the container binding (they are the same object):
+The container's `inertia` binding resolves to the same API:
 
 ```python
 inertia = self.app.make("inertia")
@@ -244,7 +246,7 @@ Inertia.expose_shared_prop_keys(False)
 
 ## Partial Reloads
 
-Wrap prop values in callables so they are resolved lazily. On a partial reload only the requested keys are evaluated. Because async is not allowed inside a `lambda`, use a named `async def` for async props:
+Wrap a prop in a callable to resolve it lazily, so a partial reload only evaluates the keys it asks for. A `lambda` can't be async, so use a named `async def` for async props:
 
 ```python
 from fastapi_startkit.inertia import Inertia
@@ -573,7 +575,7 @@ The client can also choose the bag: when a request sends `errorBag: "login"` (th
 
 ### Errors on Partial Reloads
 
-`errors` is an always prop, so it is included on partial reloads too. It only contains errors flashed since the last render; a partial reload with no new errors gets `{}`, and old errors don't stick to the page. Errors flashed for a different component are delivered when the client renders that component.
+`errors` is an always prop, so it is included on partial reloads too. It only contains errors flashed since the last render; a partial reload with no new errors gets `{}`, and old errors don't stick to the page. Errors are delivered on the next Inertia render, whichever component it is.
 
 ## History Encryption
 
@@ -616,7 +618,7 @@ return Inertia.redirect("/users/1").preserve_fragment()
 
 ## Asset Versioning
 
-`InertiaMiddleware` automatically uses the Vite manifest hash as the asset version when a `ViteProvider` is registered — no extra configuration is needed in the common case.
+When `ViteProvider` is registered, `InertiaMiddleware` uses the Vite manifest hash as the asset version.
 
 To set the version yourself, call `Inertia.version()` in a provider's `boot()` method. It takes a string or a callable, which is evaluated once per request:
 
@@ -651,14 +653,14 @@ return Inertia.render("Reports/Print").with_root_view("print.html")
 
 ## Middleware
 
-`InertiaMiddleware` is registered automatically by `InertiaProvider`. It handles these concerns:
+`InertiaProvider` registers `InertiaMiddleware`, which handles the following:
 
-1. **Version check** — returns `409` on version mismatch (triggers hard reload).
-2. **Redirect conversion** — converts `302` redirects to `303` for `PUT`/`PATCH`/`DELETE` requests, so the browser performs a `GET` on the redirect target.
-3. **Empty responses** — an empty `200` response to an Inertia request becomes a redirect back to the previous page.
-4. **Fragment redirects** — a redirect to a URL with a `#fragment` becomes a `409` with an `X-Inertia-Redirect` header, so the client keeps the fragment. Prefetch requests are left alone.
-5. **Errors** — shares the `errors` prop on every page.
-6. **Vary header** — adds `X-Inertia` to the `Vary` header of every response for correct cache behaviour, keeping any existing values.
+1. Version check: returns `409` on version mismatch (triggers hard reload).
+2. Redirect conversion: converts `302` redirects to `303` for Inertia `PUT`/`PATCH`/`DELETE` requests, so the browser performs a `GET` on the redirect target.
+3. Empty responses: an empty `200` response to an Inertia request becomes a redirect back to the previous page.
+4. Fragment redirects: a redirect to a URL with a `#fragment` becomes a `409` with an `X-Inertia-Redirect` header, so the client keeps the fragment. Prefetch requests are left alone.
+5. Errors: shares the `errors` prop on every page.
+6. Vary header: adds `X-Inertia` to the `Vary` header of every response, keeping any existing values.
 
 Shared props, the per-request version and root view, and the history encryption flag all live in request-scoped state, so concurrent requests never see each other's data.
 
