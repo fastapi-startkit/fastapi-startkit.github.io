@@ -33,6 +33,7 @@ app = Application(
     base_path=...,
     providers=[
         RedisProvider,
+        # ... other providers
     ],
 )
 ```
@@ -106,6 +107,7 @@ app = Application(
     base_path=...,
     providers=[
         (RedisProvider, RedisConfig),
+        # ... other providers
     ],
 )
 ```

@@ -179,7 +179,7 @@ class User(Model):
     address: Address
 ```
 
-The older form `address: Address = ModelField()` still works, but `ModelField` emits a `DeprecationWarning` and will be removed in 2.x. Switch to `address: Address`, or to `address = Field[Address]()` if you prefer an explicit field.
+The older form `address: Address = ModelField()` still works. `ModelField` is importable from `fastapi_startkit.masoniteorm`, but it emits a `DeprecationWarning` and will be removed in 2.x. Switch to `address: Address`, or to `address = Field[Address]()` if you prefer an explicit field.
 
 Store the value in a `text` or `json` column:
 

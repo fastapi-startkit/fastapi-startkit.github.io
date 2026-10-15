@@ -91,9 +91,11 @@ class TestRegister(HttpTestCase):
         assert "user_id" in response.json()
 
     async def test_user_cannot_register_with_invalid_data(self):
+        # missing required fields
         response = await self.post("/students/register", json={})
         assert response.status_code == 422
 
+        # password too short
         response = await self.post("/students/register", json={
             "name": "John Doe",
             "email": "john@example.com",
@@ -101,6 +103,7 @@ class TestRegister(HttpTestCase):
         })
         assert response.status_code == 422
 
+        # invalid email
         response = await self.post("/students/register", json={
             "name": "John Doe",
             "email": "not-an-email",
@@ -108,6 +111,7 @@ class TestRegister(HttpTestCase):
         })
         assert response.status_code == 422
 
+        # name too short
         response = await self.post("/students/register", json={
             "name": "J",
             "email": "john@example.com",
@@ -131,7 +135,7 @@ class TestRegister(HttpTestCase):
 
 ## Accessing the Raw Client
 
-`self.client` is the `httpx.AsyncClient`. Use it for anything the helpers don't cover, such as `OPTIONS` or `HEAD` requests or streaming. It returns a plain `httpx.Response`, so the `TestResponse` assertions are not available.
+`self.client` is the `httpx.AsyncClient`. Use it for anything the helpers don't cover, such as `OPTIONS` or `HEAD` requests, custom auth headers on every request, or streaming. It returns a plain `httpx.Response`, so the `TestResponse` assertions are not available.
 
 ```python
 async def test_preflight(self):

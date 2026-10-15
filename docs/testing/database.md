@@ -71,9 +71,11 @@ class TestRegister(HttpTestCase, RefreshDatabase):
         assert user.role == "student"
 
     async def test_user_cannot_register_with_invalid_data(self):
+        # missing required fields
         response = await self.post("/students/register", json={})
         assert response.status_code == 422
 
+        # password too short
         response = await self.post("/students/register", json={
             "name": "John Doe",
             "email": "john@example.com",
@@ -81,6 +83,7 @@ class TestRegister(HttpTestCase, RefreshDatabase):
         })
         assert response.status_code == 422
 
+        # invalid email
         response = await self.post("/students/register", json={
             "name": "John Doe",
             "email": "not-an-email",
@@ -88,6 +91,7 @@ class TestRegister(HttpTestCase, RefreshDatabase):
         })
         assert response.status_code == 422
 
+        # name too short
         response = await self.post("/students/register", json={
             "name": "J",
             "email": "john@example.com",

@@ -77,7 +77,7 @@ users = await UserFactory.new().count(10).create()   # 10 saved users
 drafts = await UserFactory.new().count(5).make()     # 5 unsaved users
 ```
 
-With `count()` you always get a list, even for `count(1)`. Without it you get a single model.
+With `count(n)` for `n` greater than 1 you get a list. Without `count()`, or with `count(1)`, you get a single model.
 
 ### States / Variations
 
@@ -275,11 +275,13 @@ Run one seeder class:
 uv run python artisan db:seed --class UserSeeder
 ```
 
-Give a dotted path for a seeder in another module:
+Give a dotted path, relative to the seed directory, for a seeder in a sub-directory:
 
 ```bash
-uv run python artisan db:seed --class databases.seeders.user_seeder.UserSeeder
+uv run python artisan db:seed --class admin.user_seeder.UserSeeder
 ```
+
+This loads `UserSeeder` from `databases/seeders/admin/user_seeder.py`.
 
 Point at a different seed directory with `--directory` (default `databases/seeders`):
 
