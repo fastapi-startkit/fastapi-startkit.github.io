@@ -194,7 +194,7 @@ router.head("/health", health_controller.check)
 router.options("/cors", cors_controller.preflight)
 ```
 
-The helpers accept the same keyword arguments as FastAPI's `add_api_route`, such as `response_model`, `status_code`, `tags`, `dependencies`, `summary`, and `deprecated`:
+The helpers accept the keyword arguments of FastAPI's `add_api_route`:
 
 ```python
 router.get(
@@ -330,7 +330,7 @@ protected.resource("contacts", contacts_controller)
 protected.get("/reports", reports_controller.index)
 ```
 
-`Router(...)` takes the same constructor arguments as FastAPI's `APIRouter`, such as `prefix`, `tags`, `dependencies`, `responses`, `deprecated`, and `include_in_schema`.
+`Router(...)` takes the same arguments as FastAPI's `APIRouter`, such as `prefix` and `dependencies`.
 
 #### Registering Routers in Your Provider
 

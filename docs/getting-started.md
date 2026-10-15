@@ -58,7 +58,7 @@ List a provider on its own, or pair it with a config class as a `(Provider, Conf
 
 ## Getting Started Using AI
 
-If you use a coding agent such as [Claude Code](https://www.anthropic.com/claude-code), Cursor, GitHub Copilot, or Windsurf, it can scaffold the project for you. Open the agent in an empty directory and paste this prompt:
+If you use a coding agent, it can scaffold the project for you. Open the agent in an empty directory and paste this prompt:
 
 ```text
 Scaffold a new Python project using the Fastapi Startkit framework

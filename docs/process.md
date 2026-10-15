@@ -270,7 +270,7 @@ results = pool.wait()
 
 ## Testing with Fakes
 
-Call `Process.fake()` at the start of a test. After that, `run()` and `pipe()` record the command and return a fake result instead of starting a subprocess. `Process.start()` raises `NotImplementedError` while faked, and pools are not faked: `Pool.start()` still starts real processes. Because `run()` is async, write tests as `async def`.
+Call `Process.fake()` at the start of an `async def` test. `run()` and `pipe()` then return fake results instead of starting subprocesses. Only those two are faked: `start()` raises `NotImplementedError`, and pools still run real processes.
 
 ```python
 from fastapi_startkit.process import Process

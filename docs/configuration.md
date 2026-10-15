@@ -20,7 +20,7 @@ from pathlib import Path
 app = Application(base_path=Path(__file__).parent.parent)
 ```
 
-The environment name comes from `APP_ENV`, either set in the process or in `.env`. Without it, boot fails: with no `.env` file you get `ValueError: Unable to determine environment.`, and with a `.env` that doesn't set `APP_ENV` you get `ValueError: APP_ENV not set after loading .env`. Under pytest, the environment is always `testing`.
+`APP_ENV` sets the environment name. Set it in the process or in `.env`; if it's missing, the app raises a `ValueError` on boot. Under pytest it is always `testing`.
 
 To pick the environment in code, pass `env` to the constructor. It takes priority over `APP_ENV`:
 
