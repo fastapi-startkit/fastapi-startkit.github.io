@@ -17,7 +17,7 @@
 </script>
 
 <template>
-    <header class="hp-nav" :class="{ 'hp-nav--fixed': fixed, 'hp-nav--docs': inDocs }">
+    <header class="hp-nav" :class="{ 'hp-nav--fixed': fixed }">
         <nav class="hp-nav__inner" aria-label="Main">
             <div class="hp-nav__left">
                 <a href="/" class="hp-nav__brand" aria-label="FastAPI Startkit home">
@@ -76,10 +76,6 @@
         position: fixed;
         left: 0;
         right: 0;
-    }
-
-    .hp-nav--docs {
-        --hp-sans: var(--site-sans);
     }
 
     .hp-nav--fixed .hp-nav__inner {
