@@ -589,7 +589,7 @@ pythonpath = .
 
 The tests use `HttpTestCase` to send requests to the app in memory.
 
-- `asyncSetUp` disposes the database engines first, because each test runs on a new event loop. It migrates the testing database once.
+- [`RefreshDatabase`](/docs/testing/database#refreshdatabase) migrates the testing database once per session and rolls each test back, so clients and tokens don't leak between tests.
 - `issue_token` registers a client and calls `/oauth/token` the same way a real client does.
 - `sign_token` signs a JWT with the real key, issuer and audience, and lets a test override one claim. The expired token and the token for another resource each have exactly one thing wrong with them.
 
@@ -598,31 +598,20 @@ import time
 
 import jwt
 from fastapi_startkit.fastapi.testing import HttpTestCase
-from fastapi_startkit.masoniteorm.migrations import Migrator
-from fastapi_startkit.masoniteorm.models import Model
+from fastapi_startkit.masoniteorm.testing import RefreshDatabase
 
 from config.auth import OAuthConfig
 from config.mcp import McpConfig
 
 
-class TestMcpAuthentication(HttpTestCase):
-    migrated = False
-
+class TestMcpAuthentication(HttpTestCase, RefreshDatabase):
     def get_application(self):
         from bootstrap.application import app
 
         return app
 
     async def asyncSetUp(self):
-        for connection in list(Model.db_manager.connections.values()):
-            await connection.engine.dispose()
-        Model.db_manager.connections.clear()
         await super().asyncSetUp()
-        if not TestMcpAuthentication.migrated:
-            await Migrator(migration_directory="databases/migrations").fresh(
-                ignore_fk=True
-            )
-            TestMcpAuthentication.migrated = True
         self.config = McpConfig()
 
     async def issue_token(self, scopes: str, resource: str | None = None) -> str:
