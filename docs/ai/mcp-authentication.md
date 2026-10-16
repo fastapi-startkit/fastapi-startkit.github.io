@@ -238,7 +238,7 @@ This file has four parts.
 
 It uses `current_context` instead of `auth` because client credentials tokens have no user, and `auth` rejects user-less tokens.
 
-**The body check.** The dependency reads the JSON-RPC message before the MCP router does. `read_message` raises an `McpServerException` subclass, and `json_rpc_error` turns it into a `400` with a JSON-RPC error. A body that isn't JSON raises `ParseError` (`-32700`). A batch array raises `InvalidRequest` (`-32600`), because the server handles one message per request.
+**The body check.** The dependency reads the JSON-RPC message before the MCP router does. `read_message` raises an `McpServerException` subclass, and `McpServerExceptionHandler` turns it into a `400` with a JSON-RPC error. A body that isn't JSON raises `ParseError` (`-32700`). A batch array raises `InvalidRequest` (`-32600`), because the server handles one message per request.
 
 ```python [app/mcp/auth.py]
 from fastapi import APIRouter, Depends, Request
@@ -317,8 +317,11 @@ class McpOAuthExceptionHandler:
         )
 
 
-async def json_rpc_error(request: Request, error: McpServerException) -> JSONResponse:
-    return JSONResponse(error.to_dict(), status_code=400)
+class McpServerExceptionHandler:
+    async def __call__(
+        self, request: Request, error: McpServerException
+    ) -> JSONResponse:
+        return JSONResponse(error.to_dict(), status_code=400)
 
 
 async def read_message(request: Request) -> dict:
@@ -352,7 +355,7 @@ def authorize_tool_call(server: Server):
     return dependency
 ```
 
-Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. `McpOAuthExceptionHandler` is registered for `AuthenticationException`, `InvalidTokenException` and `MissingScopeException`, and `json_rpc_error` for `McpServerException`. The provider also registers the `mcp:client` command. You create that command in Step 6, so the app won't start until then.
+Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. `McpOAuthExceptionHandler` is registered for `AuthenticationException`, `InvalidTokenException` and `MissingScopeException`, and `McpServerExceptionHandler` for `McpServerException`. The provider also registers the `mcp:client` command. You create that command in Step 6, so the app won't start until then.
 
 ```python [providers/mcp_provider.py]
 from fastapi import Depends
@@ -367,8 +370,8 @@ from app.commands.create_client import CreateClientCommand
 from app.mcp.auth import (
     McpOAuthExceptionHandler,
     McpServerException,
+    McpServerExceptionHandler,
     authorize_tool_call,
-    json_rpc_error,
     protected_resource_router,
 )
 from app.mcp.server import NotesServer
@@ -394,7 +397,7 @@ class McpServiceProvider(Provider):
             MissingScopeException,
         ):
             self.app.add_exception_handler(exception, handler)
-        self.app.add_exception_handler(McpServerException, json_rpc_error)
+        self.app.add_exception_handler(McpServerException, McpServerExceptionHandler())
         self.commands([CreateClientCommand])
 ```
 
