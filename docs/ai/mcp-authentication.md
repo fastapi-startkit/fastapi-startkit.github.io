@@ -34,30 +34,17 @@ uv init mcp-authentication
 cd mcp-authentication
 uv add "fastapi-startkit[fastapi,database,sqlite]" "fastapi-startkit-auth[startkit]>=0.6.3"
 uv add --dev pytest pytest-asyncio
+rm main.py
 ```
 
-Your `pyproject.toml` now lists both packages:
+`uv init` creates a `main.py` you won't use, so the last command deletes it. The dependencies in your `pyproject.toml` now look like this (the versions may differ):
 
-```toml [pyproject.toml]
-[project]
-name = "mcp-authentication"
-version = "0.1.0"
-description = "An MCP server protected by fastapi-startkit-auth"
-readme = "README.md"
-requires-python = ">=3.12"
+```toml
 dependencies = [
-    "fastapi-startkit[fastapi,database,sqlite]",
     "fastapi-startkit-auth[startkit]>=0.6.3",
-]
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.3",
-    "pytest-asyncio>=1.3.0",
+    "fastapi-startkit[database,fastapi,sqlite]>=0.63.0",
 ]
 ```
-
-The example in the repository also has a `[tool.uv.sources]` table that points `fastapi-startkit` at the local checkout. You don't need it.
 
 ## Step 2: Configure the environment
 
@@ -87,6 +74,17 @@ APP_URL=http://127.0.0.1:8000
 OAUTH2_KEY=testing-key-that-is-long-enough-for-hs256
 DB_CONNECTION=sqlite
 DB_DATABASE=databases/testing.db
+```
+
+Keep `.env` and the SQLite databases out of git:
+
+```gitignore [.gitignore]
+.env
+*.db
+.venv/
+__pycache__/
+storage/
+.pytest_cache/
 ```
 
 Put the MCP settings in one config class. `resource` is the URL clients send as the `resource` parameter and the value the guard expects in `aud`. `resource_metadata_url` is where the metadata document lives:
@@ -166,9 +164,8 @@ These are functions, not module-level objects, on purpose. The application calls
 Each tool declares the scopes it needs in a `scopes` attribute. `scopes` isn't part of the `Tool` base class. It's a plain class attribute that Step 5 reads.
 
 ```python [app/mcp/tools.py]
-from pydantic import BaseModel
-
 from fastapi_startkit.mcp import Response, Tool
+from pydantic import BaseModel
 
 notes: list[str] = []
 
@@ -218,7 +215,7 @@ See [Defining Tools](/docs/ai/mcp#defining-tools) for schemas and responses.
 
 ## Step 5: Protect the MCP endpoint
 
-This file has three parts.
+This file has four parts.
 
 **The metadata document.** `protected_resource_router` serves the [protected resource metadata](https://datatracker.ietf.org/doc/html/rfc9728) at `/.well-known/oauth-protected-resource/mcp` and at the root path. It tells the client which resource it's calling, which authorization server issues tokens for it, and which scopes exist.
 
@@ -228,9 +225,11 @@ This file has three parts.
 - If the token was rejected, it adds `error="invalid_token"`.
 - If a tool's scope was missing, it adds `error="insufficient_scope"` and the scopes the tool needs.
 
-**The scope check.** `authorize_tool_call` is a dependency on the MCP router. `current_context` authenticates the request through the default guard. A missing or invalid token raises `InvalidToken` (401). For a `tools/call` request, it looks up the tool by name and raises `MissingToolScope` (403) unless the token has every scope the tool declares. Other methods, such as `initialize` and `tools/list`, need only a valid token.
+**The scope check.** `authorize_tool_call` is a dependency on the MCP router. `current_context` authenticates the request through the default guard. A missing or invalid token raises `InvalidToken` (401). For a `tools/call` request, it looks up the tool by name and raises `MissingToolScope` (403) unless the token has every scope the tool declares. A tool without a `scopes` attribute, and every other method, such as `initialize` and `tools/list`, needs only a valid token.
 
 It uses `current_context` instead of `auth` because client credentials tokens have no user, and `auth` rejects user-less tokens.
+
+**The body check.** The dependency reads the JSON-RPC message before the MCP router does. `read_message` raises `JsonRpcError`, and `json_rpc_error` turns it into a `400` with a JSON-RPC error. A body that isn't JSON gets `-32700 Parse error`. A batch array gets `-32600 Invalid Request`, because the server handles one message per request.
 
 ```python [app/mcp/auth.py]
 from fastapi import APIRouter, Depends, Request
@@ -244,9 +243,16 @@ from config.mcp import McpConfig
 
 
 class MissingToolScope(InsufficientScope):
-    def __init__(self, tool: type[Tool]) -> None:
-        self.scopes: list[str] = tool.scopes
-        super().__init__(f"The {tool.name} tool requires: {' '.join(tool.scopes)}.")
+    def __init__(self, tool: type[Tool], scopes: list[str]) -> None:
+        self.scopes = scopes
+        super().__init__(f"The {tool.name} tool requires: {' '.join(scopes)}.")
+
+
+class JsonRpcError(Exception):
+    def __init__(self, code: int, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(message)
 
 
 def protected_resource_router(config: McpConfig) -> APIRouter:
@@ -269,33 +275,63 @@ def bearer_challenge(config: McpConfig):
     async def handler(request: Request, error: AuthError) -> JSONResponse:
         params = [f'resource_metadata="{config.resource_metadata_url}"']
         if isinstance(error, MissingToolScope):
-            params += ['error="insufficient_scope"', f'scope="{" ".join(error.scopes)}"']
+            params += [
+                'error="insufficient_scope"',
+                f'scope="{" ".join(error.scopes)}"',
+            ]
         elif request.headers.get("authorization"):
             params.append('error="invalid_token"')
         return JSONResponse(
             error.to_dict(),
             status_code=error.status_code,
-            headers={"WWW-Authenticate": f"Bearer {', '.join(params)}", "Cache-Control": "no-store"},
+            headers={
+                "WWW-Authenticate": f"Bearer {', '.join(params)}",
+                "Cache-Control": "no-store",
+            },
         )
 
     return handler
 
 
+async def json_rpc_error(request: Request, error: JsonRpcError) -> JSONResponse:
+    return JSONResponse(
+        {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": error.code, "message": error.message},
+        },
+        status_code=400,
+    )
+
+
+async def read_message(request: Request) -> dict:
+    try:
+        message = await request.json()
+    except ValueError:
+        raise JsonRpcError(-32700, "Parse error") from None
+    if not isinstance(message, dict):
+        raise JsonRpcError(-32600, "Invalid Request")
+    return message
+
+
 def authorize_tool_call(server: Server):
     tools = {tool.name: tool for tool in server.tools() or []}
 
-    async def dependency(request: Request, context: AuthContext = Depends(current_context)) -> AuthContext:
-        message = await request.json()
-        if isinstance(message, dict) and message.get("method") == "tools/call":
+    async def dependency(
+        request: Request, context: AuthContext = Depends(current_context)
+    ) -> AuthContext:
+        message = await read_message(request)
+        if message.get("method") == "tools/call":
             tool = tools.get((message.get("params") or {}).get("name"))
-            if tool is not None and not context.can_all(tool.scopes):
-                raise MissingToolScope(tool)
+            scopes = getattr(tool, "scopes", [])
+            if tool is not None and not context.can_all(scopes):
+                raise MissingToolScope(tool, scopes)
         return context
 
     return dependency
 ```
 
-Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. The handler is registered for both `InvalidToken` and `InsufficientScope`. The provider also registers the `mcp:client` command from Step 6.
+Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. `bearer_challenge` is registered for both `InvalidToken` and `InsufficientScope`, and `json_rpc_error` for `JsonRpcError`. The provider also registers the `mcp:client` command. You create that command in Step 6, so the app won't start until then.
 
 ```python [providers/mcp_provider.py]
 from fastapi import Depends
@@ -303,7 +339,13 @@ from fastapi_startkit.support import Provider
 from fastapi_startkit_auth import InsufficientScope, InvalidToken
 
 from app.commands.create_client import CreateClientCommand
-from app.mcp.auth import authorize_tool_call, bearer_challenge, protected_resource_router
+from app.mcp.auth import (
+    JsonRpcError,
+    authorize_tool_call,
+    bearer_challenge,
+    json_rpc_error,
+    protected_resource_router,
+)
 from app.mcp.server import NotesServer
 from config.mcp import McpConfig
 
@@ -314,9 +356,13 @@ class McpServiceProvider(Provider):
         server = NotesServer()
 
         self.app.include_router(protected_resource_router(config))
-        self.app.include_router(server.router(config.path), dependencies=[Depends(authorize_tool_call(server))])
+        self.app.include_router(
+            server.router(config.path),
+            dependencies=[Depends(authorize_tool_call(server))],
+        )
         self.app.add_exception_handler(InvalidToken, bearer_challenge(config))
         self.app.add_exception_handler(InsufficientScope, bearer_challenge(config))
+        self.app.add_exception_handler(JsonRpcError, json_rpc_error)
         self.commands([CreateClientCommand])
 ```
 
@@ -361,15 +407,6 @@ if __name__ == "__main__":
     sys.exit(app.handle_command())
 ```
 
-Publish the OAuth2 migrations into `databases/migrations` and run them:
-
-```sh
-uv run python artisan provider:publish -p auth-oauth2
-uv run python artisan db:migrate
-```
-
-See [Migrations](/docs/authentication#migrations) for the tables they create.
-
 ## Step 6: Create a client and issue a token
 
 The `auth:oauth2:client` command creates clients for the authorization code flow. For a machine client, add a command that registers a confidential client with the `client_credentials` grant:
@@ -386,7 +423,12 @@ class CreateClientCommand(Command):
     description = "Create a confidential client that can request MCP access tokens."
     options = [
         option("name", description="Client name.", flag=False, default="MCP client"),
-        option("scopes", description="Space-separated scopes the client may request.", flag=False, default="notes:read notes:write"),
+        option(
+            "scopes",
+            description="Space-separated scopes the client may request.",
+            flag=False,
+            default="notes:read notes:write",
+        ),
     ]
 
     def handle(self) -> int:
@@ -405,6 +447,15 @@ class CreateClientCommand(Command):
             scopes=self.option("scopes").split(),
         )
 ```
+
+Every file is in place now. Publish the OAuth2 migrations into `databases/migrations` and run them:
+
+```sh
+uv run python artisan provider:publish -p auth-oauth2
+uv run python artisan db:migrate
+```
+
+See [Migrations](/docs/authentication#migrations) for the tables they create.
 
 Create a client and start the server:
 
@@ -516,7 +567,7 @@ The tests use `HttpTestCase` to send requests to the app in memory.
 
 - `asyncSetUp` disposes the database engines first, because each test runs on a new event loop. It migrates the testing database once.
 - `issue_token` registers a client and calls `/oauth/token` the same way a real client does.
-- The expired token is signed with the real key, issuer and audience, so expiry is the only thing wrong with it.
+- `sign_token` signs a JWT with the real key, issuer and audience, and lets a test override one claim. The expired token and the token for another resource each have exactly one thing wrong with them.
 
 ```python [tests/test_mcp_authentication.py]
 import time
@@ -543,7 +594,9 @@ class TestMcpAuthentication(HttpTestCase):
         Model.db_manager.connections.clear()
         await super().asyncSetUp()
         if not TestMcpAuthentication.migrated:
-            await Migrator(migration_directory="databases/migrations").fresh(ignore_fk=True)
+            await Migrator(migration_directory="databases/migrations").fresh(
+                ignore_fk=True
+            )
             TestMcpAuthentication.migrated = True
         self.config = McpConfig()
 
@@ -559,14 +612,31 @@ class TestMcpAuthentication(HttpTestCase):
         data = {"grant_type": "client_credentials", "scope": scopes}
         if resource is not None:
             data["resource"] = resource
-        response = await self.client.post("/oauth/token", data=data, auth=(client.id, secret))
+        response = await self.client.post(
+            "/oauth/token", data=data, auth=(client.id, secret)
+        )
         assert response.status_code == 200, response.text
         return response.json()["access_token"]
 
-    async def rpc(self, method: str, params: dict | None = None, token: str | None = None):
+    def sign_token(self, **claims) -> str:
+        now = int(time.time())
+        payload = {
+            "sub": None,
+            "aud": self.config.resource,
+            "iss": self.config.app_url,
+            "iat": now,
+            "exp": now + 60,
+        }
+        return jwt.encode(payload | claims, self.config.oauth2_key, algorithm="HS256")
+
+    async def rpc(
+        self, method: str, params: dict | None = None, token: str | None = None
+    ):
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         return await self.client.post(
-            "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}, headers=headers
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}},
+            headers=headers,
         )
 
     async def test_request_without_token_is_challenged(self):
@@ -578,7 +648,10 @@ class TestMcpAuthentication(HttpTestCase):
         )
 
     async def test_protected_resource_metadata_names_the_authorization_server(self):
-        for path in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"):
+        for path in (
+            "/.well-known/oauth-protected-resource",
+            "/.well-known/oauth-protected-resource/mcp",
+        ):
             response = await self.client.get(path)
 
             assert response.status_code == 200
@@ -594,18 +667,27 @@ class TestMcpAuthentication(HttpTestCase):
 
         initialized = await self.rpc("initialize", token=token)
         listed = await self.rpc("tools/list", token=token)
-        added = await self.rpc("tools/call", {"name": "add_note", "arguments": {"text": "Buy milk"}}, token)
-        read = await self.rpc("tools/call", {"name": "list_notes", "arguments": {}}, token)
+        added = await self.rpc(
+            "tools/call", {"name": "add_note", "arguments": {"text": "Buy milk"}}, token
+        )
+        read = await self.rpc(
+            "tools/call", {"name": "list_notes", "arguments": {}}, token
+        )
 
         assert initialized.json()["result"]["serverInfo"]["name"] == "notes"
-        assert [tool["name"] for tool in listed.json()["result"]["tools"]] == ["list_notes", "add_note"]
+        assert [tool["name"] for tool in listed.json()["result"]["tools"]] == [
+            "list_notes",
+            "add_note",
+        ]
         assert added.json()["result"]["content"][0]["text"].startswith("Saved note #")
         assert "Buy milk" in read.json()["result"]["content"][0]["resource"]["text"]
 
     async def test_token_without_the_tool_scope_is_forbidden(self):
         token = await self.issue_token("notes:read", self.config.resource)
 
-        response = await self.rpc("tools/call", {"name": "add_note", "arguments": {"text": "Nope"}}, token)
+        response = await self.rpc(
+            "tools/call", {"name": "add_note", "arguments": {"text": "Nope"}}, token
+        )
 
         assert response.status_code == 403
         assert response.json()["error"] == "insufficient_scope"
@@ -622,24 +704,63 @@ class TestMcpAuthentication(HttpTestCase):
 
     async def test_expired_token_is_rejected(self):
         now = int(time.time())
-        token = jwt.encode(
-            {"sub": None, "aud": self.config.resource, "iss": self.config.app_url, "iat": now - 120, "exp": now - 60},
-            self.config.oauth2_key,
-            algorithm="HS256",
-        )
+        token = self.sign_token(iat=now - 120, exp=now - 60)
 
         response = await self.rpc("tools/list", token=token)
 
         assert response.status_code == 401
         assert response.json()["error_description"] == "Signature has expired"
 
-    async def test_token_for_another_resource_is_rejected(self):
+    async def test_token_without_resource_is_rejected(self):
         token = await self.issue_token("notes:read")
 
         response = await self.rpc("tools/list", token=token)
 
         assert response.status_code == 401
         assert 'error="invalid_token"' in response.headers["www-authenticate"]
+
+    async def test_token_for_another_resource_is_rejected(self):
+        token = self.sign_token(aud=f"{self.config.app_url}/reports")
+
+        response = await self.rpc("tools/list", token=token)
+
+        assert response.status_code == 401
+        assert response.json()["error_description"] == "Audience doesn't match"
+
+    async def test_body_that_is_not_json_is_a_parse_error(self):
+        token = await self.issue_token("notes:read", self.config.resource)
+
+        response = await self.client.post(
+            "/mcp",
+            content="{not json",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32700, "message": "Parse error"},
+        }
+
+    async def test_batch_request_is_an_invalid_request(self):
+        token = await self.issue_token("notes:read", self.config.resource)
+
+        response = await self.client.post(
+            "/mcp",
+            json=[{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}],
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32600, "message": "Invalid Request"},
+        }
 ```
 
 Run them:
@@ -656,4 +777,4 @@ The example builds these pieces itself because the framework doesn't provide the
 - `Tool.handle()` doesn't receive the request or the token, so a tool can't tell who is calling it.
 - There's no built-in protected resource metadata endpoint or `resource_metadata` challenge.
 - There's no dynamic client registration.
-- The MCP server reports protocol version `2024-11-05`.
+- The MCP server reports protocol version `2024-11-05`, but `resource_metadata` discovery comes from the `2025-06-18` spec, so older clients may look for the authorization server another way.
