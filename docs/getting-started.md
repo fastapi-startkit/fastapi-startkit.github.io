@@ -119,12 +119,18 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 Install the package with uv or pip:
 
 ```bash
-uv add fastapi-startkit
+uv add "fastapi-startkit[fastapi]"
 # or
-pip install fastapi-startkit
+pip install "fastapi-startkit[fastapi]"
 ```
 
 > Python 3.12, 3.13, 3.14 and 3.15 are supported. The `fastapi-startkit[ai]` extra cannot be installed on Python 3.15 or newer yet, because its `langgraph` dependency requires `ormsgpack`, which does not support 3.15. Use Python 3.14 or older for the `ai` extra.
+
+Create a `.env` file in the project root that sets the environment:
+
+```ini
+APP_ENV=local
+```
 
 ## Way 1: Simple Setup
 

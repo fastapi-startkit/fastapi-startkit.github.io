@@ -82,7 +82,7 @@ app = FastAPI()
 AuthProvider(Config).register(app)
 AuthSessionProvider(SessionConfig()).register(app)
 AuthApiTokenProvider(ApiTokenConfig()).register(app)
-AuthOAuth2Provider(OAuth2Config(key="change-me-to-a-long-random-secret")).register(app)
+AuthOAuth2Provider(OAuth2Config(key="change-me-to-a-long-random-secret", clients={"store": "memory"})).register(app)
 ```
 
 `AuthProvider.register(app)` adds the auth middleware and the `AuthError`
