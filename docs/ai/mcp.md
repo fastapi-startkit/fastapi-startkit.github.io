@@ -205,12 +205,13 @@ class ReadmeResource(Resource):
 
 ## Response
 
-`Response` converts what your tools and prompts return into MCP's content format. It has two factory methods:
+`Response` converts what your tools and prompts return into MCP's content format. It has three factory methods:
 
 | Method | Use case |
 |---|---|
 | `Response.text(value: str)` | Plain text output |
 | `Response.structure(data: dict)` | Structured (resource-type) content |
+| `Response.empty()` | No content |
 
 ```python
 # Text response
