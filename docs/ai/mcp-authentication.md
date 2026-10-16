@@ -112,7 +112,7 @@ class McpConfig(Config):
 
 ## Step 3: Configure the OAuth2 server and the guard
 
-`auth_config()` sets the default guard to an `OAuth2Guard` whose `audience` is the MCP resource. That guard accepts only tokens minted for `http://127.0.0.1:8000/mcp`.
+`McpAuthConfig` sets the default guard to an `OAuth2Guard` whose `audience` is the MCP resource. That guard accepts only tokens minted for `http://127.0.0.1:8000/mcp`.
 
 `OAuthConfig` turns on the authorization server. It extends `OAuth2Config` from `fastapi-startkit-auth` and overrides only the defaults this app needs:
 
@@ -125,20 +125,24 @@ class McpConfig(Config):
 
 ```python [config/auth.py]
 from dataclasses import dataclass, field
+from typing import Any
 
 from fastapi_startkit.environment import env
-from fastapi_startkit_auth import OAuth2Config, OAuthTokenConfig
+from fastapi_startkit_auth import AuthConfig, OAuth2Config, OAuthTokenConfig
 from fastapi_startkit_auth.config import OAuth2Guard
 
 from config.mcp import McpConfig
 
 
-def auth_config() -> dict:
-    return {
-        "default": {"guard": "mcp"},
-        "guards": {"mcp": OAuth2Guard(provider="users", audience=McpConfig().resource)},
-        "providers": {"users": {"driver": "memory"}},
-    }
+class McpAuthConfig(AuthConfig):
+    default = {"guard": "mcp"}
+    providers = {"users": {"driver": "memory"}}
+
+    @classmethod
+    def get(cls, name: str, default: Any = None) -> Any:
+        if name == "guards":
+            return {"mcp": OAuth2Guard(provider="users", audience=McpConfig().resource)}
+        return super().get(name, default)
 
 
 @dataclass
@@ -159,7 +163,9 @@ class OAuthConfig(OAuth2Config):
     )
 ```
 
-The provider gets the class itself, not an instance. The application instantiates a provider's config after it loads `.env`, and `env()` reads its variable when the dataclass is instantiated, so `OAuthConfig` and `McpConfig` see the values from your env files. `auth_config()` is a function for the same reason.
+The provider gets the class itself, not an instance. The application instantiates a provider's config after it loads `.env`, and `env()` reads its variable when the dataclass is instantiated, so `OAuthConfig` and `McpConfig` see the values from your env files.
+
+`McpAuthConfig` is not a dataclass. The auth package reads its settings through the `get()` classmethod when the provider registers, which happens after `.env` loads. So `get()` builds `guards`, and the audience follows your `APP_URL`.
 
 ## Step 4: Create the MCP server and its tools
 
@@ -401,7 +407,7 @@ from fastapi_startkit.masoniteorm.providers import DatabaseProvider
 from fastapi_startkit.mcp import McpProvider
 from fastapi_startkit_auth import AuthOAuth2Provider, AuthProvider
 
-from config.auth import OAuthConfig, auth_config
+from config.auth import McpAuthConfig, OAuthConfig
 from config.mcp import McpConfig
 from providers.mcp_provider import McpServiceProvider
 
@@ -410,7 +416,7 @@ app: Application = Application(
     providers=[
         DatabaseProvider,
         FastAPIProvider,
-        (AuthProvider, auth_config),
+        (AuthProvider, McpAuthConfig),
         (AuthOAuth2Provider, OAuthConfig),
         McpProvider,
         (McpServiceProvider, McpConfig),
