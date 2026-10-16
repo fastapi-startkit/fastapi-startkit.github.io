@@ -32,7 +32,7 @@ Create the project and add the framework with the FastAPI, database and SQLite e
 ```sh
 uv init mcp-authentication
 cd mcp-authentication
-uv add "fastapi-startkit[fastapi,database,sqlite]" "fastapi-startkit-auth[startkit]>=0.6.3"
+uv add "fastapi-startkit[fastapi,database,sqlite]" "fastapi-startkit-auth[startkit]>=0.7.0"
 uv add --dev pytest pytest-asyncio
 rm main.py
 ```
@@ -41,7 +41,7 @@ rm main.py
 
 ```toml
 dependencies = [
-    "fastapi-startkit-auth[startkit]>=0.6.3",
+    "fastapi-startkit-auth[startkit]>=0.7.0",
     "fastapi-startkit[database,fastapi,sqlite]>=0.63.0",
 ]
 ```
@@ -90,7 +90,7 @@ storage/
 Put the MCP settings in one config class. `resource` is the URL clients send as the `resource` parameter and the value the guard expects in `aud`. `resource_metadata_url` is where the metadata document lives:
 
 ```python [config/mcp.py]
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from fastapi_startkit.configuration import Config
 from fastapi_startkit.environment import env
@@ -100,12 +100,6 @@ from fastapi_startkit.environment import env
 class McpConfig(Config):
     app_url: str = env("APP_URL", "http://127.0.0.1:8000")
     path: str = "/mcp"
-    scopes: dict[str, str] = field(
-        default_factory=lambda: {
-            "notes:read": "Read your notes",
-            "notes:write": "Create notes",
-        }
-    )
 
     @property
     def resource(self) -> str:
@@ -125,14 +119,15 @@ class McpConfig(Config):
 - `key` signs the tokens. It comes from `OAUTH2_KEY`.
 - `issuer` is written into every token and checked on every request.
 - `resources` lists the only values clients may send as `resource`.
+- `scopes` is the scope catalog. The metadata document in Step 5 reads it from the auth manager, so the scopes are defined once.
 - `grant_types=["client_credentials"]` allows machine clients only.
-- Clients and tokens are stored in the database.
+- Tokens are stored in the database. Clients already are by default.
 
 ```python [config/auth.py]
 from dataclasses import dataclass, field
 
 from fastapi_startkit.environment import env
-from fastapi_startkit_auth import OAuth2Config, OAuthClientsConfig, OAuthTokensConfig
+from fastapi_startkit_auth import OAuth2Config, OAuthTokenConfig
 from fastapi_startkit_auth.config import OAuth2Guard
 
 from config.mcp import McpConfig
@@ -151,14 +146,16 @@ class OAuthConfig(OAuth2Config):
     key: str | None = env("OAUTH2_KEY")
     issuer: str | None = env("APP_URL", "http://127.0.0.1:8000")
     resources: list[str] = field(default_factory=lambda: [McpConfig().resource])
-    scopes: dict[str, str] = field(default_factory=lambda: McpConfig().scopes)
+    scopes: dict[str, str] = field(
+        default_factory=lambda: {
+            "notes:read": "Read your notes",
+            "notes:write": "Create notes",
+        }
+    )
     default_scopes: list[str] = field(default_factory=lambda: ["notes:read"])
     grant_types: list[str] = field(default_factory=lambda: ["client_credentials"])
-    tokens: OAuthTokensConfig = field(
-        default_factory=lambda: OAuthTokensConfig(store="database")
-    )
-    clients: OAuthClientsConfig = field(
-        default_factory=lambda: OAuthClientsConfig(store="database")
+    tokens: OAuthTokenConfig = field(
+        default_factory=lambda: OAuthTokenConfig(driver="database")
     )
 ```
 
@@ -230,7 +227,7 @@ This file has four parts.
 - If the token was rejected, it adds `error="invalid_token"`.
 - If a tool's scope was missing, it adds `error="insufficient_scope"` and the scopes the tool needs.
 
-**The scope check.** `authorize_tool_call` is a dependency on the MCP router. `current_context` authenticates the request through the default guard. A missing or invalid token raises `InvalidToken` (401). For a `tools/call` request, it looks up the tool by name and raises `MissingToolScope` (403) unless the token has every scope the tool declares. A tool without a `scopes` attribute, and every other method, such as `initialize` and `tools/list`, needs only a valid token.
+**The scope check.** `authorize_tool_call` is a dependency on the MCP router. `current_context` authenticates the request through the default guard. A missing token raises `AuthenticationException` and an invalid one `InvalidTokenException`, both 401. For a `tools/call` request, it looks up the tool by name and raises `MissingToolScope` (403) unless the token has every scope the tool declares. A tool without a `scopes` attribute, and every other method, such as `initialize` and `tools/list`, needs only a valid token.
 
 It uses `current_context` instead of `auth` because client credentials tokens have no user, and `auth` rejects user-less tokens.
 
@@ -240,14 +237,14 @@ It uses `current_context` instead of `auth` because client credentials tokens ha
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from fastapi_startkit.mcp import Server, Tool
-from fastapi_startkit_auth import AuthError, InsufficientScope
+from fastapi_startkit_auth import AuthException, MissingScopeException
 from fastapi_startkit_auth.dependencies import current_context
 from fastapi_startkit_auth.guards.guard import AuthContext
 
 from config.mcp import McpConfig
 
 
-class MissingToolScope(InsufficientScope):
+class MissingToolScope(MissingScopeException):
     def __init__(self, tool: type[Tool], scopes: list[str]) -> None:
         self.scopes = scopes
         super().__init__(f"The {tool.name} tool requires: {' '.join(scopes)}.")
@@ -260,7 +257,7 @@ class JsonRpcError(Exception):
         super().__init__(message)
 
 
-def protected_resource_router(config: McpConfig) -> APIRouter:
+def protected_resource_router(config: McpConfig, scopes: list[str]) -> APIRouter:
     router = APIRouter()
 
     @router.get("/.well-known/oauth-protected-resource")
@@ -269,7 +266,7 @@ def protected_resource_router(config: McpConfig) -> APIRouter:
         return {
             "resource": config.resource,
             "authorization_servers": [config.app_url],
-            "scopes_supported": list(config.scopes),
+            "scopes_supported": scopes,
             "bearer_methods_supported": ["header"],
         }
 
@@ -277,7 +274,7 @@ def protected_resource_router(config: McpConfig) -> APIRouter:
 
 
 def bearer_challenge(config: McpConfig):
-    async def handler(request: Request, error: AuthError) -> JSONResponse:
+    async def handler(request: Request, error: AuthException) -> JSONResponse:
         params = [f'resource_metadata="{config.resource_metadata_url}"']
         if isinstance(error, MissingToolScope):
             params += [
@@ -336,12 +333,16 @@ def authorize_tool_call(server: Server):
     return dependency
 ```
 
-Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. `bearer_challenge` is registered for both `InvalidToken` and `InsufficientScope`, and `json_rpc_error` for `JsonRpcError`. The provider also registers the `mcp:client` command. You create that command in Step 6, so the app won't start until then.
+Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. `bearer_challenge` is registered for `AuthenticationException`, `InvalidTokenException` and `MissingScopeException`, and `json_rpc_error` for `JsonRpcError`. The provider also registers the `mcp:client` command. You create that command in Step 6, so the app won't start until then.
 
 ```python [providers/mcp_provider.py]
 from fastapi import Depends
 from fastapi_startkit.support import Provider
-from fastapi_startkit_auth import InsufficientScope, InvalidToken
+from fastapi_startkit_auth import (
+    AuthenticationException,
+    InvalidTokenException,
+    MissingScopeException,
+)
 
 from app.commands.create_client import CreateClientCommand
 from app.mcp.auth import (
@@ -358,15 +359,19 @@ from config.mcp import McpConfig
 class McpServiceProvider(Provider):
     def boot(self) -> None:
         config: McpConfig = self.config
+        oauth2 = self.app.make("auth_manager").oauth2_config
         server = NotesServer()
 
-        self.app.include_router(protected_resource_router(config))
+        self.app.include_router(protected_resource_router(config, list(oauth2.scopes)))
         self.app.include_router(
             server.router(config.path),
             dependencies=[Depends(authorize_tool_call(server))],
         )
-        self.app.add_exception_handler(InvalidToken, bearer_challenge(config))
-        self.app.add_exception_handler(InsufficientScope, bearer_challenge(config))
+        self.app.add_exception_handler(
+            AuthenticationException, bearer_challenge(config)
+        )
+        self.app.add_exception_handler(InvalidTokenException, bearer_challenge(config))
+        self.app.add_exception_handler(MissingScopeException, bearer_challenge(config))
         self.app.add_exception_handler(JsonRpcError, json_rpc_error)
         self.commands([CreateClientCommand])
 ```
@@ -487,7 +492,7 @@ HTTP/1.1 401 Unauthorized
 www-authenticate: Bearer resource_metadata="http://127.0.0.1:8000/.well-known/oauth-protected-resource/mcp"
 cache-control: no-store
 
-{"error":"invalid_token","error_description":"Not authenticated."}
+{"error":"invalid_session","error_description":"Not authenticated."}
 ```
 
 Follow the link:
