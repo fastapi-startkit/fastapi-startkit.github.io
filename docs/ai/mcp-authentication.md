@@ -99,7 +99,6 @@ from fastapi_startkit.environment import env
 @dataclass
 class McpConfig(Config):
     app_url: str = env("APP_URL", "http://127.0.0.1:8000")
-    oauth2_key: str = env("OAUTH2_KEY", "")
     path: str = "/mcp"
     scopes: dict[str, str] = field(
         default_factory=lambda: {
@@ -121,14 +120,18 @@ class McpConfig(Config):
 
 `auth_config()` sets the default guard to an `OAuth2Guard` whose `audience` is the MCP resource. That guard accepts only tokens minted for `http://127.0.0.1:8000/mcp`.
 
-`oauth2_config()` turns on the authorization server:
+`OAuthConfig` turns on the authorization server. It extends `OAuth2Config` from `fastapi-startkit-auth` and overrides only the defaults this app needs:
 
+- `key` signs the tokens. It comes from `OAUTH2_KEY`.
 - `issuer` is written into every token and checked on every request.
 - `resources` lists the only values clients may send as `resource`.
 - `grant_types=["client_credentials"]` allows machine clients only.
 - Clients and tokens are stored in the database.
 
 ```python [config/auth.py]
+from dataclasses import dataclass, field
+
+from fastapi_startkit.environment import env
 from fastapi_startkit_auth import OAuth2Config, OAuthClientsConfig, OAuthTokensConfig
 from fastapi_startkit_auth.config import OAuth2Guard
 
@@ -143,21 +146,23 @@ def auth_config() -> dict:
     }
 
 
-def oauth2_config() -> OAuth2Config:
-    mcp = McpConfig()
-    return OAuth2Config(
-        key=mcp.oauth2_key,
-        issuer=mcp.app_url,
-        resources=[mcp.resource],
-        scopes=mcp.scopes,
-        default_scopes=["notes:read"],
-        grant_types=["client_credentials"],
-        tokens=OAuthTokensConfig(store="database"),
-        clients=OAuthClientsConfig(store="database"),
+@dataclass
+class OAuthConfig(OAuth2Config):
+    key: str | None = env("OAUTH2_KEY")
+    issuer: str | None = env("APP_URL", "http://127.0.0.1:8000")
+    resources: list[str] = field(default_factory=lambda: [McpConfig().resource])
+    scopes: dict[str, str] = field(default_factory=lambda: McpConfig().scopes)
+    default_scopes: list[str] = field(default_factory=lambda: ["notes:read"])
+    grant_types: list[str] = field(default_factory=lambda: ["client_credentials"])
+    tokens: OAuthTokensConfig = field(
+        default_factory=lambda: OAuthTokensConfig(store="database")
+    )
+    clients: OAuthClientsConfig = field(
+        default_factory=lambda: OAuthClientsConfig(store="database")
     )
 ```
 
-These are functions, not module-level objects, on purpose. The application calls a provider's config callable after it loads `.env`, so `McpConfig()` reads the values from your env files.
+The provider gets the class itself, not an instance. The application instantiates a provider's config after it loads `.env`, and `env()` reads its variable when the dataclass is instantiated, so `OAuthConfig` and `McpConfig` see the values from your env files. `auth_config()` is a function for the same reason.
 
 ## Step 4: Create the MCP server and its tools
 
@@ -377,7 +382,7 @@ from fastapi_startkit.masoniteorm.providers import DatabaseProvider
 from fastapi_startkit.mcp import McpProvider
 from fastapi_startkit_auth import AuthOAuth2Provider, AuthProvider
 
-from config.auth import auth_config, oauth2_config
+from config.auth import OAuthConfig, auth_config
 from config.mcp import McpConfig
 from providers.mcp_provider import McpServiceProvider
 
@@ -387,7 +392,7 @@ app: Application = Application(
         DatabaseProvider,
         FastAPIProvider,
         (AuthProvider, auth_config),
-        (AuthOAuth2Provider, oauth2_config),
+        (AuthOAuth2Provider, OAuthConfig),
         McpProvider,
         (McpServiceProvider, McpConfig),
     ],
@@ -577,6 +582,7 @@ from fastapi_startkit.fastapi.testing import HttpTestCase
 from fastapi_startkit.masoniteorm.migrations import Migrator
 from fastapi_startkit.masoniteorm.models import Model
 
+from config.auth import OAuthConfig
 from config.mcp import McpConfig
 
 
@@ -627,7 +633,7 @@ class TestMcpAuthentication(HttpTestCase):
             "iat": now,
             "exp": now + 60,
         }
-        return jwt.encode(payload | claims, self.config.oauth2_key, algorithm="HS256")
+        return jwt.encode(payload | claims, OAuthConfig().key, algorithm="HS256")
 
     async def rpc(
         self, method: str, params: dict | None = None, token: str | None = None
