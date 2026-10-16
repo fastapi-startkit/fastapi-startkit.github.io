@@ -228,7 +228,7 @@ This file has four parts.
 
 **The metadata document.** `protected_resource_router` serves the [protected resource metadata](https://datatracker.ietf.org/doc/html/rfc9728) at `/.well-known/oauth-protected-resource/mcp` and at the root path. It tells the client which resource it's calling, which authorization server issues tokens for it, and which scopes exist.
 
-**The challenge.** `bearer_challenge` replaces the default auth error response. Every `401` and `403` gets a `WWW-Authenticate` header that points at the metadata document:
+**The challenge.** `McpOAuthExceptionHandler` replaces the default auth error response. Every `401` and `403` gets a `WWW-Authenticate` header that points at the metadata document:
 
 - If the request sent no token, the header has only `resource_metadata`.
 - If the token was rejected, it adds `error="invalid_token"`.
@@ -295,9 +295,12 @@ def protected_resource_router(config: McpConfig, scopes: list[str]) -> APIRouter
     return router
 
 
-def bearer_challenge(config: McpConfig):
-    async def handler(request: Request, error: AuthException) -> JSONResponse:
-        params = {"resource_metadata": config.resource_metadata_url}
+class McpOAuthExceptionHandler:
+    def __init__(self, config: McpConfig) -> None:
+        self.config = config
+
+    async def __call__(self, request: Request, error: AuthException) -> JSONResponse:
+        params = {"resource_metadata": self.config.resource_metadata_url}
         if isinstance(error, MissingToolScope):
             params |= {"error": "insufficient_scope", "scope": " ".join(error.scopes)}
         elif request.headers.get("authorization"):
@@ -312,8 +315,6 @@ def bearer_challenge(config: McpConfig):
                 "Cache-Control": "no-store",
             },
         )
-
-    return handler
 
 
 async def json_rpc_error(request: Request, error: McpServerException) -> JSONResponse:
@@ -351,7 +352,7 @@ def authorize_tool_call(server: Server):
     return dependency
 ```
 
-Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. `bearer_challenge` is registered for `AuthenticationException`, `InvalidTokenException` and `MissingScopeException`, and `json_rpc_error` for `McpServerException`. The provider also registers the `mcp:client` command. You create that command in Step 6, so the app won't start until then.
+Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. `McpOAuthExceptionHandler` is registered for `AuthenticationException`, `InvalidTokenException` and `MissingScopeException`, and `json_rpc_error` for `McpServerException`. The provider also registers the `mcp:client` command. You create that command in Step 6, so the app won't start until then.
 
 ```python [providers/mcp_provider.py]
 from fastapi import Depends
@@ -364,9 +365,9 @@ from fastapi_startkit_auth import (
 
 from app.commands.create_client import CreateClientCommand
 from app.mcp.auth import (
+    McpOAuthExceptionHandler,
     McpServerException,
     authorize_tool_call,
-    bearer_challenge,
     json_rpc_error,
     protected_resource_router,
 )
@@ -386,13 +387,13 @@ class McpServiceProvider(Provider):
             dependencies=[Depends(authorize_tool_call(server))],
         )
 
-        challenge = bearer_challenge(config)
+        handler = McpOAuthExceptionHandler(config)
         for exception in (
             AuthenticationException,
             InvalidTokenException,
             MissingScopeException,
         ):
-            self.app.add_exception_handler(exception, challenge)
+            self.app.add_exception_handler(exception, handler)
         self.app.add_exception_handler(McpServerException, json_rpc_error)
         self.commands([CreateClientCommand])
 ```
