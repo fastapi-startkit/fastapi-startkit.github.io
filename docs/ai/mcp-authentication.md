@@ -224,29 +224,21 @@ See [Defining Tools](/docs/ai/mcp#defining-tools) for schemas and responses.
 
 ## Step 5: Protect the MCP endpoint
 
-This file has four parts.
-
-**The metadata document.** `protected_resource_router` serves the [protected resource metadata](https://datatracker.ietf.org/doc/html/rfc9728) at `/.well-known/oauth-protected-resource/mcp` and at the root path. It tells the client which resource it's calling, which authorization server issues tokens for it, and which scopes exist.
+Start with the errors. `app/mcp/exceptions.py` holds the exceptions the endpoint raises and the handlers that turn them into responses.
 
 **The challenge.** `McpOAuthExceptionHandler` replaces the default auth error response. Every `401` and `403` gets a `WWW-Authenticate` header that points at the metadata document:
 
 - If the request sent no token, the header has only `resource_metadata`.
 - If the token was rejected, it adds `error="invalid_token"`.
-- If a tool's scope was missing, it adds `error="insufficient_scope"` and the scopes the tool needs.
+- If a tool's scope was missing (`MissingToolScope`), it adds `error="insufficient_scope"` and the scopes the tool needs.
 
-**The scope check.** `authorize_tool_call` is a dependency on the MCP router. `current_context` authenticates the request through the default guard. A missing token raises `AuthenticationException` and an invalid one `InvalidTokenException`, both 401. For a `tools/call` request, it looks up the tool by name and raises `MissingToolScope` (403) unless the token has every scope the tool declares. A tool without a `scopes` attribute, and every other method, such as `initialize` and `tools/list`, needs only a valid token.
+**JSON-RPC errors.** `McpServerExceptionHandler` turns an `McpServerException` into a `400` with a JSON-RPC error body. `ParseError` (`-32700`) and `InvalidRequest` (`-32600`) are the two the endpoint raises.
 
-It uses `current_context` instead of `auth` because client credentials tokens have no user, and `auth` rejects user-less tokens.
-
-**The body check.** The dependency reads the JSON-RPC message before the MCP router does. `read_message` raises an `McpServerException` subclass, and `McpServerExceptionHandler` turns it into a `400` with a JSON-RPC error. A body that isn't JSON raises `ParseError` (`-32700`). A batch array raises `InvalidRequest` (`-32600`), because the server handles one message per request.
-
-```python [app/mcp/auth.py]
-from fastapi import APIRouter, Depends, Request
+```python [app/mcp/exceptions.py]
+from fastapi import Request
 from fastapi.responses import JSONResponse
-from fastapi_startkit.mcp import Server, Tool
+from fastapi_startkit.mcp import Tool
 from fastapi_startkit_auth import AuthException, MissingScopeException
-from fastapi_startkit_auth.dependencies import current_context
-from fastapi_startkit_auth.guards.guard import AuthContext
 
 from config.mcp import McpConfig
 
@@ -279,22 +271,6 @@ class InvalidRequest(McpServerException):
     message = "Invalid Request"
 
 
-def protected_resource_router(config: McpConfig, scopes: list[str]) -> APIRouter:
-    router = APIRouter()
-
-    @router.get("/.well-known/oauth-protected-resource")
-    @router.get(f"/.well-known/oauth-protected-resource{config.path}")
-    async def protected_resource_metadata() -> dict:
-        return {
-            "resource": config.resource,
-            "authorization_servers": [config.app_url],
-            "scopes_supported": scopes,
-            "bearer_methods_supported": ["header"],
-        }
-
-    return router
-
-
 class McpOAuthExceptionHandler:
     def __init__(self, config: McpConfig) -> None:
         self.config = config
@@ -322,6 +298,42 @@ class McpServerExceptionHandler:
         self, request: Request, error: McpServerException
     ) -> JSONResponse:
         return JSONResponse(error.to_dict(), status_code=400)
+```
+
+`app/mcp/auth.py` has three parts.
+
+**The metadata document.** `protected_resource_router` serves the [protected resource metadata](https://datatracker.ietf.org/doc/html/rfc9728) at `/.well-known/oauth-protected-resource/mcp` and at the root path. It tells the client which resource it's calling, which authorization server issues tokens for it, and which scopes exist.
+
+**The scope check.** `authorize_tool_call` is a dependency on the MCP router. `current_context` authenticates the request through the default guard. A missing token raises `AuthenticationException` and an invalid one `InvalidTokenException`, both 401. For a `tools/call` request, it looks up the tool by name and raises `MissingToolScope` (403) unless the token has every scope the tool declares. A tool without a `scopes` attribute, and every other method, such as `initialize` and `tools/list`, needs only a valid token.
+
+It uses `current_context` instead of `auth` because client credentials tokens have no user, and `auth` rejects user-less tokens.
+
+**The body check.** The dependency reads the JSON-RPC message before the MCP router does. A body that isn't JSON makes `read_message` raise `ParseError`. A batch array raises `InvalidRequest`, because the server handles one message per request.
+
+```python [app/mcp/auth.py]
+from fastapi import APIRouter, Depends, Request
+from fastapi_startkit.mcp import Server, Tool
+from fastapi_startkit_auth.dependencies import current_context
+from fastapi_startkit_auth.guards.guard import AuthContext
+
+from app.mcp.exceptions import InvalidRequest, MissingToolScope, ParseError
+from config.mcp import McpConfig
+
+
+def protected_resource_router(config: McpConfig, scopes: list[str]) -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/.well-known/oauth-protected-resource")
+    @router.get(f"/.well-known/oauth-protected-resource{config.path}")
+    async def protected_resource_metadata() -> dict:
+        return {
+            "resource": config.resource,
+            "authorization_servers": [config.app_url],
+            "scopes_supported": scopes,
+            "bearer_methods_supported": ["header"],
+        }
+
+    return router
 
 
 async def read_message(request: Request) -> dict:
@@ -367,12 +379,11 @@ from fastapi_startkit_auth import (
 )
 
 from app.commands.create_client import CreateClientCommand
-from app.mcp.auth import (
+from app.mcp.auth import authorize_tool_call, protected_resource_router
+from app.mcp.exceptions import (
     McpOAuthExceptionHandler,
     McpServerException,
     McpServerExceptionHandler,
-    authorize_tool_call,
-    protected_resource_router,
 )
 from app.mcp.server import NotesServer
 from config.mcp import McpConfig
