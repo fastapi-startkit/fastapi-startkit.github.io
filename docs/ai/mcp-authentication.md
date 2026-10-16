@@ -231,7 +231,7 @@ This file has four parts.
 
 It uses `current_context` instead of `auth` because client credentials tokens have no user, and `auth` rejects user-less tokens.
 
-**The body check.** The dependency reads the JSON-RPC message before the MCP router does. `read_message` raises `JsonRpcError`, and `json_rpc_error` turns it into a `400` with a JSON-RPC error. A body that isn't JSON gets `-32700 Parse error`. A batch array gets `-32600 Invalid Request`, because the server handles one message per request.
+**The body check.** The dependency reads the JSON-RPC message before the MCP router does. `read_message` raises a `JsonRpcError` subclass, and `json_rpc_error` turns it into a `400` with a JSON-RPC error. A body that isn't JSON raises `ParseError` (`-32700`). A batch array raises `InvalidRequest` (`-32600`), because the server handles one message per request.
 
 ```python [app/mcp/auth.py]
 from fastapi import APIRouter, Depends, Request
@@ -251,10 +251,25 @@ class MissingToolScope(MissingScopeException):
 
 
 class JsonRpcError(Exception):
-    def __init__(self, code: int, message: str) -> None:
-        self.code = code
-        self.message = message
-        super().__init__(message)
+    code: int
+    message: str
+
+    def to_dict(self) -> dict:
+        return {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": self.code, "message": self.message},
+        }
+
+
+class ParseError(JsonRpcError):
+    code = -32700
+    message = "Parse error"
+
+
+class InvalidRequest(JsonRpcError):
+    code = -32600
+    message = "Invalid Request"
 
 
 def protected_resource_router(config: McpConfig, scopes: list[str]) -> APIRouter:
@@ -275,19 +290,18 @@ def protected_resource_router(config: McpConfig, scopes: list[str]) -> APIRouter
 
 def bearer_challenge(config: McpConfig):
     async def handler(request: Request, error: AuthException) -> JSONResponse:
-        params = [f'resource_metadata="{config.resource_metadata_url}"']
+        params = {"resource_metadata": config.resource_metadata_url}
         if isinstance(error, MissingToolScope):
-            params += [
-                'error="insufficient_scope"',
-                f'scope="{" ".join(error.scopes)}"',
-            ]
+            params |= {"error": "insufficient_scope", "scope": " ".join(error.scopes)}
         elif request.headers.get("authorization"):
-            params.append('error="invalid_token"')
+            params |= {"error": "invalid_token"}
+
+        challenge = ", ".join(f'{name}="{value}"' for name, value in params.items())
         return JSONResponse(
             error.to_dict(),
             status_code=error.status_code,
             headers={
-                "WWW-Authenticate": f"Bearer {', '.join(params)}",
+                "WWW-Authenticate": f"Bearer {challenge}",
                 "Cache-Control": "no-store",
             },
         )
@@ -296,24 +310,23 @@ def bearer_challenge(config: McpConfig):
 
 
 async def json_rpc_error(request: Request, error: JsonRpcError) -> JSONResponse:
-    return JSONResponse(
-        {
-            "jsonrpc": "2.0",
-            "id": None,
-            "error": {"code": error.code, "message": error.message},
-        },
-        status_code=400,
-    )
+    return JSONResponse(error.to_dict(), status_code=400)
 
 
 async def read_message(request: Request) -> dict:
     try:
         message = await request.json()
     except ValueError:
-        raise JsonRpcError(-32700, "Parse error") from None
+        raise ParseError from None
     if not isinstance(message, dict):
-        raise JsonRpcError(-32600, "Invalid Request")
+        raise InvalidRequest
     return message
+
+
+def called_tool(message: dict, tools: dict[str, type[Tool]]) -> type[Tool] | None:
+    if message.get("method") != "tools/call":
+        return None
+    return tools.get((message.get("params") or {}).get("name"))
 
 
 def authorize_tool_call(server: Server):
@@ -322,12 +335,10 @@ def authorize_tool_call(server: Server):
     async def dependency(
         request: Request, context: AuthContext = Depends(current_context)
     ) -> AuthContext:
-        message = await read_message(request)
-        if message.get("method") == "tools/call":
-            tool = tools.get((message.get("params") or {}).get("name"))
-            scopes = getattr(tool, "scopes", [])
-            if tool is not None and not context.can_all(scopes):
-                raise MissingToolScope(tool, scopes)
+        tool = called_tool(await read_message(request), tools)
+        scopes = getattr(tool, "scopes", [])
+        if tool is not None and not context.can_all(scopes):
+            raise MissingToolScope(tool, scopes)
         return context
 
     return dependency
@@ -359,19 +370,22 @@ from config.mcp import McpConfig
 class McpServiceProvider(Provider):
     def boot(self) -> None:
         config: McpConfig = self.config
-        oauth2 = self.app.make("auth_manager").oauth2_config
+        scopes = list(self.app.make("auth_manager").oauth2_config.scopes)
         server = NotesServer()
 
-        self.app.include_router(protected_resource_router(config, list(oauth2.scopes)))
+        self.app.include_router(protected_resource_router(config, scopes))
         self.app.include_router(
             server.router(config.path),
             dependencies=[Depends(authorize_tool_call(server))],
         )
-        self.app.add_exception_handler(
-            AuthenticationException, bearer_challenge(config)
-        )
-        self.app.add_exception_handler(InvalidTokenException, bearer_challenge(config))
-        self.app.add_exception_handler(MissingScopeException, bearer_challenge(config))
+
+        challenge = bearer_challenge(config)
+        for exception in (
+            AuthenticationException,
+            InvalidTokenException,
+            MissingScopeException,
+        ):
+            self.app.add_exception_handler(exception, challenge)
         self.app.add_exception_handler(JsonRpcError, json_rpc_error)
         self.commands([CreateClientCommand])
 ```
