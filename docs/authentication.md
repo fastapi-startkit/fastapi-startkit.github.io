@@ -748,7 +748,7 @@ same body and no `Cache-Control` header.
 | `insufficient_scope`, `csrf_token_mismatch` | 403 |
 | `throttled` | 429 |
 
-A request to a token or OAuth2 guard with no `Authorization` header gets
+A request to a token or OAuth2 guard with no bearer token gets
 `401 invalid_session` (`AuthenticationException`). A bearer token that is
 present but invalid gets `401 invalid_token`.
 
@@ -770,12 +770,13 @@ v0.7.0 renames the store setting, two config classes and the exception classes.
   now `OAuthTokenConfig`.** The old names still work, but emit a
   `DeprecationWarning`.
 - **Exception classes take an `Exception` suffix.** The old names remain as
-  aliases. Error codes and statuses are unchanged, except that a missing bearer
+  deprecated aliases. Error codes and statuses are unchanged, except that a missing bearer
   token now answers `invalid_session` instead of `invalid_token`.
 
 | 0.6 | 0.7 |
 | --- | --- |
 | `AuthError` | `AuthException` |
+| `InvalidRequest` | `InvalidRequestException` |
 | `InvalidSession` | `AuthenticationException` |
 | `InsufficientScope` | `MissingScopeException` |
 | `InvalidToken` | `InvalidTokenException` |
@@ -789,4 +790,4 @@ v0.7.0 renames the store setting, two config classes and the exception classes.
 | `AccessDenied` | `AccessDeniedException` |
 | `CsrfTokenMismatch` | `CsrfTokenMismatchException` |
 
-The migrations did not change, so there is nothing to publish or run.
+The migrations did not change since 0.6.3. From an earlier 0.6 release, publish and run the three newest OAuth migrations listed under [Migrations](#migrations).
