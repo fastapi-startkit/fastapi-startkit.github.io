@@ -1,0 +1,659 @@
+---
+outline: deep
+title: MCP Authentication
+description: Protect a fastapi-startkit MCP server with OAuth2 bearer tokens, protected resource metadata and per-tool scopes using fastapi-startkit-auth.
+keywords: MCP, Model Context Protocol, MCP authentication, OAuth2, bearer token, protected resource metadata, RFC 9728, scopes, fastapi-startkit-auth
+---
+
+# MCP Authentication
+
+This guide builds an MCP server whose tools require an OAuth2 access token. You end up with:
+
+- an `/mcp` endpoint that answers `401` until the client sends a valid bearer token
+- a protected resource metadata document that tells clients where to get a token
+- tokens bound to the MCP server, so a token minted for another resource is rejected
+- per-tool scopes, so a read-only token can list notes but can't add one
+
+It uses the [MCP](/docs/ai/mcp) server classes and the OAuth 2.1 server from [Authentication](/docs/authentication#oauth-2-1-authoauth2provider). Read those pages for the full APIs. This guide only covers what connects them.
+
+The finished app is [`example/mcp-authentication`](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/mcp-authentication). Every file below is copied from it, in the order you create them.
+
+## How it works
+
+1. The client calls `/mcp` without a token. The server answers `401` with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"`.
+2. The client reads that metadata document. It names the resource (`http://127.0.0.1:8000/mcp`), the authorization server and the scopes.
+3. The client gets a token from `/oauth/token`, sending `resource=http://127.0.0.1:8000/mcp`. The token carries the resource as its `aud` claim.
+4. The client calls `/mcp` with `Authorization: Bearer <token>`. The guard checks the signature, expiry, issuer and audience, and each tool checks its scopes.
+
+## Step 1: Install the packages
+
+Create the project and add the framework with the FastAPI, database and SQLite extras, plus the auth package with its `startkit` extra:
+
+```sh
+uv init mcp-authentication
+cd mcp-authentication
+uv add "fastapi-startkit[fastapi,database,sqlite]" "fastapi-startkit-auth[startkit]>=0.6.3"
+uv add --dev pytest pytest-asyncio
+```
+
+Your `pyproject.toml` now lists both packages:
+
+```toml [pyproject.toml]
+[project]
+name = "mcp-authentication"
+version = "0.1.0"
+description = "An MCP server protected by fastapi-startkit-auth"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi-startkit[fastapi,database,sqlite]",
+    "fastapi-startkit-auth[startkit]>=0.6.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+]
+```
+
+The example in the repository also has a `[tool.uv.sources]` table that points `fastapi-startkit` at the local checkout. You don't need it.
+
+## Step 2: Configure the environment
+
+The access tokens are JWTs signed with `OAUTH2_KEY`. `APP_URL` is the public URL of the app. It is both the token issuer and the base of the MCP resource URL.
+
+```ini [.env.example]
+APP_ENV=local
+APP_URL=http://127.0.0.1:8000
+OAUTH2_KEY=change-me-to-a-long-random-secret
+DB_CONNECTION=sqlite
+DB_DATABASE=databases/sqlite.db
+```
+
+Copy it to `.env`:
+
+```sh
+cp .env.example .env
+```
+
+Set `DB_CONNECTION=sqlite` explicitly. The default connection name is `pgsql`.
+
+Add a testing environment. It's loaded automatically when the app runs under pytest:
+
+```ini [.env.testing]
+APP_ENV=testing
+APP_URL=http://127.0.0.1:8000
+OAUTH2_KEY=testing-key-that-is-long-enough-for-hs256
+DB_CONNECTION=sqlite
+DB_DATABASE=databases/testing.db
+```
+
+Put the MCP settings in one config class. `resource` is the URL clients send as the `resource` parameter and the value the guard expects in `aud`. `resource_metadata_url` is where the metadata document lives:
+
+```python [config/mcp.py]
+from dataclasses import dataclass, field
+
+from fastapi_startkit.configuration import Config
+from fastapi_startkit.environment import env
+
+
+@dataclass
+class McpConfig(Config):
+    app_url: str = env("APP_URL", "http://127.0.0.1:8000")
+    oauth2_key: str = env("OAUTH2_KEY", "")
+    path: str = "/mcp"
+    scopes: dict[str, str] = field(
+        default_factory=lambda: {
+            "notes:read": "Read your notes",
+            "notes:write": "Create notes",
+        }
+    )
+
+    @property
+    def resource(self) -> str:
+        return f"{self.app_url}{self.path}"
+
+    @property
+    def resource_metadata_url(self) -> str:
+        return f"{self.app_url}/.well-known/oauth-protected-resource{self.path}"
+```
+
+## Step 3: Configure the OAuth2 server and the guard
+
+`auth_config()` sets the default guard to an `OAuth2Guard` whose `audience` is the MCP resource. That guard accepts only tokens minted for `http://127.0.0.1:8000/mcp`.
+
+`oauth2_config()` turns on the authorization server:
+
+- `issuer` is written into every token and checked on every request.
+- `resources` lists the only values clients may send as `resource`.
+- `grant_types=["client_credentials"]` allows machine clients only.
+- Clients and tokens are stored in the database.
+
+```python [config/auth.py]
+from fastapi_startkit_auth import OAuth2Config, OAuthClientsConfig, OAuthTokensConfig
+from fastapi_startkit_auth.config import OAuth2Guard
+
+from config.mcp import McpConfig
+
+
+def auth_config() -> dict:
+    return {
+        "default": {"guard": "mcp"},
+        "guards": {"mcp": OAuth2Guard(provider="users", audience=McpConfig().resource)},
+        "providers": {"users": {"driver": "memory"}},
+    }
+
+
+def oauth2_config() -> OAuth2Config:
+    mcp = McpConfig()
+    return OAuth2Config(
+        key=mcp.oauth2_key,
+        issuer=mcp.app_url,
+        resources=[mcp.resource],
+        scopes=mcp.scopes,
+        default_scopes=["notes:read"],
+        grant_types=["client_credentials"],
+        tokens=OAuthTokensConfig(store="database"),
+        clients=OAuthClientsConfig(store="database"),
+    )
+```
+
+These are functions, not module-level objects, on purpose. The application calls a provider's config callable after it loads `.env`, so `McpConfig()` reads the values from your env files.
+
+## Step 4: Create the MCP server and its tools
+
+Each tool declares the scopes it needs in a `scopes` attribute. `scopes` isn't part of the `Tool` base class. It's a plain class attribute that Step 5 reads.
+
+```python [app/mcp/tools.py]
+from pydantic import BaseModel
+
+from fastapi_startkit.mcp import Response, Tool
+
+notes: list[str] = []
+
+
+class ListNotesTool(Tool):
+    name = "list_notes"
+    description = "List every saved note."
+    scopes = ["notes:read"]
+
+    async def handle(self, arguments: dict) -> Response:
+        return Response.structure({"notes": notes})
+
+
+class AddNoteInput(BaseModel):
+    text: str
+
+
+class AddNoteTool(Tool):
+    name = "add_note"
+    description = "Save a new note."
+    scopes = ["notes:write"]
+
+    def schema(self) -> type[BaseModel]:
+        return AddNoteInput
+
+    async def handle(self, arguments: dict) -> Response:
+        note = AddNoteInput(**arguments)
+        notes.append(note.text)
+        return Response.text(f"Saved note #{len(notes)}.")
+```
+
+```python [app/mcp/server.py]
+from fastapi_startkit.mcp import Server
+
+from app.mcp.tools import AddNoteTool, ListNotesTool
+
+
+class NotesServer(Server):
+    name = "notes"
+    description = "Read and write notes."
+
+    def tools(self):
+        return [ListNotesTool, AddNoteTool]
+```
+
+See [Defining Tools](/docs/ai/mcp#defining-tools) for schemas and responses.
+
+## Step 5: Protect the MCP endpoint
+
+This file has three parts.
+
+**The metadata document.** `protected_resource_router` serves the [protected resource metadata](https://datatracker.ietf.org/doc/html/rfc9728) at `/.well-known/oauth-protected-resource/mcp` and at the root path. It tells the client which resource it's calling, which authorization server issues tokens for it, and which scopes exist.
+
+**The challenge.** `bearer_challenge` replaces the default auth error response. Every `401` and `403` gets a `WWW-Authenticate` header that points at the metadata document:
+
+- If the request sent no token, the header has only `resource_metadata`.
+- If the token was rejected, it adds `error="invalid_token"`.
+- If a tool's scope was missing, it adds `error="insufficient_scope"` and the scopes the tool needs.
+
+**The scope check.** `authorize_tool_call` is a dependency on the MCP router. `current_context` authenticates the request through the default guard. A missing or invalid token raises `InvalidToken` (401). For a `tools/call` request, it looks up the tool by name and raises `MissingToolScope` (403) unless the token has every scope the tool declares. Other methods, such as `initialize` and `tools/list`, need only a valid token.
+
+It uses `current_context` instead of `auth` because client credentials tokens have no user, and `auth` rejects user-less tokens.
+
+```python [app/mcp/auth.py]
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
+from fastapi_startkit.mcp import Server, Tool
+from fastapi_startkit_auth import AuthError, InsufficientScope
+from fastapi_startkit_auth.dependencies import current_context
+from fastapi_startkit_auth.guards.guard import AuthContext
+
+from config.mcp import McpConfig
+
+
+class MissingToolScope(InsufficientScope):
+    def __init__(self, tool: type[Tool]) -> None:
+        self.scopes: list[str] = tool.scopes
+        super().__init__(f"The {tool.name} tool requires: {' '.join(tool.scopes)}.")
+
+
+def protected_resource_router(config: McpConfig) -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/.well-known/oauth-protected-resource")
+    @router.get(f"/.well-known/oauth-protected-resource{config.path}")
+    async def protected_resource_metadata() -> dict:
+        return {
+            "resource": config.resource,
+            "authorization_servers": [config.app_url],
+            "scopes_supported": list(config.scopes),
+            "bearer_methods_supported": ["header"],
+        }
+
+    return router
+
+
+def bearer_challenge(config: McpConfig):
+    async def handler(request: Request, error: AuthError) -> JSONResponse:
+        params = [f'resource_metadata="{config.resource_metadata_url}"']
+        if isinstance(error, MissingToolScope):
+            params += ['error="insufficient_scope"', f'scope="{" ".join(error.scopes)}"']
+        elif request.headers.get("authorization"):
+            params.append('error="invalid_token"')
+        return JSONResponse(
+            error.to_dict(),
+            status_code=error.status_code,
+            headers={"WWW-Authenticate": f"Bearer {', '.join(params)}", "Cache-Control": "no-store"},
+        )
+
+    return handler
+
+
+def authorize_tool_call(server: Server):
+    tools = {tool.name: tool for tool in server.tools() or []}
+
+    async def dependency(request: Request, context: AuthContext = Depends(current_context)) -> AuthContext:
+        message = await request.json()
+        if isinstance(message, dict) and message.get("method") == "tools/call":
+            tool = tools.get((message.get("params") or {}).get("name"))
+            if tool is not None and not context.can_all(tool.scopes):
+                raise MissingToolScope(tool)
+        return context
+
+    return dependency
+```
+
+Wire it up in a provider. The MCP router is mounted with the `authorize_tool_call` dependency, so every request to `/mcp` passes through it. The handler is registered for both `InvalidToken` and `InsufficientScope`. The provider also registers the `mcp:client` command from Step 6.
+
+```python [providers/mcp_provider.py]
+from fastapi import Depends
+from fastapi_startkit.support import Provider
+from fastapi_startkit_auth import InsufficientScope, InvalidToken
+
+from app.commands.create_client import CreateClientCommand
+from app.mcp.auth import authorize_tool_call, bearer_challenge, protected_resource_router
+from app.mcp.server import NotesServer
+from config.mcp import McpConfig
+
+
+class McpServiceProvider(Provider):
+    def boot(self) -> None:
+        config: McpConfig = self.config
+        server = NotesServer()
+
+        self.app.include_router(protected_resource_router(config))
+        self.app.include_router(server.router(config.path), dependencies=[Depends(authorize_tool_call(server))])
+        self.app.add_exception_handler(InvalidToken, bearer_challenge(config))
+        self.app.add_exception_handler(InsufficientScope, bearer_challenge(config))
+        self.commands([CreateClientCommand])
+```
+
+Register the providers. `AuthProvider` comes before `AuthOAuth2Provider`, and both get the config functions from Step 3:
+
+```python [bootstrap/application.py]
+from pathlib import Path
+
+from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
+from fastapi_startkit.masoniteorm.providers import DatabaseProvider
+from fastapi_startkit.mcp import McpProvider
+from fastapi_startkit_auth import AuthOAuth2Provider, AuthProvider
+
+from config.auth import auth_config, oauth2_config
+from config.mcp import McpConfig
+from providers.mcp_provider import McpServiceProvider
+
+app: Application = Application(
+    base_path=Path(__file__).parent.parent,
+    providers=[
+        DatabaseProvider,
+        FastAPIProvider,
+        (AuthProvider, auth_config),
+        (AuthOAuth2Provider, oauth2_config),
+        McpProvider,
+        (McpServiceProvider, McpConfig),
+    ],
+)
+```
+
+Add the `artisan` entry point:
+
+```python [artisan]
+#!/usr/bin/env python3
+
+import sys
+
+from bootstrap.application import app
+
+if __name__ == "__main__":
+    sys.exit(app.handle_command())
+```
+
+Publish the OAuth2 migrations into `databases/migrations` and run them:
+
+```sh
+uv run python artisan provider:publish -p auth-oauth2
+uv run python artisan db:migrate
+```
+
+See [Migrations](/docs/authentication#migrations) for the tables they create.
+
+## Step 6: Create a client and issue a token
+
+The `auth:oauth2:client` command creates clients for the authorization code flow. For a machine client, add a command that registers a confidential client with the `client_credentials` grant:
+
+```python [app/commands/create_client.py]
+import asyncio
+
+from cleo.helpers import option
+from fastapi_startkit.console import Command
+
+
+class CreateClientCommand(Command):
+    name = "mcp:client"
+    description = "Create a confidential client that can request MCP access tokens."
+    options = [
+        option("name", description="Client name.", flag=False, default="MCP client"),
+        option("scopes", description="Space-separated scopes the client may request.", flag=False, default="notes:read notes:write"),
+    ]
+
+    def handle(self) -> int:
+        client, secret = asyncio.run(self.register())
+        self.line(f"Client ID: {client.id}")
+        self.line(f"Client secret: {secret}")
+        return 0
+
+    async def register(self):
+        manager = self.container.make("auth_manager")
+        return await manager.client_repository.register(
+            name=self.option("name"),
+            redirect_uris=[],
+            confidential=True,
+            grant_types=["client_credentials"],
+            scopes=self.option("scopes").split(),
+        )
+```
+
+Create a client and start the server:
+
+```sh
+uv run python artisan mcp:client
+uv run python artisan serve
+```
+
+```
+Client ID: <client-id>
+Client secret: <client-secret>
+```
+
+Call `/mcp` without a token. You get the challenge:
+
+```sh
+curl -i -X POST http://127.0.0.1:8000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+```
+HTTP/1.1 401 Unauthorized
+www-authenticate: Bearer resource_metadata="http://127.0.0.1:8000/.well-known/oauth-protected-resource/mcp"
+cache-control: no-store
+
+{"error":"invalid_token","error_description":"Not authenticated."}
+```
+
+Follow the link:
+
+```sh
+curl http://127.0.0.1:8000/.well-known/oauth-protected-resource/mcp
+```
+
+```json
+{
+  "resource": "http://127.0.0.1:8000/mcp",
+  "authorization_servers": ["http://127.0.0.1:8000"],
+  "scopes_supported": ["notes:read", "notes:write"],
+  "bearer_methods_supported": ["header"]
+}
+```
+
+Exchange the client credentials for a token. Send the MCP resource URL as `resource`. Without it, the token has no audience and the `mcp` guard rejects it.
+
+```sh
+curl -X POST http://127.0.0.1:8000/oauth/token \
+  -d grant_type=client_credentials \
+  -d client_id=<client-id> \
+  -d client_secret=<client-secret> \
+  -d resource=http://127.0.0.1:8000/mcp \
+  -d scope="notes:read notes:write"
+```
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "scope": "notes:read notes:write"
+}
+```
+
+Call a tool with the token:
+
+```sh
+curl -X POST http://127.0.0.1:8000/mcp \
+  -H "Authorization: Bearer <access-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_note","arguments":{"text":"Buy milk"}}}'
+```
+
+A token requested with only `scope=notes:read` can list notes, but `add_note` returns `403`:
+
+```
+HTTP/1.1 403 Forbidden
+www-authenticate: Bearer resource_metadata="http://127.0.0.1:8000/.well-known/oauth-protected-resource/mcp", error="insufficient_scope", scope="notes:write"
+```
+
+See [Client credentials](/docs/authentication#client-credentials) and [Resource indicators](/docs/authentication#resource-indicators) for the rules `/oauth/token` applies.
+
+## Step 7: Connect a client
+
+Any MCP client that speaks Streamable HTTP and lets you set the `Authorization` header can connect. Give it:
+
+- the URL `http://127.0.0.1:8000/mcp`
+- the header `Authorization: Bearer <access-token>`, using the token from Step 6
+
+The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a quick way to try it:
+
+```sh
+npx @modelcontextprotocol/inspector
+```
+
+The server doesn't offer dynamic client registration, so a client can't register itself. Create the client with `mcp:client`, get a token, and paste the token into the client. When the token expires (after `expires_in` seconds), request a new one.
+
+## Step 8: Test it
+
+Configure pytest to run async tests and to import from the project root:
+
+```ini [pytest.ini]
+[pytest]
+asyncio_mode = auto
+pythonpath = .
+```
+
+The tests use `HttpTestCase` to send requests to the app in memory.
+
+- `asyncSetUp` disposes the database engines first, because each test runs on a new event loop. It migrates the testing database once.
+- `issue_token` registers a client and calls `/oauth/token` the same way a real client does.
+- The expired token is signed with the real key, issuer and audience, so expiry is the only thing wrong with it.
+
+```python [tests/test_mcp_authentication.py]
+import time
+
+import jwt
+from fastapi_startkit.fastapi.testing import HttpTestCase
+from fastapi_startkit.masoniteorm.migrations import Migrator
+from fastapi_startkit.masoniteorm.models import Model
+
+from config.mcp import McpConfig
+
+
+class TestMcpAuthentication(HttpTestCase):
+    migrated = False
+
+    def get_application(self):
+        from bootstrap.application import app
+
+        return app
+
+    async def asyncSetUp(self):
+        for connection in list(Model.db_manager.connections.values()):
+            await connection.engine.dispose()
+        Model.db_manager.connections.clear()
+        await super().asyncSetUp()
+        if not TestMcpAuthentication.migrated:
+            await Migrator(migration_directory="databases/migrations").fresh(ignore_fk=True)
+            TestMcpAuthentication.migrated = True
+        self.config = McpConfig()
+
+    async def issue_token(self, scopes: str, resource: str | None = None) -> str:
+        manager = self.get_application().make("auth_manager")
+        client, secret = await manager.client_repository.register(
+            name="tests",
+            redirect_uris=[],
+            confidential=True,
+            grant_types=["client_credentials"],
+            scopes=scopes.split(),
+        )
+        data = {"grant_type": "client_credentials", "scope": scopes}
+        if resource is not None:
+            data["resource"] = resource
+        response = await self.client.post("/oauth/token", data=data, auth=(client.id, secret))
+        assert response.status_code == 200, response.text
+        return response.json()["access_token"]
+
+    async def rpc(self, method: str, params: dict | None = None, token: str | None = None):
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        return await self.client.post(
+            "/mcp", json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}, headers=headers
+        )
+
+    async def test_request_without_token_is_challenged(self):
+        response = await self.rpc("tools/list")
+
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == (
+            f'Bearer resource_metadata="{self.config.resource_metadata_url}"'
+        )
+
+    async def test_protected_resource_metadata_names_the_authorization_server(self):
+        for path in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-protected-resource/mcp"):
+            response = await self.client.get(path)
+
+            assert response.status_code == 200
+            assert response.json() == {
+                "resource": self.config.resource,
+                "authorization_servers": [self.config.app_url],
+                "scopes_supported": ["notes:read", "notes:write"],
+                "bearer_methods_supported": ["header"],
+            }
+
+    async def test_valid_token_can_list_and_call_tools(self):
+        token = await self.issue_token("notes:read notes:write", self.config.resource)
+
+        initialized = await self.rpc("initialize", token=token)
+        listed = await self.rpc("tools/list", token=token)
+        added = await self.rpc("tools/call", {"name": "add_note", "arguments": {"text": "Buy milk"}}, token)
+        read = await self.rpc("tools/call", {"name": "list_notes", "arguments": {}}, token)
+
+        assert initialized.json()["result"]["serverInfo"]["name"] == "notes"
+        assert [tool["name"] for tool in listed.json()["result"]["tools"]] == ["list_notes", "add_note"]
+        assert added.json()["result"]["content"][0]["text"].startswith("Saved note #")
+        assert "Buy milk" in read.json()["result"]["content"][0]["resource"]["text"]
+
+    async def test_token_without_the_tool_scope_is_forbidden(self):
+        token = await self.issue_token("notes:read", self.config.resource)
+
+        response = await self.rpc("tools/call", {"name": "add_note", "arguments": {"text": "Nope"}}, token)
+
+        assert response.status_code == 403
+        assert response.json()["error"] == "insufficient_scope"
+        assert response.headers["www-authenticate"] == (
+            f'Bearer resource_metadata="{self.config.resource_metadata_url}", '
+            'error="insufficient_scope", scope="notes:write"'
+        )
+
+    async def test_malformed_token_is_rejected(self):
+        response = await self.rpc("tools/list", token="not-a-token")
+
+        assert response.status_code == 401
+        assert 'error="invalid_token"' in response.headers["www-authenticate"]
+
+    async def test_expired_token_is_rejected(self):
+        now = int(time.time())
+        token = jwt.encode(
+            {"sub": None, "aud": self.config.resource, "iss": self.config.app_url, "iat": now - 120, "exp": now - 60},
+            self.config.oauth2_key,
+            algorithm="HS256",
+        )
+
+        response = await self.rpc("tools/list", token=token)
+
+        assert response.status_code == 401
+        assert response.json()["error_description"] == "Signature has expired"
+
+    async def test_token_for_another_resource_is_rejected(self):
+        token = await self.issue_token("notes:read")
+
+        response = await self.rpc("tools/list", token=token)
+
+        assert response.status_code == 401
+        assert 'error="invalid_token"' in response.headers["www-authenticate"]
+```
+
+Run them:
+
+```sh
+uv run pytest tests/ -v
+```
+
+## Limits
+
+The example builds these pieces itself because the framework doesn't provide them yet:
+
+- `Server.router()` has no authentication option, so the dependency is passed to `include_router`.
+- `Tool.handle()` doesn't receive the request or the token, so a tool can't tell who is calling it.
+- There's no built-in protected resource metadata endpoint or `resource_metadata` challenge.
+- There's no dynamic client registration.
+- The MCP server reports protocol version `2024-11-05`.
