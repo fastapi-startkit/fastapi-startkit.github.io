@@ -2,6 +2,7 @@
 
 | Date | Record | Decision |
 |---|---|---|
+| 2026-10-19 | [Hosted install script](2026-10-19-install-script.md) | `public/install.sh` is served at `https://fastapi-startkit.github.io/install.sh`; it finds or installs uv (official installer, absolute path so no terminal restart), then runs `uv tool run fastapi-startkit@latest init` with forwarded arguments and `/dev/tty` input; `FASTAPI_STARTKIT_VERSION` pins a release; macOS/Linux only. |
 | 2026-10-15 | [Home page uses Instrument Sans](2026-10-15-home-instrument-sans.md) | Home page tokens (`--hp-sans`) point at `--site-sans`, so the home header and sections use Instrument Sans like the docs; serif accents and mono labels unchanged. |
 | 2026-10-14 | [Docs header uses Instrument Sans](2026-10-14-docs-header-typography.md) | The shared header on docs pages scopes `--hp-sans` to `--site-sans`, so its title, links and wordmark use Instrument Sans; the home header and home sections keep Inter Tight. |
 | 2026-10-13 | [Docs typography aligned with laravel.com](2026-10-13-docs-typography.md) | Docs body and headings use Instrument Sans (the sans laravel.com's docs use; Figtree is not referenced there), headings capped at 700, JetBrains Mono kept for code; home page fonts unchanged. |
