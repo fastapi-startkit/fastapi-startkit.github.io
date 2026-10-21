@@ -4,7 +4,7 @@
     const props = withDefaults(defineProps<{
         command?: string
         tone?: "light" | "dark"
-    }>(), { command: "pip install fastapi-startkit", tone: "light" })
+    }>(), { command: "uvx fastapi-startkit init my-app", tone: "light" })
 
     const copied = ref(false)
     let resetTimer: ReturnType<typeof setTimeout> | undefined
