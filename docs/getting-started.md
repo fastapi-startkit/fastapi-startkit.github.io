@@ -64,7 +64,15 @@ The quickest start is the `fastapi-startkit init` installer, which creates a rea
 
 ## Creating a Project
 
-The installer runs through [uv](https://docs.astral.sh/uv/). Install uv first if you don't have it:
+On macOS or Linux, one command installs uv when it is missing and starts the installer:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://fastapi-startkit.github.io/install.sh)"
+```
+
+Arguments are passed to the installer, for example `curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- my-app`. Set `FASTAPI_STARTKIT_VERSION=0.67.0` to pin a release.
+
+Otherwise the installer runs through [uv](https://docs.astral.sh/uv/). Install uv first if you don't have it:
 
 ```bash
 # macOS/Linux

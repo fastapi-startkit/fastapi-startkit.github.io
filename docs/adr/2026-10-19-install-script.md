@@ -28,16 +28,17 @@ The script runs `uv tool run fastapi-startkit@latest init`, forwarding its argum
 
 - `public/install.sh` is a bash script with `set -euo pipefail`, matching the documented `/bin/bash -c` invocation.
 - Operating system: `Darwin` and `Linux` continue; anything else exits with a message pointing to `uvx fastapi-startkit init`.
-- uv lookup: `command -v uv`, then the directories the official installer writes to (`$UV_INSTALL_DIR`, `$XDG_BIN_HOME`, `$HOME/.local/bin`, `$HOME/.cargo/bin`). A found binary is invoked by absolute path, so the current shell's `PATH` does not need refreshing.
+- uv lookup: `command -v uv`, then the directories the official installer writes to (`$UV_INSTALL_DIR`, `$XDG_BIN_HOME`, `$HOME/.local/bin`, `$HOME/.cargo/bin`). A found binary is invoked by absolute path, and its directory is prepended to `PATH` so the wizard's own `uv sync` finds the same uv without a terminal restart.
 - uv install: when no uv is found, the official installer (`https://astral.sh/uv/install.sh`) is downloaded with `curl` or `wget` and run with `sh`; the lookup then runs again and fails with a clear message if uv is still missing.
 - Terminal input: when standard input is not a terminal (for example `curl … | bash`) and `/dev/tty` is readable, the wizard's input is redirected from `/dev/tty`, so the interactive questions still work.
 - Arguments: everything passed to the script goes to `init`, so `curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- my-app` creates `my-app`.
-- `docs/getting-started.md` documents the hosted script and the `uvx` command once the framework release containing `init` is published; until then the page is unchanged so readers are not sent to a command that does not exist yet.
+- `docs/getting-started.md` lists the hosted script under "Creating a Project", next to `uvx fastapi-startkit init`, now that framework 0.67.0 ships `init`.
 
 ## Validation
 
 - `bash -n public/install.sh` passes.
 - With a stub `uv` on `PATH`, the script calls `uv tool run fastapi-startkit@latest init my-app --app web`, and `FASTAPI_STARTKIT_VERSION=0.67.0` turns the requirement into `fastapi-startkit@0.67.0`.
 - With a temporary `HOME` and a `PATH` that has no uv, the script installs uv into the temporary `HOME` and runs it from there in the same process.
+- With `PATH=/usr/bin:/bin` and uv only in `~/.local/bin`, `bash public/install.sh my-app --app web` creates the project and the wizard's `uv sync` succeeds.
 - Piping the script into `bash` from a terminal still delivers keyboard input to the wizard.
 - `npm run docs:build` copies the script to `.vitepress/dist/install.sh`.

@@ -11,11 +11,11 @@ Framework release 0.67.0 ships the `fastapi-startkit` console script with an int
 1. **Keep manual setup first and mention `init` at the end.** No restructuring, but new users still copy files by hand before seeing the installer.
 2. **Replace the manual setup with the installer.** Shortest page, but drops the path for adding the framework to an existing project or using the single-file layout.
 3. **Lead with the installer and keep manual setup as an alternative.** New projects get one command, and existing projects keep the full instructions.
-4. **Lead with a hosted `curl | sh` script.** Saves installing uv separately, but no script is hosted yet (`https://fastapi-startkit.github.io/install.sh` returns 404; site PR #92 is open), so the page would document a command that does not work.
+4. **Lead with a hosted `curl | sh` script.** Saves installing uv separately, but only covers macOS and Linux, and the script was not hosted when this record was written (site PR #92).
 
 ## Decision
 
-Option 3. `getting-started.md` gets a "Creating a Project" section right after the introduction: install uv, run `uvx fastapi-startkit init my-app`, answer the three questions, then `uv run python artisan serve`. An "Installer options" table lists every flag `init` accepts. The existing prerequisites, installation, simple and structured setups move under "Manual Setup" one heading level down. The `curl | sh` option is left out until a script is hosted.
+Option 3. `getting-started.md` gets a "Creating a Project" section right after the introduction: install uv, run `uvx fastapi-startkit init my-app`, answer the three questions, then `uv run python artisan serve`. An "Installer options" table lists every flag `init` accepts. The existing prerequisites, installation, simple and structured setups move under "Manual Setup" one heading level down. The hosted script from [2026-10-19](2026-10-19-install-script.md) is listed first in that section as the macOS/Linux one-liner, with `uvx` as the cross-platform path.
 
 ## Implementation
 

@@ -45,6 +45,8 @@ if ! uv="$(find_uv)"; then
     uv="$(find_uv)" || fail "uv was installed but could not be found; open a new terminal and run: uvx fastapi-startkit init"
 fi
 
+export PATH="$(dirname "$uv"):$PATH"
+
 command=("$uv" tool run "fastapi-startkit@$version" init "$@")
 
 if [ ! -t 0 ] && { : </dev/tty; } 2>/dev/null; then
