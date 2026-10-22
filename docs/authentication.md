@@ -45,7 +45,7 @@ stores and the Startkit integration:
 
 | Extra | Installs | Use it for |
 | --- | --- | --- |
-| `startkit` | `fastapi-startkit[database]` (Python 3.12+) | `store="database"` and registering the providers in a Startkit `Application` |
+| `startkit` | `fastapi-startkit[database]` (Python 3.12+) | `driver="database"` and registering the providers in a Startkit `Application` |
 | `masoniteorm` | `masonite-orm` | The `masoniteorm` user provider on a standalone app |
 
 ```sh
@@ -82,10 +82,10 @@ app = FastAPI()
 AuthProvider(Config).register(app)
 AuthSessionProvider(SessionConfig()).register(app)
 AuthApiTokenProvider(ApiTokenConfig()).register(app)
-AuthOAuth2Provider(OAuth2Config(key="change-me-to-a-long-random-secret", clients={"store": "memory"})).register(app)
+AuthOAuth2Provider(OAuth2Config(key="change-me-to-a-long-random-secret", clients={"driver": "memory"})).register(app)
 ```
 
-`AuthProvider.register(app)` adds the auth middleware and the `AuthError`
+`AuthProvider.register(app)` adds the auth middleware and the `AuthException`
 exception handler, warms the user providers up at startup, and mounts the
 password-reset routes when `AuthConfig.passwords` is set. A standalone app
 doesn't need the Startkit framework installed.
@@ -111,8 +111,8 @@ from config.auth import Config
 app = Application(
     providers=[
         (AuthProvider, Config),
-        (AuthSessionProvider, SessionConfig(store="database")),
-        (AuthApiTokenProvider, ApiTokenConfig(store="database")),
+        (AuthSessionProvider, SessionConfig(driver="database")),
+        (AuthApiTokenProvider, ApiTokenConfig(driver="database")),
         (AuthOAuth2Provider, OAuth2Config(key="change-me-to-a-long-random-secret")),
     ]
 )
@@ -239,7 +239,7 @@ The reset token never appears in the response, unless
 ```python
 from fastapi import FastAPI
 from pydantic import BaseModel
-from fastapi_startkit_auth import Auth, InvalidSession
+from fastapi_startkit_auth import Auth, AuthenticationException
 
 app = FastAPI()  # with AuthProvider and AuthSessionProvider registered
 
@@ -252,7 +252,7 @@ class Credentials(BaseModel):
 @app.post("/login")
 def login(payload: Credentials):
     if not Auth.attempt(payload.model_dump()):
-        raise InvalidSession("Invalid credentials.")
+        raise AuthenticationException("Invalid credentials.")
     return {"ok": True}
 
 
@@ -279,9 +279,9 @@ methods as coroutines. `Auth` refuses an async session guard with a
 
 ```python
 SessionConfig(
-    store="memory",           # "memory", "database" or "instance"
-    connection=None,          # ORM connection name for store="database"
-    instance=None,            # a ready SessionStore for store="instance"
+    driver="memory",          # "memory", "database" or "instance"
+    connection=None,          # ORM connection name for driver="database"
+    instance=None,            # a ready SessionStore for driver="instance"
     cookie="startkit_session",
     ttl=7200,                 # absolute lifetime in seconds
     idle_ttl=None,            # idle timeout in seconds
@@ -326,7 +326,7 @@ an HTML form. Otherwise it gets `403 csrf_token_mismatch`.
 
 ```python
 ApiTokenConfig(
-    store="memory",            # "memory", "database" or "instance"
+    driver="memory",           # "memory", "database" or "instance"
     connection=None,
     instance=None,
     header="Authorization",    # read as "Bearer {id}|{secret}"
@@ -345,7 +345,7 @@ alike:
 ```python
 from fastapi import FastAPI
 from pydantic import BaseModel
-from fastapi_startkit_auth import ApiToken, Auth, InvalidSession
+from fastapi_startkit_auth import ApiToken, Auth, AuthenticationException
 
 app = FastAPI()  # with AuthProvider and AuthApiTokenProvider registered
 
@@ -359,7 +359,7 @@ class Credentials(BaseModel):
 async def mobile_token(payload: Credentials):
     user = Auth.validate(payload.model_dump(), guard="api")
     if user is None:
-        raise InvalidSession("Invalid credentials.")
+        raise AuthenticationException("Invalid credentials.")
     token = await ApiToken.create(user, name="iPhone", abilities=["posts:read"], guard="api")
     return {"token": token.plain_text}
 ```
@@ -393,7 +393,7 @@ AuthApiTokenProvider(ApiTokenConfig(stateful_origins=["https://app.example.com"]
 ## OAuth 2.1: AuthOAuth2Provider
 
 ```python
-from fastapi_startkit_auth import OAuth2Config, OAuthClientsConfig, OAuthTokensConfig
+from fastapi_startkit_auth import OAuth2Config, OAuthClientConfig, OAuthTokenConfig
 
 OAuth2Config(
     key="change-me-to-a-long-random-secret",  # JWT signing key; required in production
@@ -411,8 +411,8 @@ OAuth2Config(
     require_redirect_uri=True,
     grant_types=["authorization_code", "client_credentials", "refresh_token"],
     authorization_guard=None,                 # guard that identifies the approving user
-    tokens=OAuthTokensConfig(store="memory"),
-    clients=OAuthClientsConfig(store="database"),
+    tokens=OAuthTokenConfig(driver="memory"),
+    clients=OAuthClientConfig(driver="database"),
 )
 ```
 
@@ -428,11 +428,11 @@ OAuth2Config(
 | `require_redirect_uri` | `True` | Authorization requests must send a registered `redirect_uri` |
 | `grant_types` | `["authorization_code", "client_credentials", "refresh_token"]` | Enabled grants. Add `"password"` to enable the legacy password grant and `POST /token` |
 | `authorization_guard` | `None` | Guard used to identify the user on `/oauth/authorize`. Defaults to the default guard |
-| `tokens` | `OAuthTokensConfig(store="memory")` | Where access tokens, refresh tokens and codes live |
-| `clients` | `OAuthClientsConfig(store="database")` | Where clients live |
+| `tokens` | `OAuthTokenConfig(driver="memory")` | Where access tokens, refresh tokens and codes live |
+| `clients` | `OAuthClientConfig(driver="database")` | Where clients live |
 
 `tokens` and `clients` also accept a dict, for example
-`clients={"store": "memory"}`.
+`clients={"driver": "memory"}`.
 
 ### Deprecated: OAuth settings on AuthConfig
 
@@ -521,8 +521,8 @@ client, secret = await manager.client_repository.register(
 )
 ```
 
-With the default `OAuthClientsConfig(store="database")`, clients live in the
-`oauth_clients` table through `OrmClientRepository`; `store="memory"` uses
+With the default `OAuthClientConfig(driver="database")`, clients live in the
+`oauth_clients` table through `OrmClientRepository`; `driver="memory"` uses
 `InMemoryClientRepository`. Both are async, so `await` their methods. An async
 client store makes the manager build the async refresh and authorization-code
 grants.
@@ -638,14 +638,14 @@ Add `"password"` to `grant_types` to enable `grant_type=password` on
 
 ## Stores
 
-Every persistent piece of state has a store setting with the same names:
+Every persistent piece of state has a `driver` setting with the same names:
 
-| Config | Default `store` | Persistent store |
+| Config | Default `driver` | Persistent store |
 | --- | --- | --- |
 | `SessionConfig` | `"memory"` | `"database"` → `OrmSessionStore`, table `sessions` |
 | `ApiTokenConfig` | `"memory"` | `"database"` → `OrmApiTokenRepository`, table `personal_api_tokens` |
-| `OAuthTokensConfig` (`OAuth2Config.tokens`) | `"memory"` | `"database"` → `OrmTokenRepository`, tables `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_auth_codes` |
-| `OAuthClientsConfig` (`OAuth2Config.clients`) | `"database"` | `"database"` → `OrmClientRepository`, table `oauth_clients` |
+| `OAuthTokenConfig` (`OAuth2Config.tokens`) | `"memory"` | `"database"` → `OrmTokenRepository`, tables `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_auth_codes` |
+| `OAuthClientConfig` (`OAuth2Config.clients`) | `"database"` | `"database"` → `OrmClientRepository`, table `oauth_clients` |
 
 - **`"database"`** is the persistent store. It uses the fastapi-startkit ORM
   (`pip install "fastapi-startkit-auth[startkit]"`). `connection` names a
@@ -661,17 +661,17 @@ Every persistent piece of state has a store setting with the same names:
   `"database"`.
 
 ```python
-SessionConfig(store="database")
-ApiTokenConfig(store="database", connection="auth")
+SessionConfig(driver="database")
+ApiTokenConfig(driver="database", connection="auth")
 OAuth2Config(
-    tokens=OAuthTokensConfig(store="database"),
-    clients=OAuthClientsConfig(store="memory"),  # opt out of the clients table
+    tokens=OAuthTokenConfig(driver="database"),
+    clients=OAuthClientConfig(driver="memory"),  # opt out of the clients table
 )
 ```
 
 The database stores are async, so the manager builds the async guards, grants
 and token service automatically. Use `AsyncAuth` for session login and logout
-with `SessionConfig(store="database")`.
+with `SessionConfig(driver="database")`.
 
 ## Migrations
 
@@ -735,7 +735,7 @@ facade, for example `Auth.user("api")` or `Auth.check("api")`.
 
 ## Errors
 
-Every `AuthError` becomes an OAuth-style JSON body,
+Every `AuthException` becomes an OAuth-style JSON body,
 `{"error": ..., "error_description": ...}`, with `Cache-Control: no-store`. The
 `csrf_token_mismatch` response comes from the CSRF middleware instead, with the
 same body and no `Cache-Control` header.
@@ -747,3 +747,47 @@ same body and no `Cache-Control` header.
 | `invalid_token`, `invalid_session` (with `WWW-Authenticate: Bearer`) | 401 |
 | `insufficient_scope`, `csrf_token_mismatch` | 403 |
 | `throttled` | 429 |
+
+A request to a token or OAuth2 guard with no bearer token gets
+`401 invalid_session` (`AuthenticationException`). A bearer token that is
+present but invalid gets `401 invalid_token`.
+
+A wrong username or password on the password grant raises
+`InvalidCredentialsException`, a subclass of `InvalidGrantException`. The
+response is still `400 invalid_grant`.
+
+## Upgrading from 0.6
+
+v0.7.0 renames the store setting, two config classes and the exception classes.
+
+- **`store` is now `driver`** on `SessionConfig`, `ApiTokenConfig`,
+  `OAuthTokenConfig` and `OAuthClientConfig`, including the dict form.
+  `store=` raises a `TypeError`. Replace `store="database"` with
+  `driver="database"`, and `clients={"store": "memory"}` with
+  `clients={"driver": "memory"}`. `driver="orm"` is still a deprecated alias of
+  `"database"`.
+- **`OAuthClientsConfig` is now `OAuthClientConfig`, and `OAuthTokensConfig` is
+  now `OAuthTokenConfig`.** The old names still work, but emit a
+  `DeprecationWarning`.
+- **Exception classes take an `Exception` suffix.** The old names remain as
+  deprecated aliases. Error codes and statuses are unchanged, except that a missing bearer
+  token now answers `invalid_session` instead of `invalid_token`.
+
+| 0.6 | 0.7 |
+| --- | --- |
+| `AuthError` | `AuthException` |
+| `InvalidRequest` | `InvalidRequestException` |
+| `InvalidSession` | `AuthenticationException` |
+| `InsufficientScope` | `MissingScopeException` |
+| `InvalidToken` | `InvalidTokenException` |
+| `InvalidGrant` | `InvalidGrantException` |
+| `InvalidClient` | `InvalidClientException` |
+| `InvalidScope` | `InvalidScopeException` |
+| `InvalidTarget` | `InvalidTargetException` |
+| `UnauthorizedClient` | `UnauthorizedClientException` |
+| `UnsupportedGrantType` | `UnsupportedGrantTypeException` |
+| `UnsupportedResponseType` | `UnsupportedResponseTypeException` |
+| `AccessDenied` | `AccessDeniedException` |
+| `CsrfTokenMismatch` | `CsrfTokenMismatchException` |
+
+The migrations did not change since 0.6.3. From an earlier 0.6 release, publish and run the three newest OAuth migrations listed under [Migrations](#migrations).
