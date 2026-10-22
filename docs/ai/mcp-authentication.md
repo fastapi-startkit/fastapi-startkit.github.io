@@ -18,13 +18,6 @@ It uses the [MCP](/docs/ai/mcp) server classes and the OAuth 2.1 server from [Au
 
 The finished app is [`example/mcp-authentication`](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/mcp-authentication). Every file below is copied from it, in the order you create them.
 
-## How it works
-
-1. The client calls `/mcp` without a token. The server answers `401` with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"`.
-2. The client reads that metadata document. It names the resource (`http://127.0.0.1:8000/mcp`), the authorization server and the scopes.
-3. The client gets a token from `/oauth/token`, sending `resource=http://127.0.0.1:8000/mcp`. The token carries the resource as its `aud` claim.
-4. The client calls `/mcp` with `Authorization: Bearer <token>`. The guard checks the signature, expiry, issuer and audience, and each tool checks its scopes.
-
 ## Step 1: Install the packages
 
 Create the project and add the framework with the FastAPI, database and SQLite extras, plus the auth package with its `startkit` extra:
@@ -167,6 +160,13 @@ class OAuthConfig(OAuth2Config):
 The provider gets the class itself, not an instance. The application instantiates a provider's config after it loads `.env`, and `env()` reads its variable when the dataclass is instantiated, so `OAuthConfig` and `McpConfig` see the values from your env files.
 
 `AuthConfig` is not a dataclass. The auth package reads its settings through the `get()` classmethod when the provider registers, which happens after `.env` loads. So `get()` builds `guards`, and the audience follows your `APP_URL`.
+
+## How it works
+
+1. The client calls `/mcp` without a token. The server answers `401` with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"`.
+2. The client reads that metadata document. It names the resource (`http://127.0.0.1:8000/mcp`), the authorization server and the scopes.
+3. The client gets a token from `/oauth/token`, sending `resource=http://127.0.0.1:8000/mcp`. The token carries the resource as its `aud` claim.
+4. The client calls `/mcp` with `Authorization: Bearer <token>`. The guard checks the signature, expiry, issuer and audience, and each tool checks its scopes.
 
 ## Step 4: Create the MCP server and its tools
 
