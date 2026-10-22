@@ -1,8 +1,8 @@
 <script setup lang="ts">
     const steps = [
-        { title: "Install", command: "pip install \"fastapi-startkit[database]\"" },
-        { title: "Make a model", command: "python artisan db:make:model Order" },
-        { title: "Migrate", command: "python artisan db:migrate" },
+        { title: "Create", command: "uvx fastapi-startkit init my-app" },
+        { title: "Make a model", command: "uv run python artisan db:make:model Order" },
+        { title: "Migrate", command: "uv run python artisan db:migrate" },
     ]
 </script>
 
