@@ -466,11 +466,3 @@ class CacheConfig(Config):
 ```
 
 To support locks, give the store a `lock(name, seconds, owner)` method that returns a subclass of `fastapi_startkit.cache.Lock` implementing `acquire`, `release` and `force_release`.
-
-## Differences From Laravel
-
-- Everything is async. Await every read and write, `remember`, and every lock method.
-- TTLs are seconds or a `timedelta`. There is no `DateTime` TTL.
-- `remember` takes the TTL and the factory as arguments and works as a decorator; there is no separate `rememberForever`. Use `remember(key, None, factory)`.
-- Not implemented yet: `add`, `pull`, `increment`/`decrement`, `many`/`putMany`, `flexible`, cache events, and the `memcached`, `dynamodb` and `null` drivers.
-- An unknown store raises `ValueError`, not `InvalidArgumentException`.
