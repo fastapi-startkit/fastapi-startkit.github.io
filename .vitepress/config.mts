@@ -200,6 +200,7 @@ export default defineConfig({
                 items: [
                     { text: 'Authentication', link: '/docs/authentication' },
                     { text: 'Storage', link: '/docs/storage' },
+                    { text: 'Cache', link: '/docs/cache' },
                     { text: 'Redis', link: '/docs/redis' },
                     { text: 'Queues', link: '/docs/queues' },
                     { text: 'Process', link: '/docs/process' },
