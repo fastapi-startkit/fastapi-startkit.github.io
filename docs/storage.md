@@ -252,7 +252,7 @@ class MemoryDriver:
         return not self.exists(file_path)
 
     def delete(self, file_path):
-        del self.files[self.key(file_path)]
+        self.files.pop(self.key(file_path), None)
 ```
 
 The facade methods are `put`, `get`, `exists`, `missing`, `stream`, `copy`, `move`, `prepend`, `append`, `delete`, `store`, `download` and `url`. Calling one the driver does not define raises `AttributeError`. For a full reference, see `LocalDriver` and `S3Driver` in `fastapi_startkit.storage.drivers`.
@@ -287,7 +287,7 @@ disks: dict[str, Config] = field(
 
 ### 3. Register the Driver
 
-Register the driver on the storage manager in a provider's `boot()` method, and list that provider after `StorageProvider`, which binds the manager:
+Register the driver on the storage manager in a provider's `boot()` method. Every provider's `register()` runs before any `boot()`, so the manager is already bound and the provider can sit anywhere in the list:
 
 ```python
 from fastapi_startkit.support import Provider
