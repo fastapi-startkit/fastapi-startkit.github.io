@@ -9,7 +9,7 @@ keywords: storage, file, local, s3, disk, fastapi startkit
 
 The `Storage` facade reads and writes files with the same methods on every disk: local, public, or Amazon S3.
 
-Storage lets your application store and read files without caring where they live. You configure one or more disks, such as the local filesystem or an S3 bucket, and call the same methods on each:
+FastAPI Startkit provides first-party support to read, write and manipulate files across multiple storage options, such as `S3` and the local filesystem, with the same set of APIs. With Storage you can:
 
 - Write, read, append to, copy, move and delete files on any disk.
 - Switch between disks, or change the default, through configuration instead of code.
