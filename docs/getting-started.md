@@ -72,17 +72,7 @@ On macOS or Linux, one command installs uv when it is missing and starts the ins
 
 Arguments are passed to the installer, for example `curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- my-app`. Set `FASTAPI_STARTKIT_VERSION=0.67.0` to pin a release.
 
-Otherwise the installer runs through [uv](https://docs.astral.sh/uv/). Install uv first if you don't have it:
-
-```bash
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-Then create a project:
+On Windows, or if you already have [uv](https://docs.astral.sh/uv/) (see [how to install it](#_2-uv-recommended)), create a project with:
 
 ```bash
 uvx fastapi-startkit init my-app
