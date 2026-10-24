@@ -64,19 +64,24 @@ The quickest start is the `fastapi-startkit init` installer, which creates a rea
 
 ## Creating a Project
 
-On macOS or Linux, one command installs uv when it is missing and starts the installer:
+::: code-group
 
-```bash
+```bash [macOS / Linux]
 /bin/bash -c "$(curl -fsSL https://fastapi-startkit.github.io/install.sh)"
 ```
 
-Arguments are passed to the installer, for example `curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- my-app`. Set `FASTAPI_STARTKIT_VERSION=0.67.0` to pin a release.
-
-On Windows, or if you already have [uv](https://docs.astral.sh/uv/) (see [how to install it](#_2-uv-recommended)), create a project with:
-
-```bash
+```powershell [Windows]
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 uvx fastapi-startkit init my-app
 ```
+
+```bash [Existing uv]
+uvx fastapi-startkit init my-app
+```
+
+:::
+
+On macOS and Linux the script installs [uv](https://docs.astral.sh/uv/) when it is missing and then starts the installer. Arguments are passed through, for example `curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- my-app`, and `FASTAPI_STARTKIT_VERSION=0.67.0` pins a release. On Windows, install uv first, then open a new terminal if `uvx` is not found.
 
 `uvx` runs the installer without adding anything to your system. Leave out `my-app` and it asks where to create the project. In a terminal, it then asks:
 
