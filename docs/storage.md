@@ -9,6 +9,16 @@ keywords: storage, file, local, s3, disk, fastapi startkit
 
 The `Storage` facade reads and writes files with the same methods on every disk: local, public, or Amazon S3.
 
+Storage lets your application store and read files without caring where they live. You configure one or more disks, such as the local filesystem or an S3 bucket, and call the same methods on each:
+
+- Write, read, append to, copy, move and delete files on any disk.
+- Switch between disks, or change the default, through configuration instead of code.
+- Save uploaded files straight to a disk.
+- Serve files on the `public` disk over HTTP, or build S3 URLs.
+- Replace a disk with a temporary fake in tests.
+
+For example, you can keep files on the local disk in development and move them to S3 in production by changing `FILESYSTEM_DISK`, without touching the code that uses them.
+
 ## Registering the Provider
 
 Add `StorageProvider` to your providers in `bootstrap/application.py`:
