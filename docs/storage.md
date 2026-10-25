@@ -262,16 +262,15 @@ The facade methods are `put`, `get`, `exists`, `missing`, `stream`, `copy`, `mov
 A disk's `driver` value names the driver you register in the next step. Its other fields are passed to `set_options()`:
 
 ```python
-from dataclasses import dataclass
-
 from fastapi_startkit.configuration import Config
 
 
-@dataclass
 class MemoryDiskConfig(Config):
     driver: str = "memory"
     prefix: str = ""
 ```
+
+Config subclasses do not need `@dataclass`: fields with defaults and `env()` values are resolved when the config is created.
 
 Add it to the `disks` of your `StorageConfig`, and point `default` at it if you want it to be the default disk:
 
