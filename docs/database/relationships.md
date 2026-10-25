@@ -1,13 +1,15 @@
 ---
 outline: deep
 title: Relationships
-description: Define and manage database relationships (One-to-One, One-to-Many, Many-to-Many) using Fastapi Startkit's ORM.
+description: Define and manage database relationships (One-to-One, One-to-Many, Many-to-Many) using the FastAPI Startkit ORM.
 keywords: orm, relationships, database, foreign keys, fastapi
 ---
 
 # Relationships
 
-Declare a relationship as a class attribute on the model, using the classes in `fastapi_startkit.masoniteorm.relationships`. Import related models under `TYPE_CHECKING` so the type hints don't cause circular imports:
+Database tables are rarely islands. A post has an author, a user writes many posts, and a post can carry many tags. Relationships let you describe those connections once, on the model, and then load related records without writing joins by hand.
+
+You declare a relationship as a class attribute on the model, using the classes in `fastapi_startkit.masoniteorm.relationships`. Import related models under `TYPE_CHECKING` so the type hints don't cause circular imports:
 
 ```python
 from typing import TYPE_CHECKING
@@ -19,9 +21,8 @@ if TYPE_CHECKING:
 
 ## BelongsTo
 
-Use `BelongsTo` when this model holds the foreign key, such as a post pointing at its author.
+Use `BelongsTo` when this model holds the foreign key, such as a post pointing at its author. Its signature looks like this:
 
-**Signature:**
 ```python
 BelongsTo(related_model, local_key, foreign_key)
 ```
@@ -32,7 +33,7 @@ BelongsTo(related_model, local_key, foreign_key)
 | `local_key` | Foreign key column on this model |
 | `foreign_key` | Primary key column on the related model |
 
-`Media` belongs to `Post`:
+For example, `Media` belongs to `Post`:
 
 ```python
 # app/models/media.py
@@ -53,7 +54,7 @@ class Media(Model):
     post: "Post" = BelongsTo("Post")
 ```
 
-`Post` belongs to `User`, with explicit key names:
+When the column names don't follow the defaults, pass the keys explicitly. Here `Post` belongs to `User`:
 
 ```python
 author: "User" = BelongsTo('User', local_key='user_id', foreign_key="id")
@@ -61,14 +62,13 @@ author: "User" = BelongsTo('User', local_key='user_id', foreign_key="id")
 
 ## HasMany
 
-Use `HasMany` when the related model holds a foreign key back to this one, such as a user with many posts.
+`HasMany` is the other side of that connection. Use it when the related model holds a foreign key back to this one, such as a user with many posts:
 
-**Signature:**
 ```python
 HasMany(related_model)
 ```
 
-`User` has many `Post`s:
+Here, a `User` has many `Post`s:
 
 ```python
 # app/models/user.py
@@ -89,7 +89,7 @@ class User(Model):
     posts: list["Post"] = HasMany("Post")
 ```
 
-`Post` has many `Media` items:
+In the same way, a `Post` has many `Media` items:
 
 ```python
 media: list["Media"] = HasMany("Media")
@@ -97,9 +97,8 @@ media: list["Media"] = HasMany("Media")
 
 ## BelongsToMany
 
-Use `BelongsToMany` when a pivot table links two models.
+Some relationships run both ways. A post can have many tags, and a tag can belong to many posts. Use `BelongsToMany` when a pivot table links two models like this:
 
-**Signature:**
 ```python
 BelongsToMany(related_model, local_foreign_key, related_foreign_key, table=pivot_table)
 ```
@@ -111,14 +110,14 @@ BelongsToMany(related_model, local_foreign_key, related_foreign_key, table=pivot
 | `related_foreign_key` | Pivot column that references the related model |
 | `table` | Name of the pivot table. Pass it as a keyword argument. |
 
-`Post` belongs to many `Tag`s:
+So a `Post` belongs to many `Tag`s:
 
 ```python
 # app/models/post.py
 tags: list["Tag"] = BelongsToMany("Tag", "post_id", "tag_id", table="post_tag")
 ```
 
-The inverse, `Tag` belongs to many `Post`s:
+And the inverse, where a `Tag` belongs to many `Post`s:
 
 ```python
 # app/models/tag.py
@@ -127,7 +126,7 @@ posts: list["Post"] = BelongsToMany("Post")
 
 ### Pivot Model
 
-To insert or query pivot rows directly, define a model for the pivot table:
+When you need to insert or query pivot rows directly, define a model for the pivot table:
 
 ```python
 # app/models/post_tag.py
@@ -142,7 +141,7 @@ class PostTag(Model):
     tag_id: int
 ```
 
-Attach a tag to a post:
+Then attaching a tag to a post is a single call:
 
 ```python
 await PostTag.first_or_create({"post_id": post.id, "tag_id": tag.id})
@@ -150,15 +149,13 @@ await PostTag.first_or_create({"post_id": post.id, "tag_id": tag.id})
 
 ## HasOneThrough
 
-Use `HasOneThrough` when a model reaches one distant model through an intermediate model.
-
-**Schema structure:**
+Use `HasOneThrough` when a model reaches one distant model through an intermediate model. Consider this schema:
 
 ```
 IncomingShipment → (via from_port_id) → Port → (via port_country_id) → Country
 ```
 
-**Signature:**
+The signature takes the two model names, followed by the keys that connect them:
 
 ```python
 relationship_name: "DistantModel" = HasOneThrough(
@@ -178,7 +175,7 @@ relationship_name: "DistantModel" = HasOneThrough(
 | `intermediary_pk` | Primary key on the intermediate model |
 | `distant_pk` | Primary key on the distant model |
 
-`IncomingShipment` has one `Country` through `Port`:
+Putting it together, an `IncomingShipment` has one `Country` through `Port`:
 
 ```python
 # app/models/incoming_shipment.py
@@ -205,7 +202,7 @@ class IncomingShipment(Model):
     )
 ```
 
-**Lazy access.** A relationship that was not eager loaded runs a query, so await it:
+If a relationship wasn't eager loaded, accessing it runs a query, so you need to await it:
 
 ```python
 shipment = await IncomingShipment.where("name", "Milk").first()
@@ -213,7 +210,7 @@ country = await shipment.from_country
 print(country.name)               # "Australia"
 ```
 
-**Eager loading.** After `with_()`, the attribute holds the loaded model:
+After `with_()`, on the other hand, the attribute already holds the loaded model:
 
 ```python
 shipments = await IncomingShipment.where("name", "Bread").with_("from_country").get()
@@ -221,7 +218,7 @@ for shipment in shipments:
     print(shipment.from_country.name)
 ```
 
-**Filtering with `where_has`:**
+You can also filter on the relationship with `where_has`:
 
 ```python
 # Only shipments from a port in the USA
@@ -232,15 +229,13 @@ shipments = await IncomingShipment.where_has(
 
 ## HasManyThrough
 
-Use `HasManyThrough` when a model reaches many distant models through an intermediate model.
-
-**Schema structure:**
+`HasManyThrough` works the same way, but for many distant models. Use it when a model reaches many distant models through an intermediate model, as in this schema:
 
 ```
 Course → (via in_course_id on Enrolment) → Enrolment → (via active_student_id) → Student
 ```
 
-**Signature:**
+The signature mirrors `HasOneThrough`:
 
 ```python
 relationship_name: list["DistantModel"] = HasManyThrough(
@@ -260,7 +255,7 @@ relationship_name: list["DistantModel"] = HasManyThrough(
 | `local_owner_key` | Primary key on this model |
 | `other_owner_key` | Primary key on the distant model |
 
-`Course` has many `Student`s through `Enrolment`:
+Here, a `Course` has many `Student`s through `Enrolment`:
 
 ```python
 # app/models/course.py
@@ -286,7 +281,7 @@ class Course(Model):
     )
 ```
 
-**Lazy access:**
+Accessing the relationship lazily runs a query:
 
 ```python
 course = await Course.where("name", "Math 101").first()
@@ -294,7 +289,7 @@ students = await course.students   # Collection of Student instances
 print(students.count())
 ```
 
-**Eager loading.** The loaded collection is already on the model, so don't await it:
+When you eager load it, the collection is already on the model, so don't await it:
 
 ```python
 courses = await Course.with_("students").get()
@@ -302,7 +297,7 @@ for course in courses:
     print([s.name for s in course.students])
 ```
 
-**Filtering with `where_has`:**
+Filtering with `where_has` works here too:
 
 ```python
 # Only courses that have a student named "Bob"
@@ -313,7 +308,7 @@ courses = await Course.where_has(
 
 ## Eager Loading
 
-Accessing a relationship inside a loop runs one query per row (the N+1 problem). Pass relationship names to `with_()` to load them up front:
+Lazy loading is convenient, but accessing a relationship inside a loop runs one query per row. This is known as the N+1 problem, and it can quietly slow a page down. To avoid it, pass relationship names to `with_()` to load them up front:
 
 ```python
 posts = await Post.with_("author", "tags").get()
@@ -323,7 +318,7 @@ for post in posts:
     print([tag.name for tag in post.tags])
 ```
 
-Pass as many names as you need:
+You can pass as many names as you need:
 
 ```python
 posts = await Post.with_("author", "tags", "media").get()
@@ -331,7 +326,7 @@ posts = await Post.with_("author", "tags", "media").get()
 
 ## Full Model Reference
 
-The complete `Post` model with `BelongsTo`, `HasMany`, and `BelongsToMany`:
+For reference, here's the complete `Post` model with `BelongsTo`, `HasMany`, and `BelongsToMany`:
 
 ```python
 # app/models/post.py

@@ -1,27 +1,27 @@
 ---
 outline: deep
 title: Migrations
-description: Learn how to manage your database schema using version-controlled migration files in Fastapi Startkit.
+description: Manage your database schema with version-controlled migration files in FastAPI Startkit.
 keywords: fastapi, database, migrations, schema, python, orm
 ---
 
 # Migrations
 
-A migration is a versioned change to your database schema. Each migration has an `up` method that applies the change and a `down` method that reverts it.
+Migrations are like version control for your database. Each one is a small, versioned change to your schema, so your teammates and your production server can build the exact same tables you have locally. Every migration has an `up` method that applies the change and a `down` method that reverts it.
 
 ::: warning Migrations are not auto-generated
-Fastapi Startkit does not inspect your models to generate migrations, as Django does. You write each migration by hand. The model describes how Python reads a table; the migration decides what the table looks like.
+FastAPI Startkit doesn't inspect your models to generate migrations the way Django does. You write each migration by hand. The model describes how Python reads a table; the migration decides what the table looks like.
 :::
 
 ## Creating a Migration
 
-Generate a migration file with a timestamp prefix:
+To create a migration, run `db:make:migration`. It generates a file with a timestamp prefix:
 
 ```bash
 uv run python artisan db:make:migration create_users_table
 ```
 
-The file is created in `databases/migrations/`:
+You'll find the new file in `databases/migrations/`:
 
 ```text
 databases/migrations/
@@ -30,7 +30,7 @@ databases/migrations/
 
 ## Migration Class
 
-Extend `Migration` and implement async `up` and `down` methods. Build tables with `self.schema`:
+A migration class extends `Migration` and implements async `up` and `down` methods. Inside them, you build tables with `self.schema`:
 
 ```python
 from fastapi_startkit.masoniteorm import Migration
@@ -50,7 +50,7 @@ class CreateUsersTable(Migration):
 
 ## Running Migrations
 
-Run all pending migrations:
+When you're ready, run all pending migrations:
 
 ```bash
 uv run python artisan db:migrate
@@ -58,7 +58,7 @@ uv run python artisan db:migrate
 
 ### Checking Status
 
-List which migrations have run and which are pending:
+To see which migrations have run and which are still pending, check the status:
 
 ```bash
 uv run python artisan db:migrate:status
@@ -76,7 +76,7 @@ uv run python artisan db:migrate:status
 
 ## Creating Tables
 
-Call `self.schema.create()` in `up`:
+To create a new table, call `self.schema.create()` in `up`:
 
 ```python
 async def up(self):
@@ -90,7 +90,7 @@ async def up(self):
         table.timestamps()
 ```
 
-Drop the table in `down`:
+Then drop it again in `down`:
 
 ```python
 async def down(self):
@@ -99,7 +99,7 @@ async def down(self):
 
 ### Column Types
 
-The SQL types below are for PostgreSQL. Other databases use their closest equivalent.
+The schema builder offers the column types below. The SQL types listed are for PostgreSQL; other databases use their closest equivalent.
 
 | Method | SQL Type | Notes |
 |---|---|---|
@@ -121,7 +121,7 @@ The SQL types below are for PostgreSQL. Other databases use their closest equiva
 
 ### Column Modifiers
 
-Chain modifiers onto a column:
+You can chain modifiers onto a column to add constraints or defaults:
 
 ```python
 table.string("email").unique()
@@ -132,7 +132,7 @@ table.integer("score").unsigned()
 
 ## Updating Tables
 
-Call `self.schema.table()` to change an existing table:
+To change a table that already exists, call `self.schema.table()` instead:
 
 ```python
 async def up(self):
@@ -143,7 +143,7 @@ async def up(self):
 
 ### Dropping Columns
 
-`drop_column` takes one or more column names:
+To remove columns, pass one or more column names to `drop_column`:
 
 ```python
 async def up(self):
@@ -154,7 +154,7 @@ async def up(self):
 
 ### Modifying a Column
 
-Add `.change()` to change an existing column's type or constraints:
+To change an existing column's type or constraints, define the column again and add `.change()`:
 
 ```python
 async with await self.schema.table("users") as table:
@@ -171,14 +171,14 @@ async def up(self):
 
 ## Foreign Keys
 
-Declare the column, then the foreign key:
+To add a foreign key, declare the column first, then the constraint:
 
 ```python
 table.integer("user_id").unsigned()
 table.foreign("user_id").references("id").on("users")
 ```
 
-Add `on_delete` for a cascade rule:
+If you want related rows removed automatically, add `on_delete` with a cascade rule:
 
 ```python
 table.integer("post_id").unsigned()
@@ -187,7 +187,7 @@ table.foreign("post_id").references("id").on("posts").on_delete("cascade")
 
 ## Full Example
 
-This migration creates the five tables used by the blog example:
+Here's how it all fits together. This migration creates the five tables used by the blog example:
 
 ```python
 # databases/migrations/2026_04_12_000000_create_blog_tables.py

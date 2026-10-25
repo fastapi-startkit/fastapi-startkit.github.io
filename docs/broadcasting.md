@@ -7,7 +7,7 @@ keywords: broadcasting, websockets, reverb, pusher, real-time, fastapi, events, 
 
 # Broadcasting
 
-Broadcasting sends server-side events to the browser over WebSockets. FastAPI Startkit ships Reverb, a WebSocket server that speaks the [Pusher WebSocket protocol](https://pusher.com/docs/channels/library_auth_reference/pusher-websockets-protocol/), so the official `pusher-js` client can connect to it without a hosted service.
+Many modern applications update the page the moment something happens on the server: an order ships, a comment arrives, a job finishes. Rather than having the browser poll for changes, broadcasting lets you send those server-side events to the browser over WebSockets. FastAPI Startkit ships with Reverb, a WebSocket server that speaks the [Pusher WebSocket protocol](https://pusher.com/docs/channels/library_auth_reference/pusher-websockets-protocol/), so the official `pusher-js` client can connect to it without a hosted service.
 
 ## How It Works
 
@@ -20,11 +20,11 @@ Broadcasting sends server-side events to the browser over WebSockets. FastAPI St
                                       (Starlette WS)
 ```
 
-Reverb runs inside your FastAPI process, so there is no separate service to deploy.
+Best of all, Reverb runs inside your FastAPI process, so there's no separate service to deploy.
 
 ## Installation
 
-Broadcasting is part of the core package. Register `ReverbProvider` in your application:
+Broadcasting is part of the core package, so there's nothing extra to install. Register `ReverbProvider` in your application:
 
 ```python
 # bootstrap/application.py
@@ -42,7 +42,7 @@ app = Application(
 
 ### Passing a config object
 
-To pass a config class, register the provider as a tuple, the same way as `DatabaseProvider` or `FastAPIProvider`:
+If you want to pass a config class, register the provider as a tuple, the same way you would `DatabaseProvider` or `FastAPIProvider`:
 
 ```python
 from fastapi_startkit.broadcasting import ReverbProvider
@@ -84,7 +84,7 @@ The WebSocket is then served at:
 ws://<host>:<port>/reverb/app/<REVERB_APP_KEY>
 ```
 
-In `pusher-js`, set `wsPath` to the mount point:
+On the client, set `wsPath` in `pusher-js` to the mount point:
 
 ```js
 import Pusher from "pusher-js";
@@ -101,7 +101,7 @@ const pusher = new Pusher("local", {
 
 ## Configuration
 
-Add these values to your `.env` file:
+Reverb is configured through environment variables. Add these values to your `.env` file:
 
 ```ini
 BROADCAST_DRIVER=reverb
@@ -129,7 +129,7 @@ REVERB_SCHEME=http
 
 ## Defining Events
 
-An event extends `BroadcastEvent` and returns its channels from `broadcast_on()`:
+Each thing you broadcast is an event class. An event extends `BroadcastEvent` and returns its channels from `broadcast_on()`:
 
 ```python
 from fastapi_startkit.broadcasting import BroadcastEvent, Channel
@@ -145,7 +145,7 @@ class OrderShipped(BroadcastEvent):
 
 ### Customising the event name
 
-By default the event name is the class name (`OrderShipped`). Override `broadcast_as()` to change it:
+By default, the event name is the class name (`OrderShipped`). To change it, override `broadcast_as()`:
 
 ```python
 def broadcast_as(self) -> str:
@@ -154,7 +154,7 @@ def broadcast_as(self) -> str:
 
 ### Customising the payload
 
-By default, `broadcast_with()` returns the event's `payload` if it is set, or else all instance attributes. Override it to choose what the client receives:
+By default, `broadcast_with()` returns the event's `payload` if it's set, or else all instance attributes. Override it to choose exactly what the client receives:
 
 ```python
 def broadcast_with(self) -> dict:
@@ -165,6 +165,8 @@ def broadcast_with(self) -> dict:
 ```
 
 ### Full example
+
+Putting those pieces together, a complete event looks like this:
 
 ```python
 from fastapi_startkit.broadcasting import BroadcastEvent, PrivateChannel
@@ -188,6 +190,8 @@ class OrderShipped(BroadcastEvent):
 ```
 
 ## Channel Types
+
+Events are sent on channels, and the channel class you choose decides who can listen:
 
 | Class | Channel prefix | Use case |
 |---|---|---|
@@ -215,6 +219,8 @@ def broadcast_on(self):
 
 ### Using the helper function
 
+To send an event, pass it to the `broadcast()` helper:
+
 ```python
 from fastapi_startkit.broadcasting import broadcast
 
@@ -227,7 +233,7 @@ async def ship_order(order_id: int):
 
 ## Local Development
 
-Set `BROADCAST_DRIVER=log` to write events to the log instead of sending them:
+While you're developing, you may not want a WebSocket connection at all. Set `BROADCAST_DRIVER=log` to write events to the log instead of sending them:
 
 ```ini
 BROADCAST_DRIVER=log
@@ -239,11 +245,11 @@ Each `broadcast()` call then writes a line to the `reverb` logger:
 [Broadcast] channel=orders.1 event=OrderShipped data={'order_id': 1, 'status': 'shipped'}
 ```
 
-`log` is the default driver, so when `BROADCAST_DRIVER` is unset, events are logged and never sent. Your tests can call `broadcast()` without a WebSocket server.
+Since `log` is the default driver, events are logged and never sent when `BROADCAST_DRIVER` is unset. That also means your tests can call `broadcast()` without a WebSocket server.
 
 ## Frontend (pusher-js)
 
-Install `pusher-js` in your frontend project:
+On the browser side, install `pusher-js` in your frontend project:
 
 ```bash
 npm install pusher-js
@@ -251,7 +257,7 @@ npm install pusher-js
 
 ### Default endpoint
 
-Point `wsHost` and `wsPort` at your FastAPI server:
+With the default endpoint, point `wsHost` and `wsPort` at your FastAPI server:
 
 ```js
 import Pusher from "pusher-js";
@@ -273,7 +279,7 @@ channel.bind("OrderShipped", (data) => {
 
 ### Mounted (same port, sub-path)
 
-With the [mounted pattern](#mounted-pattern), add `wsPath`:
+If you're using the [mounted pattern](#mounted-pattern), add `wsPath`:
 
 ```js
 import Pusher from "pusher-js";
@@ -301,7 +307,7 @@ channel.bind("OrderShipped", (data) => {
 
 ### React hook
 
-This hook subscribes to a channel and returns every message received so far:
+If your frontend uses React, a small hook keeps things tidy. This one subscribes to a channel and returns every message received so far:
 
 ```ts
 // hooks/useBroadcastChannel.ts
@@ -351,7 +357,7 @@ export function useBroadcastChannel(channelName: string): BroadcastMessage[] {
 }
 ```
 
-Usage:
+You can then use it in any component:
 
 ```tsx
 import { useBroadcastChannel } from '@/hooks/useBroadcastChannel'
