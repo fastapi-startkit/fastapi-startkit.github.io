@@ -7,14 +7,16 @@ keywords: logging, monitoring, debugging, fastapi
 
 # Logging
 
-Logging is organised into **channels**. Each channel uses a **driver** that decides where messages go: a file, the terminal, Slack, or syslog.
+When something goes wrong in your application, good logs are usually the first place you look. FastAPI Startkit gives you a logging system that can write messages to a file, the terminal, Slack, or syslog, and you choose where each message goes through configuration rather than code.
+
+Logging is organised into channels. Each channel uses a driver, and the driver decides where its messages end up.
 
 > [!NOTE]
 > This logging system is based on [Masonite Logging](https://docs.masoniteproject.com/v3.0/official-packages/masonite-logging). Credit to the Masonite team for its design.
 
 ## Setup
 
-Register `LogProvider` in your application:
+To get started, register `LogProvider` in your application:
 
 ```python
 # bootstrap/application.py
@@ -32,7 +34,7 @@ app: Application = Application(
 
 ## Usage
 
-Write logs through the `Logger` facade. Each entry records the file and line number it came from.
+You write logs through the `Logger` facade. Each entry records the file and line number it came from, so you can always trace a message back to its source.
 
 ```python
 from fastapi_startkit.logging import Logger
@@ -49,11 +51,11 @@ Logger.emergency("System is unusable")
 
 ## Configuration
 
-You can configure logging inline in the providers list, or in a config file.
+You can configure logging inline in the providers list or in a dedicated config file. Which one you pick mostly depends on the size of your application.
 
 ### Way 1: Inline Configuration
 
-For a small setup, pass a dictionary with the provider:
+For a small setup, pass a dictionary along with the provider:
 
 ```python
 # bootstrap/application.py
@@ -86,7 +88,7 @@ app: Application = Application(
 
 ### Way 2: Config File (Recommended)
 
-For a larger application, keep the settings in a config file. Publish the default config to `config/logging.py`:
+As your application grows, you'll want the settings in their own config file. Publish the default config to `config/logging.py`:
 
 ```bash
 uv run python artisan provider:publish --provider=logging
@@ -123,7 +125,7 @@ class LoggingConfig(Config):
 ```
 
 > [!WARNING]
-> `LogProvider` does not load `config/logging.py` on its own. Pass the class with the provider as a tuple.
+> `LogProvider` doesn't load `config/logging.py` on its own. You need to pass the class with the provider as a tuple.
 
 ```python
 # bootstrap/application.py
@@ -141,7 +143,7 @@ app = Application(
 
 `default` is the channel the `Logger` facade writes to. It reads `LOG_CHANNEL` and falls back to `stack`.
 
-`channels` maps channel names to channel config classes:
+`channels` maps each channel name to a channel config class:
 
 | Channel | Class | Behaviour | Environment variables |
 |---|---|---|---|
@@ -150,6 +152,8 @@ app = Application(
 | `terminal` | `TerminalChannel` | Prints to the console | `LOG_TERMINAL_LEVEL` |
 
 ## Available Drivers
+
+Each channel's driver determines where its messages go and which options it accepts.
 
 ### `single`
 Writes every message to one file.
@@ -162,7 +166,7 @@ Writes to one file per day, such as `2023-10-27.log`.
 - `level`: minimum level.
 
 ### `terminal`
-Prints to the console. Useful in development.
+Prints to the console, which is handy during development.
 - `level`: minimum level.
 
 ### `stack`

@@ -1,9 +1,9 @@
 ---
 layout: home
-title: Fastapi Startkit - Modular Framework for FastAPI
+title: FastAPI Startkit - Modular Framework for FastAPI
 jsonLd:
   "@type": "SoftwareApplication"
-  "name": "Fastapi Startkit"
+  "name": "FastAPI Startkit"
   "operatingSystem": "Linux, macOS, Windows"
   "applicationCategory": "DeveloperApplication"
   "description": "A modular, provider-driven framework for building FastAPI applications."
