@@ -7,7 +7,17 @@ keywords: storage, file, local, s3, disk, fastapi startkit
 
 # Storage
 
-The `Storage` facade reads and writes files with the same methods on every disk: local, public, or Amazon S3.
+FastAPI Startkit provides a simple filesystem abstraction through the `Storage` facade. Its drivers work with the local filesystem and Amazon S3 (through `boto3`). Even better, it is simple to switch between these storage options between your local development machine and your production server, as the API remains the same for each disk.
+
+With Storage you can:
+
+- Write, read, append to, copy, move and delete files on any disk.
+- Switch between disks, or change the default, through configuration instead of code.
+- Save uploaded files straight to a disk.
+- Serve files on the `public` disk over HTTP, or build S3 URLs.
+- Replace a disk with a temporary fake in tests.
+
+For example, you can keep files on the local disk in development and move them to S3 in production by changing `FILESYSTEM_DISK`, without touching the code that uses them.
 
 ## Registering the Provider
 
@@ -205,3 +215,107 @@ fake.cleanup()
 ```
 
 `assert_exists()` and `assert_missing()` also accept a list of paths. `assert_directory_empty(directory)` checks that a directory has no files.
+
+## Adding a Custom Driver
+
+A driver is a plain class. There is no base class to extend: the storage manager calls the methods the `Storage` facade exposes, so a driver implements the ones you use. The built-in `local` and `s3` drivers are registered the same way.
+
+### 1. Write the Driver
+
+The manager keeps one driver instance per driver name and calls `set_options()` with the disk's configuration every time the disk is resolved. Store the options and return `self`:
+
+```python
+class MemoryDriver:
+    def __init__(self, application):
+        self.application = application
+        self.options = {}
+        self.files = {}
+
+    def set_options(self, options):
+        self.options = options
+        return self
+
+    def key(self, path):
+        return f"{self.options.get('prefix', '')}{path}"
+
+    def put(self, file_path, content):
+        self.files[self.key(file_path)] = content
+        return content
+
+    def get(self, file_path):
+        return self.files.get(self.key(file_path))
+
+    def exists(self, file_path):
+        return self.key(file_path) in self.files
+
+    def missing(self, file_path):
+        return not self.exists(file_path)
+
+    def delete(self, file_path):
+        self.files.pop(self.key(file_path), None)
+```
+
+The facade methods are `put`, `get`, `exists`, `missing`, `stream`, `copy`, `move`, `prepend`, `append`, `delete`, `store`, `download` and `url`. Calling one the driver does not define raises `AttributeError`. For a full reference, see `LocalDriver` and `S3Driver` in `fastapi_startkit.storage.drivers`.
+
+### 2. Describe the Disk
+
+A disk's `driver` value names the driver you register in the next step. Its other fields are passed to `set_options()`:
+
+```python
+from fastapi_startkit.configuration import Config
+
+
+class MemoryDiskConfig(Config):
+    driver: str = "memory"
+    prefix: str = ""
+```
+
+Config subclasses do not need `@dataclass` when their fields use `env()` or simple defaults such as `str`, `int`, `bool` or `None`. For `dict` or `list` defaults, use `field(default_factory=...)` or `@dataclass`.
+
+Add it to the `disks` of your `StorageConfig`, and point `default` at it if you want it to be the default disk:
+
+```python
+# config/storage.py
+disks: dict[str, Config] = field(
+    default_factory=lambda: {
+        # ... local, public and s3
+        "memory": MemoryDiskConfig(prefix="app/"),
+    }
+)
+```
+
+### 3. Register the Driver
+
+Register the driver on the storage manager in a provider's `boot()` method. Every provider's `register()` runs before any `boot()`, so the manager is already bound and the provider can sit anywhere in the list:
+
+```python
+from fastapi_startkit.support import Provider
+
+
+class MemoryStorageProvider(Provider):
+    def boot(self):
+        self.app.make("storage").add_driver("memory", MemoryDriver(self.app))
+```
+
+```python
+app = Application(
+    base_path=...,
+    providers=[
+        (StorageProvider, StorageConfig),
+        MemoryStorageProvider,
+    ]
+)
+```
+
+### 4. Use the Disk
+
+```python
+Storage.disk("memory").put("notes.txt", "hello")
+Storage.disk("memory").get("notes.txt")  # "hello"
+```
+
+With `default` set to `"memory"`, `Storage.put()` and the other facade methods use it too.
+
+Disks that share a driver name share one driver instance, so read `self.options` when each method runs instead of caching values when the driver is created.
+
+`Storage.fake("memory")` replaces the driver registered under the disk's driver name with a temporary local one, so tests can fake custom disks as well.
