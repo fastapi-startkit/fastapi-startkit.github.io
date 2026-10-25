@@ -1,20 +1,20 @@
 ---
 outline: deep
 title: Vite
-description: Integrate Vite for high-performance frontend development with Fastapi Startkit.
+description: Use Vite to build and serve frontend assets in FastAPI Startkit, with HMR in development and fingerprinted assets in production.
 keywords: vite, frontend, assets, fastapi, bundling
 ---
 
 # Vite
-[Vite](https://vitejs.dev) is a fast frontend build tool that compiles JavaScript, CSS, and other assets for production. FastAPI Startkit ships with first-party Vite integration through `ViteProvider`, supporting HMR in development and manifest-based asset fingerprinting in production.
+[Vite](https://vitejs.dev) is a fast frontend build tool that compiles your JavaScript, CSS, and other assets for production. FastAPI Startkit ships with first-party Vite integration through `ViteProvider`, so you get hot module replacement (HMR) while you develop and manifest-based asset fingerprinting when you deploy. Your templates call one helper, and the framework figures out whether to point at the dev server or the built files.
 
 ## Example App
 
-A fully working example is available in the [vite-app](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/vite-app) directory of the monorepo. It demonstrates the complete setup: `ViteProvider` registration, config, Vite config, and a template using `vite()`.
+If you'd like to see everything wired up first, take a look at the [vite-app](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/vite-app) directory of the monorepo. It shows the complete setup: `ViteProvider` registration, config, Vite config, and a template using `vite()`.
 
 ## Setup
 
-Install the `vite` extra:
+To get started, install the `vite` extra:
 
 ```bash
 pip install "fastapi-startkit[vite]"
@@ -35,7 +35,7 @@ app = Application(
 )
 ```
 
-Publish the default config and asset files:
+Next, publish the default config and asset files:
 
 ```bash
 uv run python artisan provider:publish --provider=vite
@@ -59,11 +59,11 @@ npm run dev
 ```
 
 > [!NOTE]
-> Ensure `APP_URL` in your `.env` matches your FastAPI server URL (e.g., `http://127.0.0.1:8000`) so that Vite's Hot Module Replacement (HMR) can correctly communicate with the backend.
+> Make sure `APP_URL` in your `.env` matches your FastAPI server URL (for example, `http://127.0.0.1:8000`) so that Vite's Hot Module Replacement (HMR) can communicate with the backend.
 
 ## Configuration
 
-`config/vite.py` uses a `ViteConfig` dataclass with these defaults:
+The published `config/vite.py` uses a `ViteConfig` dataclass with these defaults:
 
 ```python
 from fastapi_startkit.vite import ViteConfig
@@ -81,7 +81,7 @@ config = ViteConfig(
 )
 ```
 
-To use your own configuration, register the provider as a tuple with your `ViteConfig` class. Without it, the provider uses the defaults above.
+To use your own configuration, register the provider as a tuple with your `ViteConfig` class. If you leave it out, the provider falls back to the defaults above.
 
 ```python
 from config.vite import ViteConfig
@@ -95,7 +95,7 @@ app = Application(
 
 ## Loading a Page with JS and CSS
 
-`ViteProvider` sets up Jinja2 templates for you. Resolve `templates` from the container and return a `TemplateResponse`:
+`ViteProvider` sets up Jinja2 templates for you, so rendering a page is just a matter of resolving `templates` from the container and returning a `TemplateResponse`:
 
 ```python
 from starlette.requests import Request
@@ -106,7 +106,7 @@ async def index(request: Request):
     return templates.TemplateResponse(request, "index.html", {"title": "Home"})
 ```
 
-In your template, call `vite()` with the entry point to inject the JS and CSS tags:
+Then, in your template, call `vite()` with the entry point to inject the JS and CSS tags:
 
 ```html
 <!DOCTYPE html>
@@ -122,19 +122,19 @@ In your template, call `vite()` with the entry point to inject the JS and CSS ta
 </html>
 ```
 
-`vite()`, `vite_asset()`, and `vite_react_refresh()` are available as template globals. See [Template Helpers](#template-helpers).
+The `vite()`, `vite_asset()`, and `vite_react_refresh()` functions are all available as template globals. You'll find the details under [Template Helpers](#template-helpers).
 
 ## Development Mode (HMR)
 
-Start the Vite dev server:
+During development, start the Vite dev server:
 
 ```bash
 npm run dev
 ```
 
-When the `public/hot` file exists, the `Vite` class switches to HMR mode automatically. Asset tags point to the HMR server (default: `http://localhost:5173`) instead of the build directory.
+As long as the `public/hot` file exists, the `Vite` class switches to HMR mode automatically, and asset tags point to the HMR server (default: `http://localhost:5173`) instead of the build directory.
 
-The hot file's content is the HMR origin URL. Vite writes it automatically; you can also create it manually:
+The hot file contains the HMR origin URL. Vite writes it for you, but you can also create it by hand:
 
 ```
 http://localhost:5173
@@ -142,21 +142,21 @@ http://localhost:5173
 
 ## Production Mode
 
-Build your assets:
+When you're ready to deploy, build your assets:
 
 ```bash
 npm run build
 ```
 
-Vite writes `public/build/manifest.json`. The framework reads this manifest on first use, caches it in memory, and generates hashed asset URLs with preload tags.
+Vite writes a `public/build/manifest.json` file. The framework reads this manifest on first use, caches it in memory, and generates hashed asset URLs with preload tags.
 
 ## Template Helpers
 
-With Jinja2 templates registered (via `ViteProvider`), three globals are available:
+Once `ViteProvider` has registered Jinja2 templates, three globals are available in every template:
 
 ### `vite(entrypoint)`
 
-Generates `<script type="module">` and `<link rel="stylesheet">` tags plus `<link rel="modulepreload">` preloads for the given entry point:
+The `vite()` helper generates `<script type="module">` and `<link rel="stylesheet">` tags, plus `<link rel="modulepreload">` preloads, for the given entry point:
 
 ::: v-pre
 ```html
@@ -165,7 +165,7 @@ Generates `<script type="module">` and `<link rel="stylesheet">` tags plus `<lin
 ```
 :::
 
-Multiple entry points:
+You may also pass several entry points at once:
 
 ::: v-pre
 ```html
@@ -175,7 +175,7 @@ Multiple entry points:
 
 ### `vite_asset(path)`
 
-Returns the public URL for a non-entry-point asset (images, fonts, etc.):
+For assets that aren't entry points, such as images and fonts, `vite_asset()` returns the public URL:
 
 ::: v-pre
 ```html
@@ -185,7 +185,7 @@ Returns the public URL for a non-entry-point asset (images, fonts, etc.):
 
 ### `vite_react_refresh()`
 
-Injects the React Fast Refresh preamble. Required for React HMR. Must appear **before** `vite()`:
+If you're using React, `vite_react_refresh()` injects the React Fast Refresh preamble that React HMR needs. It must appear before `vite()`:
 
 ::: v-pre
 ```html
@@ -198,17 +198,19 @@ In production, `vite_react_refresh()` returns an empty string, so you can leave 
 
 ## CSP Nonce
 
+If your application sends a Content Security Policy, you can ask Vite for a nonce:
+
 ```python
 vite = app.make("vite")
 nonce = vite.use_csp_nonce()   # generates a random nonce
 # pass nonce to template context, set it in your CSP header
 ```
 
-All generated script and link tags will include the `nonce` attribute.
+Every script and link tag that Vite generates will then include the `nonce` attribute.
 
 ## Custom Asset URL Resolver
 
-Override how asset URLs are built (e.g., to add a CDN prefix dynamically):
+You can override how asset URLs are built, for example to add a CDN prefix dynamically:
 
 ```python
 vite = app.make("vite")
@@ -217,7 +219,7 @@ vite.create_asset_paths_using(lambda path: f"https://cdn.example.com/{path}")
 
 ## SRI Integrity
 
-The manifest chunk key `"integrity"` is read by default and included as the `integrity` attribute on generated tags. Change the key or disable it:
+By default, the manifest chunk key `"integrity"` is read and included as the `integrity` attribute on generated tags. You can change the key or turn the feature off:
 
 ```python
 vite.use_integrity_key("sri")   # use a different key
