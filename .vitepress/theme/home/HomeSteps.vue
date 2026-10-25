@@ -1,6 +1,6 @@
 <script setup lang="ts">
     const steps = [
-        { title: "Create", command: "uvx fastapi-startkit init my-app" },
+        { title: "Create", command: "uvx fastapi-startkit@latest init my-app" },
         { title: "Make a model", command: "uv run python artisan db:make:model Order" },
         { title: "Migrate", command: "uv run python artisan db:migrate" },
     ]

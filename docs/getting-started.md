@@ -33,36 +33,44 @@ Out of the box, you get:
 - FastAPI integration & routing
 - Frontend integration (Vite & Inertia)
 
-You build an application by registering providers. Pick the ones you need and hand them to the `Application`:
+You build an application by registering providers. Pick the ones you need and hand them to the `Application`. This is the `bootstrap/application.py` the installer writes for a web app with SQLite and React:
 
 ```python
 from pathlib import Path
+
 from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
+from fastapi_startkit.inertia import InertiaProvider
+from fastapi_startkit.logging import LogProvider
+from fastapi_startkit.masoniteorm import DatabaseProvider
+from fastapi_startkit.vite import ViteProvider
+
+from config.app import AppConfig
+from config.database import DatabaseConfig
+from config.fastapi import FastAPIConfig
+from config.logging import LoggingConfig
+from config.vite import ViteConfig
 
 app = Application(
-    base_path=Path(__file__).parent.parent,
+    base_path=Path(__file__).resolve().parent.parent,
+    config=AppConfig,
     providers=[
-        LogProvider,
+        (LogProvider, LoggingConfig),
         (DatabaseProvider, DatabaseConfig),
         (FastAPIProvider, FastAPIConfig),
-        McpProvider,
-        AISkillProvider,
-        (StorageProvider, StorageConfig),
-        AppProvider,
-        PluginProvider,
-        TerminalProvider,
         (ViteProvider, ViteConfig),
         InertiaProvider,
-        (ReverbProvider, BroadcastingConfig),
     ],
 )
 ```
 
-A provider can be listed on its own, or paired with a config object as a `(Provider, Config)` tuple when it needs configuration. Adding a capability means adding a provider to that list. For a real-world example, see the [Keera Agent `bootstrap/application.py`](https://github.com/Keera-Labs/keera-agent/blob/main/bootstrap/application.py#L23-L39).
+A provider can be listed on its own, or paired with a config class as a `(Provider, Config)` tuple when it needs configuration. The `config` modules live in your project. Adding a capability means adding a provider to that list, for example `StorageProvider`, `CacheProvider`, `RedisProvider`, `ReverbProvider` or `McpProvider`. The configuration, event and application providers are always registered, so you don't list them. For a real-world example, see the [Keera Agent `bootstrap/application.py`](https://github.com/Keera-Labs/keera-agent/blob/main/bootstrap/application.py#L23-L39).
 
 The quickest way to get going is the `fastapi-startkit init` installer, which creates a ready-to-run project. If you'd like to see what it generates, the manual setup further down walks through it.
 
 ## Creating a Project
+
+Run one command in a terminal:
 
 ::: code-group
 
@@ -71,27 +79,27 @@ The quickest way to get going is the `fastapi-startkit init` installer, which cr
 ```
 
 ```powershell [Windows]
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-uvx fastapi-startkit init my-app
+powershell -ExecutionPolicy ByPass -c "irm https://fastapi-startkit.github.io/install.ps1 | iex"
 ```
 
 ```bash [Existing uv]
-uvx fastapi-startkit init my-app
+uvx fastapi-startkit@latest init
 ```
 
 :::
 
-On macOS and Linux the script installs [uv](https://docs.astral.sh/uv/) when it is missing and then starts the installer. Arguments are passed through, for example `curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- my-app`, and `FASTAPI_STARTKIT_VERSION=0.67.0` pins a release. On Windows, install uv first, then open a new terminal if `uvx` is not found.
+The command installs [uv](https://docs.astral.sh/uv/) if you don't have it yet, then runs the latest FastAPI Startkit installer. Nothing else is installed on your system.
 
-`uvx` runs the installer without adding anything to your system. Leave out `my-app` and it asks where to create the project. In a terminal, it then asks:
+The installer asks a few questions. Press Enter to accept the default:
 
 | Question | Choices | Default |
 |---|---|---|
+| Where should the project be created? | A new or empty directory | `example-project` |
 | Which services should your application run? | Web (FastAPI routes and a health check), Worker (TaskIQ background jobs with a Redis broker) | Web |
 | Which database will your application use? | None, SQLite, PostgreSQL, MySQL | SQLite |
 | Which frontend would you like to install? | None (API only), React or Vue (Inertia, TypeScript and Tailwind) | None |
 
-The frontend question is skipped for worker-only projects. The installer then lists the files it will create, asks for confirmation, writes the project and runs `uv sync` to install dependencies:
+Worker-only projects skip the frontend question. The installer then shows the files it will create, asks you to confirm, writes the project and installs its dependencies:
 
 ```text
 Your application is ready.
@@ -102,7 +110,7 @@ Migrate: uv run python artisan db:migrate
 Start the server:
 
 ```bash
-cd my-app
+cd example-project
 uv run python artisan serve
 ```
 
@@ -110,11 +118,23 @@ Open http://127.0.0.1:8000 for the welcome response and `/health` for the health
 
 ### Installer options
 
-Pass options to skip the questions, for example in scripts or CI:
+To skip questions, add the directory and options after the command:
 
-```bash
-uvx fastapi-startkit init my-app --app=web --database=postgres --frontend=react --no-interaction
+::: code-group
+
+```bash [macOS / Linux]
+curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- my-app --database=postgres
 ```
+
+```powershell [Windows]
+& ([scriptblock]::Create((irm https://fastapi-startkit.github.io/install.ps1))) my-app --database=postgres
+```
+
+```bash [Existing uv]
+uvx fastapi-startkit@latest init my-app --database=postgres
+```
+
+:::
 
 | Option | Values |
 |---|---|
@@ -123,9 +143,9 @@ uvx fastapi-startkit init my-app --app=web --database=postgres --frontend=react 
 | `--frontend` | `none`, `react` or `vue` |
 | `--dry-run` | Show the files and dependencies without creating anything |
 | `--no-deps` | Generate files without running `uv sync` |
-| `--no-interaction` / `-n` | Use the defaults for options you didn't pass |
+| `--no-interaction` / `-n` | Use the defaults for options you didn't pass, for example in scripts or CI |
 
-The directory must be new or empty. `uvx` reuses the version it cached first; run `uvx fastapi-startkit@latest init my-app` to make sure you get the newest release.
+The directory must be new or empty. The install scripts always use the latest release; to use a specific one, set `FASTAPI_STARTKIT_VERSION`, for example `FASTAPI_STARTKIT_VERSION=0.67.0` on macOS and Linux or `$env:FASTAPI_STARTKIT_VERSION = "0.67.0"` in PowerShell.
 
 With PostgreSQL or MySQL, set the credentials in `.env` and start the database server before running `uv run python artisan db:migrate`. With React or Vue, install Node.js 22.12 or newer and run `npm install && npm run dev` in a second terminal.
 

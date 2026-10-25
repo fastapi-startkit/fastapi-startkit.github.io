@@ -35,14 +35,14 @@ find_uv() {
 
 case "$(uname -s)" in
     Darwin | Linux) ;;
-    *) fail "this installer supports macOS and Linux; with uv installed, run: uvx fastapi-startkit init" ;;
+    *) fail "this installer supports macOS and Linux; on Windows use https://fastapi-startkit.github.io/install.ps1" ;;
 esac
 
 if ! uv="$(find_uv)"; then
     printf 'Installing uv...\n'
     installer="$(download https://astral.sh/uv/install.sh)"
     sh -c "$installer"
-    uv="$(find_uv)" || fail "uv was installed but could not be found; open a new terminal and run: uvx fastapi-startkit init"
+    uv="$(find_uv)" || fail "uv was installed but could not be found; open a new terminal and run: uvx fastapi-startkit@latest init"
 fi
 
 export PATH="$(dirname "$uv"):$PATH"
