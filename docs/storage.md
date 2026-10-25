@@ -270,7 +270,7 @@ class MemoryDiskConfig(Config):
     prefix: str = ""
 ```
 
-Config subclasses do not need `@dataclass`: fields with defaults and `env()` values are resolved when the config is created.
+Config subclasses do not need `@dataclass` when their fields use `env()` or simple defaults such as `str`, `int`, `bool` or `None`. For `dict` or `list` defaults, use `field(default_factory=...)` or `@dataclass`.
 
 Add it to the `disks` of your `StorageConfig`, and point `default` at it if you want it to be the default disk:
 
