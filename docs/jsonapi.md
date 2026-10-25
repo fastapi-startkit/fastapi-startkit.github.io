@@ -6,17 +6,19 @@ description: Return JSON:API documents from FastAPI endpoints with JsonResource,
 
 # JSON:API Resources
 
-`JsonResource` turns a model into a JSON:API document. It derives the resource type from the class name, serializes the model's attributes, and handles `include`, sparse fieldsets, and pagination meta.
+When you build an API that follows the JSON:API specification, every response has to follow the same document structure. Writing that by hand for every endpoint gets old fast. `JsonResource` does it for you, turning a model into a JSON:API document. It derives the resource type from the class name, serializes the model's attributes, and handles `include`, sparse fieldsets, and pagination meta.
 
 ## Installation
 
-The JSON:API module needs nothing beyond the core package:
+There's nothing extra to install; the JSON:API module ships with the core package:
 
 ```bash
 uv add fastapi-startkit
 ```
 
 ## Quick Start
+
+To create a resource, extend `JsonResource` with your model. For most models, that's all it takes:
 
 ```python
 from fastapi_startkit.jsonapi import JsonResource
@@ -25,7 +27,7 @@ class PostResource(JsonResource["Post"]):
     pass  # type="posts", attributes from Post.serialize() automatically
 ```
 
-Return the resource from an endpoint. The `?include=` and `?fields[*]=` query parameters are applied for you:
+Then return the resource from an endpoint. The `?include=` and `?fields[*]=` query parameters are applied for you:
 
 ```python
 @app.get("/api/posts/{id}")
@@ -49,7 +51,7 @@ async def get_post(id: int):
 
 ## Fluent Chain API
 
-Use `.include()` and `.fields()` to choose what is serialized. `.fields()` takes plain names for the primary resource and `"type.field"` for related resources:
+When you want to decide on the server what gets serialized, use `.include()` and `.fields()`. `.fields()` takes plain names for the primary resource and `"type.field"` for related resources:
 
 ```python
 # Sideload a relationship
@@ -76,11 +78,11 @@ The same chain API works on collections:
 return PostResource.collection(posts).include("author").fields("title", "users.name")
 ```
 
-If you return a resource without calling these methods, the `?include=` and `?fields[*]=` query parameters from the request are used instead. Both produce the same result: the chain fixes the output on the server, and the query string lets the client choose.
+If you return a resource without calling these methods, the `?include=` and `?fields[*]=` query parameters from the request are used instead. Either way you get the same result. The only difference is who decides: the chain fixes the output on the server, while the query string lets the client choose.
 
 ## Auto-Type Derivation
 
-The `type` field is derived from the class name via `inflection.tableize()`:
+You rarely need to set the `type` field yourself. It is derived from the class name using `inflection.tableize()`:
 
 | Class name | Derived type |
 |---|---|
@@ -89,7 +91,7 @@ The `type` field is derived from the class name via `inflection.tableize()`:
 | `AgentResource` | `"agents"` |
 | `UserProfileResource` | `"user_profiles"` |
 
-Override `type` to use a custom value:
+If you'd like a different value, override `type`:
 
 ```python
 class PostResource(JsonResource[Post]):
@@ -107,6 +109,8 @@ class PostResource(JsonResource[Post]):
 
 ### Hiding Sensitive Fields
 
+You'll usually want to keep things like password hashes and tokens out of your responses. List them in `hidden`:
+
 ```python
 class UserResource(JsonResource[User]):
     hidden = ["password", "remember_token", "api_key"]
@@ -120,6 +124,8 @@ class UserResource(JsonResource[User]):
 ```
 
 ## Collections
+
+To return a list of models, call `collection()` instead of creating a single resource:
 
 ```python
 @app.get("/api/posts")
@@ -139,7 +145,7 @@ async def list_posts():
 
 ### Paginated Collections
 
-Pass a `LengthAwarePaginator` or `SimplePaginator` and the pagination meta is added. A `SimplePaginator` has no `total` or `last_page`:
+When you pass a `LengthAwarePaginator` or `SimplePaginator`, the pagination meta is added for you. A `SimplePaginator` has no `total` or `last_page`:
 
 ```python
 @app.get("/api/posts")
@@ -165,7 +171,7 @@ async def list_posts(page: int = 1):
 
 ## Extra Envelope Keys — `with_()`
 
-Override `with_()` to merge extra top-level keys into the document:
+To merge extra top-level keys into the document, override `with_()`:
 
 ```python
 class ArticleResource(JsonResource[Article]):
@@ -180,7 +186,7 @@ class ArticleResource(JsonResource[Article]):
 
 ## Relationships
 
-`to_relationships()` returns a dict. Each value is a resource class, a lambda, or a resource instance:
+To describe a resource's relationships, override `to_relationships()`. It returns a dict, and each value can be a resource class, a lambda, or a resource instance:
 
 ```python
 class PostResource(JsonResource[Post]):
@@ -202,7 +208,7 @@ class PostResource(JsonResource[Post]):
 
 The key name drives the lookup for the class-reference form (`"author"` → `self.model.author`).
 
-Sideload with `.include()`:
+To sideload related resources, use `.include()`:
 
 ```python
 return PostResource(post).include("author")
@@ -228,16 +234,18 @@ For nested relationships, include the parent too: `.include("author", "author.co
 
 ## Sparse Fieldsets
 
-Pass plain field names for the primary resource, and `"type.field"` to restrict a related resource's attributes:
+Sparse fieldsets let you trim the attributes in a response. Pass plain field names for the primary resource, and `"type.field"` to restrict a related resource's attributes:
 
 ```python
 # GET /api/posts?fields[posts]=title,created_at&fields[users]=name&include=author
 return PostResource(post).include("author").fields("title", "created_at", "users.name")
 ```
 
-Without chain methods, `?fields[posts]=title,created_at` in the URL does the same.
+If you skip the chain methods, `?fields[posts]=title,created_at` in the URL does the same thing.
 
 ## Overridable Hooks
+
+These are the methods you can override to shape the document:
 
 | Method | Purpose |
 |---|---|
@@ -248,6 +256,8 @@ Without chain methods, `?fields[posts]=title,created_at` in the URL does the sam
 | `with_()` | Extra top-level envelope keys merged last |
 
 ## Query-Param Helpers
+
+If you need to read the `include` and `fields` query parameters yourself, the module exports two small helpers:
 
 ```python
 from fastapi_startkit.jsonapi import parse_include, parse_fields
@@ -260,6 +270,8 @@ fields = parse_fields(dict(request.query_params))
 ```
 
 ## Full Example
+
+Here's how the pieces fit together:
 
 ```python
 from fastapi import Query, Request

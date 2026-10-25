@@ -7,11 +7,11 @@ keywords: cli, console, commands, automation, cleo
 
 # Console Commands
 
-Console commands are built on [Cleo](https://cleo.readthedocs.io/en/latest/) and run through your `artisan` script, as in Laravel.
+Not everything your application does happens in response to an HTTP request. Data imports, cleanup jobs, and one-off maintenance tasks are often easier to run from the terminal. FastAPI Startkit lets you write these as console commands, built on [Cleo](https://cleo.readthedocs.io/en/latest/) and run through your `artisan` script, much like in Laravel.
 
 ## Creating a Command
 
-A command is a class that extends `fastapi_startkit.console.Command`, a subclass of Cleo's `Command`. Set its `name` and `description`, declare any `arguments` or `options`, and put the work in `handle()`:
+A command is a class that extends `fastapi_startkit.console.Command`, a subclass of Cleo's `Command`. Give it a `name` and `description`, declare any `arguments` or `options` it accepts, and put the actual work in `handle()`:
 
 ```python
 from cleo.helpers import argument
@@ -41,7 +41,7 @@ class HelloCommand(Command):
 
 ## Registering Commands
 
-Register commands from a service provider.
+Before you can run a command, you need to register it from a service provider. It only takes three steps.
 
 ### 1. Create a Service Provider
 
@@ -76,7 +76,7 @@ app = Application(
 
 ### 3. Handle Commands in Entry Point
 
-Your `artisan` script hands the command line to `app.handle_command()`:
+Finally, your `artisan` script hands the command line over to `app.handle_command()`:
 
 ```python
 #!/usr/bin/env python3
@@ -90,11 +90,13 @@ if __name__ == "__main__":
 
 ## Running the Command
 
+With everything registered, run your command by name:
+
 ```bash
 uv run python artisan hello
 ```
 
-Run `artisan` with no arguments to list every command:
+To see every command available, run `artisan` with no arguments:
 
 ```bash
 uv run python artisan
@@ -102,4 +104,4 @@ uv run python artisan
 
 ## Example Application
 
-See the [console example app](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/console-app) for a complete project.
+For a complete project, take a look at the [console example app](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/console-app).

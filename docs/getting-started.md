@@ -1,39 +1,39 @@
 ---
 outline: deep
 title: Getting Started
-description: Create a Fastapi Startkit application with uvx fastapi-startkit init, or set one up by hand.
+description: Create a FastAPI Startkit application with uvx fastapi-startkit init, or set one up by hand.
 keywords: fastapi, starter, framework, python, tutorial
 jsonLd:
   "@type": "TechArticle"
-  "headline": "Getting Started with Fastapi Startkit"
-  "description": "How to install Fastapi Startkit and set up a new Python project."
+  "headline": "Getting Started with FastAPI Startkit"
+  "description": "How to install FastAPI Startkit and set up a new Python project."
   "articleSection": "Guide"
   "author":
     "@type": "Organization"
-    "name": "Fastapi Startkit Team"
+    "name": "FastAPI Startkit Team"
 ---
 
 # Introduction
 
-FastAPI is excellent for quickly building APIs, but it intentionally leaves many application-level concerns to the developer. Things like [environment management](/docs/configuration#loading-environment-variables) (including [multiple environments](/docs/configuration#choosing-the-environment-via-the-cli)), [logging](/docs/logging), [database](/docs/database/) setup, [configuration](/docs/configuration), [CLI commands](/docs/console), [storage](/docs/storage), [queues](/docs/queues), [cache](/docs/cache), [Redis](/docs/redis), and other infrastructure are things you typically need to design and wire together yourself.
+FastAPI is a joy for building APIs quickly, but it deliberately leaves most application-level concerns up to you. Things like [environment management](/docs/configuration#loading-environment-variables) (including [multiple environments](/docs/configuration#choosing-the-environment-via-the-cli)), [logging](/docs/logging), [database](/docs/database/) setup, [configuration](/docs/configuration), [CLI commands](/docs/console), [storage](/docs/storage), [queues](/docs/queues), [cache](/docs/cache), [Redis](/docs/redis), and the rest of your infrastructure are yours to design and wire together.
 
-In our case, we were building multiple microservices, and we found ourselves repeatedly copying the same bootstrap code between projects. Over time, that became repetitive and harder to maintain consistently.
+We were building several microservices and kept copying the same bootstrap code from one project to the next. Before long, keeping all those copies consistent became a chore.
 
-So we decided to open source it as FastAPI Startkit, an application framework that brings proven patterns from mature web frameworks into Python and FastAPI.
+So we pulled that code out and open sourced it as FastAPI Startkit, an application framework that brings proven patterns from mature web frameworks to Python and FastAPI.
 
-The goal is not to replace FastAPI. Instead, it provides a structured foundation for building larger applications while staying modular — you can use only the components you need. That said, **it doesn't enforce you to use FastAPI at all** — you can build entirely headless CLI utilities, cron scripts, or background task workers and still get access to the full suite of infrastructure components.
+FastAPI Startkit isn't trying to replace FastAPI. It gives you a structured foundation for larger applications while staying modular, so you only pull in the components you need. In fact, you don't have to use FastAPI at all: you can build headless CLI utilities, cron scripts, or background workers and still use every one of the infrastructure components.
 
-Some features include:
+Out of the box, you get:
 
-- 🪵 Logging
-- 🗄️ Async database ORM, migrations & seeders
-- 🖥️ CLI console commands
-- 🧩 Service providers
-- 🧵 Queue workers with TaskIQ
-- ⚡ FastAPI integration & routing
-- 🎨 Frontend integration (Vite & Inertia)
+- Logging
+- Async database ORM, migrations & seeders
+- CLI console commands
+- Service providers
+- Queue workers with TaskIQ
+- FastAPI integration & routing
+- Frontend integration (Vite & Inertia)
 
-An application is composed by **registering providers** — you pick the ones you need and hand them to the `Application`:
+You build an application by registering providers. Pick the ones you need and hand them to the `Application`:
 
 ```python
 from pathlib import Path
@@ -58,9 +58,9 @@ app = Application(
 )
 ```
 
-A provider can be listed on its own, or paired with a config object as a `(Provider, Config)` tuple when it needs configuration. Adding a capability is as simple as adding a provider to that list. For a real-world example, see the [Keera Agent `bootstrap/application.py`](https://github.com/Keera-Labs/keera-agent/blob/main/bootstrap/application.py#L23-L39).
+A provider can be listed on its own, or paired with a config object as a `(Provider, Config)` tuple when it needs configuration. Adding a capability means adding a provider to that list. For a real-world example, see the [Keera Agent `bootstrap/application.py`](https://github.com/Keera-Labs/keera-agent/blob/main/bootstrap/application.py#L23-L39).
 
-The quickest start is the `fastapi-startkit init` installer, which creates a ready-to-run project. The manual setup further down shows what it generates.
+The quickest way to get going is the `fastapi-startkit init` installer, which creates a ready-to-run project. If you'd like to see what it generates, the manual setup further down walks through it.
 
 ## Creating a Project
 
@@ -134,7 +134,7 @@ With PostgreSQL or MySQL, set the credentials in `.env` and start the database s
 If you use a coding agent, it can scaffold the project for you. Open the agent in an empty directory and paste this prompt:
 
 ```text
-Scaffold a new Python project using the Fastapi Startkit framework
+Scaffold a new Python project using the FastAPI Startkit framework
 (https://pypi.org/project/fastapi-startkit/, docs at https://fastapi-startkit.github.io).
 
 Requirements:
@@ -153,7 +153,7 @@ Requirements:
    and calls `app.handle_command()`, exiting with its status code.
 5. Verify the server boots with `uv run python artisan serve`.
 
-Follow the conventions in the Fastapi Startkit "Getting Started" guide. Keep the code
+Follow the conventions in the FastAPI Startkit "Getting Started" guide. Keep the code
 clean and minimal — register only what the requirements ask for.
 ```
 
@@ -161,14 +161,14 @@ The agent installs the framework, creates the directories, and leaves you with a
 
 ## Manual Setup
 
-To add the framework to an existing project, or to wire the application yourself, follow the steps below.
+If you're adding the framework to an existing project, or you'd rather wire the application up yourself, follow the steps below.
 
 ### Prerequisites
 
 You need Python, and we recommend uv.
 
 #### 1. Python
-Fastapi Startkit supports **Python 3.12, 3.13, 3.14 and 3.15**. You can download it from [python.org](https://www.python.org/downloads/), or if you have **uv** installed, simply run:
+FastAPI Startkit supports Python 3.12, 3.13, 3.14 and 3.15. You can download it from [python.org](https://www.python.org/downloads/), or, if you already have uv installed, run:
 
 ```bash
 uv python install 3.12
@@ -205,7 +205,7 @@ APP_ENV=local
 
 ### Way 1: Simple Setup
 
-For a small project or a prototype, put everything in one file, such as `main.py`:
+For a small project or a prototype, you can put everything in a single file, such as `main.py`:
 
 ```python
 from pathlib import Path
@@ -237,11 +237,11 @@ uv run python main.py serve
 
 ### Way 2: Structured Setup
 
-For a larger application, split the code the way `fastapi-startkit init` does into a bootstrap file, config classes, and providers.
+As your application grows, you'll want to split the code the way `fastapi-startkit init` does: a bootstrap file, config classes, and providers.
 
 #### Option A: Use the Boilerplate Repository
 
-Clone the boilerplate to start with FastAPI, logging, and the database already configured:
+Clone the boilerplate and you'll start with FastAPI, logging, and the database already configured:
 
 ```bash
 git clone https://github.com/fastapi-startkit/fastapi_startkit my-project
@@ -297,7 +297,7 @@ uv run python artisan serve
 
 ## Running with Uvicorn
 
-To pass your own Uvicorn flags, for example in production, point Uvicorn at the app instance. Calling `app` returns the FastAPI instance, so add `--factory`:
+When you want to pass your own Uvicorn flags, for example in production, point Uvicorn at the app instance. Calling `app` returns the FastAPI instance, so add `--factory`:
 
 ```bash
 uv run uvicorn bootstrap.application:app --factory --reload

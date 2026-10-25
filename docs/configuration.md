@@ -7,11 +7,13 @@ keywords: configuration, environment, settings, fastapi
 
 # Configuration
 
-Configuration comes from environment variables. The application loads your `.env` files when it boots, and config classes read those variables when you create them.
+Most of your application's settings, such as database credentials, API keys, and ports, change from one environment to the next. FastAPI Startkit keeps them in environment variables, so the same code runs on your laptop and in production with nothing more than a different `.env` file.
+
+The application loads your `.env` files when it boots, and your config classes read those variables when you create them. You get typed, grouped settings without hard-coding a single value.
 
 ## Loading Environment Variables
 
-`Application` loads `.env` when you create it:
+As soon as you create an `Application`, it loads your `.env` file:
 
 ```python
 from fastapi_startkit import Application
@@ -20,15 +22,15 @@ from pathlib import Path
 app = Application(base_path=Path(__file__).parent.parent)
 ```
 
-`APP_ENV` sets the environment name. Set it in the process or in `.env`; if it's missing, the app raises a `ValueError` on boot. Under pytest it is always `testing`.
+The `APP_ENV` variable sets the environment name. You can set it in the process or in `.env`; if it's missing, the app raises a `ValueError` on boot. Under pytest it is always `testing`.
 
-To pick the environment in code, pass `env` to the constructor. It takes priority over `APP_ENV`:
+If you'd rather pick the environment in code, pass `env` to the constructor. It takes priority over `APP_ENV`:
 
 ```python
 app = Application(base_path=Path(__file__).parent.parent, env='production')
 ```
 
-`.env` is loaded first. If `.env.<environment>` exists, it is loaded on top and its keys win:
+`.env` is always loaded first. If a matching `.env.<environment>` file exists, it is loaded on top, and its keys win:
 
 ```
 .env                ← always loaded
@@ -38,7 +40,7 @@ app = Application(base_path=Path(__file__).parent.parent, env='production')
 
 ### Choosing the Environment via the CLI
 
-Pass `--env` to `artisan`. It is read before any command runs:
+You can also choose the environment from the command line by passing `--env` to `artisan`. It is read before any command runs:
 
 ```bash
 uv run python artisan --env=production   # .env → .env.production
@@ -48,7 +50,7 @@ uv run python artisan                     # .env, plus .env.<APP_ENV> if it exis
 
 ### The `env()` Helper
 
-`env(name, default, cast=True)` reads an environment variable. It returns a dataclass field, so use it as the default of a field on a config class. The variable is read when you create an instance:
+`env(name, default, cast=True)` reads an environment variable. Because it returns a dataclass field, you use it as the default of a field on a config class. The variable is read each time you create an instance:
 
 ```python
 from dataclasses import dataclass
@@ -61,7 +63,7 @@ class AppConfig:
     debug: bool = env('APP_DEBUG', False)
 ```
 
-How the value is cast depends on the default:
+How the value is cast depends on the default you give it:
 
 | Call | Result |
 |---|---|
@@ -75,7 +77,7 @@ How the value is cast depends on the default:
 
 ### Reading a Value Outside a Class
 
-`value()` resolves an `env()` field to its value. Use it when you need one variable outside a config class:
+Sometimes you just need a single variable outside a config class. For that, `value()` resolves an `env()` field to its value:
 
 ```python
 from fastapi_startkit.environment import env, value
@@ -95,7 +97,7 @@ into('redis')   # 'redis'
 
 ## Defining Config from Environment Variables
 
-Put each group of settings in its own dataclass under `config/`. Create instances only after the application has booted, so the `.env` files are loaded:
+Put each group of settings in its own dataclass under `config/`. Make sure you create instances only after the application has booted, so the `.env` files are already loaded:
 
 ```python
 # config/redis.py
@@ -124,7 +126,7 @@ RedisConfig().options  # {'decode_responses': True}
 
 ## Switching Environment at Runtime
 
-To change the environment after boot, call `set_environment()` and then `load_environment()`. Config instances created afterwards read the new values. Use this in scripts and test setup that need another environment without restarting the process:
+To change the environment after boot, call `set_environment()` and then `load_environment()`. Config instances you create afterwards read the new values. This comes in handy in scripts and test setup that need another environment without restarting the process:
 
 ```python
 # .env         →  REDIS_HOST=host.default
@@ -140,7 +142,7 @@ RedisConfig().host  # 'host.testing'
 
 ### Registering with Config
 
-Register an instance with `Config` to read it by dotted key from anywhere:
+Once you register an instance with `Config`, you can read it by dotted key from anywhere in your application:
 
 ```python
 from fastapi_startkit import Config
@@ -153,9 +155,9 @@ Config.get('redis.options')                   # {'decode_responses': True}
 Config.get('redis.options.decode_responses')  # True
 ```
 
-`Config.set()` stores the instance's values as they are. If the environment changes later, create a new instance and call `Config.set()` again.
+Keep in mind that `Config.set()` stores the instance's values as they are at that moment. If the environment changes later, create a new instance and call `Config.set()` again.
 
-Check, override, or list values:
+You can also check, override, or list values:
 
 ```python
 Config.has('redis.host')               # True

@@ -7,15 +7,13 @@ keywords: authentication, fastapi auth, sessions, csrf, api tokens, oauth2, oaut
 
 # Authentication
 
-Authentication lives in the [`fastapi-startkit-auth`](https://github.com/fastapi-startkit/fastapi-startkit-auth) package. It supports three ways to authenticate users:
+Almost every application needs to know who is making a request. FastAPI Startkit handles this through the [`fastapi-startkit-auth`](https://github.com/fastapi-startkit/fastapi-startkit-auth) package, which gives you three ways to authenticate users:
 
 - cookie sessions for server-rendered pages and same-site SPAs
 - opaque API tokens for mobile apps, CLIs and scripts
 - an OAuth 2.1 authorization server for clients you don't own
 
-The package is split into four providers. `AuthProvider` is always required.
-Register only the feature providers you use. Each one has its own config,
-routes and migrations.
+You can mix and match these to fit your application. The package is split into four providers: `AuthProvider` is always required, and you register only the feature providers you actually use. Each one brings its own config, routes and migrations.
 
 | Provider | Config | Adds | Tables |
 | --- | --- | --- | --- |
@@ -40,8 +38,7 @@ pip install fastapi-startkit-auth
 
 :::
 
-The package runs standalone on any FastAPI app. Add an extra for the database
-stores and the Startkit integration:
+You don't need the rest of the framework to use it, since the package runs standalone on any FastAPI app. To use the database stores or the Startkit integration, add an extra:
 
 | Extra | Installs | Use it for |
 | --- | --- | --- |
@@ -54,15 +51,14 @@ uv add "fastapi-startkit-auth[startkit]"
 
 ## Registering the providers
 
-Register `AuthProvider` first. The feature providers add to the `AuthManager`
-it builds. If a feature provider comes first, it fails with
+Always register `AuthProvider` first, because the feature providers add to the `AuthManager` it builds. If a feature provider comes first, it fails with
 `Register AuthProvider before AuthSessionProvider.` (standalone) or
 `List AuthProvider before AuthSessionProvider in the application providers.`
 (Startkit).
 
 ### Standalone FastAPI
 
-Construct each provider with its config and call `register(app)`:
+On a plain FastAPI app, construct each provider with its config and call `register(app)`:
 
 ```python
 from fastapi import FastAPI
@@ -92,7 +88,7 @@ doesn't need the Startkit framework installed.
 
 ### Startkit
 
-List the providers in the application, each paired with its config:
+In a Startkit application, list the providers in the application, each paired with its config:
 
 ```python
 from fastapi_startkit import Application
@@ -118,8 +114,7 @@ app = Application(
 )
 ```
 
-A provider listed without a config uses its config class's defaults. Under
-Startkit:
+A provider listed without a config uses its config class's defaults. Under Startkit, the providers also take care of a few extra things:
 
 - `AuthProvider` binds the manager as `auth_manager` in the container.
 - On boot, `AuthProvider` installs the middleware and exception handler, then
@@ -149,9 +144,7 @@ python artisan db:migrate
 
 ## Core: AuthProvider
 
-`AuthConfig` declares the guards, user providers and password brokers.
-Write it as a class whose attributes are the settings; a plain dict with the
-same keys also works.
+`AuthConfig` declares the guards, user providers and password brokers. You write it as a class whose attributes are the settings, though a plain dict with the same keys works too.
 
 ```python
 from fastapi_startkit_auth import AuthConfig
@@ -233,8 +226,7 @@ The reset token never appears in the response, unless
 
 ### The Auth facade
 
-`Auth` works on the class inside any request, or as a dependency through
-`Depends(Auth.scoped)`. The package ships no login routes; write your own:
+`Auth` works on the class inside any request, or as a dependency through `Depends(Auth.scoped)`. The package doesn't ship any login routes, so you write your own:
 
 ```python
 from fastapi import FastAPI
@@ -271,8 +263,7 @@ def logout():
 | `Auth.user(guard=None)` / `Auth.id(...)` / `Auth.check(...)` | The current user, its id, or whether one is authenticated. Never raises |
 | `Auth.guard(name=None)` | The guard object |
 
-With an async user provider or session store, use `AsyncAuth`. It has the same
-methods as coroutines. `Auth` refuses an async session guard with a
+If you're using an async user provider or session store, reach for `AsyncAuth` instead. It has the same methods, as coroutines. `Auth` refuses an async session guard with a
 `RuntimeError` that points at `AsyncAuth`.
 
 ## Sessions: AuthSessionProvider
@@ -300,7 +291,7 @@ SessionConfig(
 
 Sessions back the `session` guard driver, `Auth.login` and `Auth.logout`.
 
-The `Session` facade works inside a request:
+Inside a request, you can work with the session through the `Session` facade:
 
 | Method | Does |
 | --- | --- |
@@ -338,9 +329,7 @@ ApiTokenConfig(
 ```
 
 API tokens are opaque strings of the form `{id}|{secret}`. Only a hash of the
-secret is stored, so the plaintext is available once, at creation. Issue tokens
-with the `ApiToken` facade. Its methods are awaitable for sync and async stores
-alike:
+secret is stored, so the plaintext is available once, at creation. You issue tokens with the `ApiToken` facade, whose methods are awaitable for sync and async stores alike:
 
 ```python
 from fastapi import FastAPI
@@ -505,8 +494,7 @@ The command:
   scope catalog); without it the client may request any scope
 - prints the secret once, for confidential clients
 
-In code, use the manager's client repository. Each call returns the client and
-the plaintext secret, which is `None` for a public client:
+To create clients in code, use the manager's client repository. Each call returns the client and the plaintext secret, which is `None` for a public client:
 
 ```python
 manager = app.state.auth_manager  # or container.make("auth_manager") under Startkit
@@ -638,7 +626,7 @@ Add `"password"` to `grant_types` to enable `grant_type=password` on
 
 ## Stores
 
-Every persistent piece of state has a `driver` setting with the same names:
+Sessions, API tokens, OAuth tokens and clients all need somewhere to live. Every persistent piece of state has a `driver` setting, and the driver names are the same everywhere:
 
 | Config | Default `driver` | Persistent store |
 | --- | --- | --- |
@@ -647,14 +635,14 @@ Every persistent piece of state has a `driver` setting with the same names:
 | `OAuthTokenConfig` (`OAuth2Config.tokens`) | `"memory"` | `"database"` → `OrmTokenRepository`, tables `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_auth_codes` |
 | `OAuthClientConfig` (`OAuth2Config.clients`) | `"database"` | `"database"` → `OrmClientRepository`, table `oauth_clients` |
 
-- **`"database"`** is the persistent store. It uses the fastapi-startkit ORM
+- `"database"` is the persistent store. It uses the fastapi-startkit ORM
   (`pip install "fastapi-startkit-auth[startkit]"`). `connection` names a
   database connection; leave it out to use the default one. Run the
   [migrations](#migrations) first.
-- **`"memory"`** keeps state in the process. Use it for tests and
+- `"memory"` keeps state in the process. Use it for tests and
   single-process demos. It is lost on restart.
-- **`"instance"`** uses a ready-made store object passed as `instance=`.
-- **`"orm"`** is a deprecated alias of `"database"`. It still works on all four
+- `"instance"` uses a ready-made store object passed as `instance=`.
+- `"orm"` is a deprecated alias of `"database"`. It still works on all four
   configs, but emits a `DeprecationWarning` and will be removed.
 - The former `"sql"` and `"async_sql"` stores were removed. Configuring one
   for sessions, API tokens or OAuth tokens raises a `ValueError` that points at
@@ -729,7 +717,7 @@ def reports(ctx=Depends(require_scopes("reports:read"))):   # 403 insufficient_s
 - `auth` returns the `AuthContext` (`user`, `scopes`, `client_id`, `jti`,
   `can(...)`, `can_any(...)`, `can_all(...)`) and rejects user-less tokens.
 
-These dependencies resolve the request through the **default guard**
+These dependencies resolve the request through the default guard
 (`AuthConfig.default["guard"]`). To read another guard in a route, use the
 facade, for example `Auth.user("api")` or `Auth.check("api")`.
 
@@ -758,7 +746,7 @@ response is still `400 invalid_grant`.
 
 ## Upgrading from 0.6
 
-v0.7.0 renames the store setting, two config classes and the exception classes.
+v0.7.0 renames the store setting, two config classes and the exception classes. Here's what you need to change when you upgrade:
 
 - **`store` is now `driver`** on `SessionConfig`, `ApiTokenConfig`,
   `OAuthTokenConfig` and `OAuthClientConfig`, including the dict form.

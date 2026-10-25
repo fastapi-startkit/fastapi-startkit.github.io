@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-    title: "Fastapi Startkit",
+    title: "FastAPI Startkit",
     description: "FastAPI Startkit is a batteries-included starter kit and boilerplate for building Python applications with FastAPI. Includes SQLAlchemy async ORM, Alembic migrations, reusable components, service providers, CLI console commands, Vite frontend integration, and Inertia.js support.",
     cleanUrls: true,
     lastUpdated: true,
@@ -29,7 +29,7 @@ export default defineConfig({
         const defaultDescription = 'FastAPI Startkit is a batteries-included starter kit and boilerplate for building Python applications with FastAPI. Includes async ORM powered by SQLAlchemy, migrations, reusable components, service providers, CLI console commands, Vite frontend integration, and Inertia.js support.'
         const defaultKeywords = 'FastAPI, FastAPI starter kit, FastAPI boilerplate, Python starter kit, Python boilerplate, SQLAlchemy, SQLAlchemy async, Fastapi migrations, FastAPI components, service providers, FastAPI framework, Python framework, FastAPI template, FastAPI scaffold, FastAPI ORM, FastAPI CLI, FastAPI Inertia, FastAPI Vite, FastAPI SQLAlchemy, async Python, Python web framework'
 
-        const title = pageData.frontmatter.title || pageData.title || 'Fastapi Startkit'
+        const title = pageData.frontmatter.title || pageData.title || 'FastAPI Startkit'
         const description = pageData.frontmatter.description || pageData.description || defaultDescription
         const url = `https://fastapi-startkit.github.io/${pageData.relativePath.replace(/\.md$/, '')}`
         const keywords = pageData.frontmatter.keywords || defaultKeywords
@@ -95,12 +95,12 @@ export default defineConfig({
                     "@type": "WebSite",
                     "@id": "https://fastapi-startkit.github.io/#website",
                     "url": "https://fastapi-startkit.github.io/",
-                    "name": "Fastapi Startkit",
+                    "name": "FastAPI Startkit",
                     "description": defaultDescription,
                     "inLanguage": "en-US",
                     "publisher": {
                         "@type": "Organization",
-                        "name": "Fastapi Startkit",
+                        "name": "FastAPI Startkit",
                         "logo": {
                             "@type": "ImageObject",
                             "url": "https://fastapi-startkit.github.io/logo.png"
@@ -131,7 +131,7 @@ export default defineConfig({
                 graph.push({
                     "@type": "Person",
                     "@id": "https://fastapi-startkit.github.io/#author",
-                    "name": pageData.frontmatter.author || "Fastapi Startkit Team",
+                    "name": pageData.frontmatter.author || "FastAPI Startkit Team",
                     "url": "https://github.com/fastapi-startkit"
                 })
             }

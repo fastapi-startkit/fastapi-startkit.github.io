@@ -1,22 +1,24 @@
 ---
 outline: deep
 title: Database Testing
-description: Test your database logic with automatic migrations and transactions in Fastapi Startkit.
+description: Test your database logic with automatic migrations and transactions in FastAPI Startkit.
 keywords: database testing, migrations, transactions, orm, pytest
 ---
 
 # Database Testing
 
-Two mixins keep database state isolated between tests: `RefreshDatabase` and `DatabaseTransaction`. Both wrap each test in a transaction and roll it back when the test ends.
+Tests that touch the database have a habit of stepping on each other: a user created in one test shows up in the next, and suddenly your results depend on the order the tests ran in. FastAPI Startkit gives you two mixins to keep database state isolated between tests, `RefreshDatabase` and `DatabaseTransaction`. Both wrap each test in a transaction and roll it back when the test ends, so every test starts with a clean slate.
 
 ## Installation
+
+Install the `database` extra, along with pytest and pytest-asyncio as dev dependencies:
 
 ```bash
 uv add fastapi-startkit --extra database
 uv add --dev pytest pytest-asyncio
 ```
 
-Set `asyncio_mode = "auto"` so tests can run as coroutines:
+Then set `asyncio_mode = "auto"` so your tests can run as coroutines:
 
 ```toml
 # pyproject.toml
@@ -31,7 +33,7 @@ The two loop-scope settings silence deprecation warnings from pytest-asyncio 0.2
 
 ## `RefreshDatabase`
 
-`RefreshDatabase` runs `migrate:fresh` once per test session, before the first test that uses it. It then wraps each test in a transaction that is rolled back afterwards.
+`RefreshDatabase` is the mixin you'll reach for most often. It runs `migrate:fresh` once per test session, before the first test that uses it, and then wraps each test in a transaction that is rolled back afterwards.
 
 ```python
 from fastapi_startkit.masoniteorm.testing import RefreshDatabase
@@ -41,7 +43,7 @@ Migrations are loaded from `databases/migrations/` under the base path of the ru
 
 ### `get_application()`
 
-The mixins use the application that is already booted, so your test case must provide one through `get_application()`. `HttpTestCase` requires this method, and one implementation covers both:
+The mixins use the application that is already booted, so your test case needs to provide one through `get_application()`. `HttpTestCase` requires this method too, so a single implementation covers both:
 
 ```python
 from fastapi_startkit.fastapi.testing import HttpTestCase
@@ -119,11 +121,11 @@ class TestRegister(HttpTestCase, RefreshDatabase):
 - Before each test, the mixin opens a transaction on the default connection.
 - After each test, it rolls the transaction back, so the next test sees the same data.
 
-The mixins hook into `asyncSetUp` and `asyncTearDown` of the framework `TestCase`, which `HttpTestCase` extends. A plain `unittest` or pytest class won't run them.
+Under the hood, the mixins hook into `asyncSetUp` and `asyncTearDown` of the framework `TestCase`, which `HttpTestCase` extends. That means a plain `unittest` or pytest class won't run them.
 
 ## `DatabaseTransaction`
 
-`DatabaseTransaction` does the same rollback without running migrations. Use it when the schema already exists, for example a database you migrate yourself.
+`DatabaseTransaction` gives you the same rollback without running migrations. It's a good fit when the schema already exists, for example a database you migrate yourself.
 
 ```python
 from fastapi_startkit.fastapi.testing import HttpTestCase
@@ -144,9 +146,11 @@ class TestUserQueries(HttpTestCase, DatabaseTransaction):
         assert user.role == "admin"
 ```
 
-The transaction is rolled back, so this `User` is gone before the next test runs.
+Because the transaction is rolled back, this `User` is gone before the next test runs.
 
 ## Choosing Between the Two
+
+Not sure which mixin to use? Here's how they compare:
 
 | | `RefreshDatabase` | `DatabaseTransaction` |
 |---|---|---|
@@ -157,7 +161,7 @@ The transaction is rolled back, so this `User` is gone before the next test runs
 
 ## Querying the Database Directly
 
-Query the ORM inside a test to assert on what the request wrote. The rollback cleans it up:
+You can query the ORM inside a test to check what a request actually wrote. There's no need to clean up afterwards, since the rollback takes care of it:
 
 ```python
 async def test_creates_user_on_register(self):
