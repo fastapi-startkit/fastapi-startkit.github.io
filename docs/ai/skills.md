@@ -1,17 +1,17 @@
 ---
 outline: deep
 title: Skills
-description: Sync provider-declared AI skill documents to Claude Code and Gemini CLI using the ai:skills command.
+description: Sync the AI skill documents your providers declare to Claude Code and Gemini CLI with the ai:skills command.
 keywords: AI skills, Claude Code, Gemini CLI, artisan, fastapi-startkit
 ---
 
 # Skills
 
-The `ai:skills` command copies the `SKILL.md` files that your registered providers declare into [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli), so those tools know how to work with the framework.
+AI coding assistants do their best work when they understand the framework you're building on. FastAPI Startkit helps with that through the `ai:skills` command, which copies the `SKILL.md` files your registered providers declare into [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli). Once synced, those tools know how to work with the framework.
 
 ## Registration
 
-Register `AISkillProvider` in your application:
+To get started, register `AISkillProvider` in your application:
 
 ```python
 from fastapi_startkit import Application
@@ -21,6 +21,8 @@ app = Application(providers=[..., AISkillProvider])
 ```
 
 ## Commands
+
+Running the command on its own lists the providers that declare skills. Add `--sync` when you're ready to write them out:
 
 ```bash
 # List providers that declare skills (default)
@@ -40,20 +42,22 @@ artisan ai:skills --sync
 
 ## Output locations
 
+Each target writes its skills to a different place:
+
 | Target | Output |
 |---|---|
 | `claude` | `.claude/skills/<name>/SKILL.md` |
 | `gemini` | `GEMINI.md` between `<!-- skills:start -->` and `<!-- skills:end -->` markers |
 
-When a Claude skill file already exists, the command asks before overwriting it. Pass `--force` to overwrite without asking. The Gemini block between the markers is always rewritten.
+When a Claude skill file already exists, the command asks before overwriting it; pass `--force` if you'd like to skip the prompt. The Gemini block between the markers, on the other hand, is always rewritten.
 
 ## Built-in skills
 
-The framework ships stubs for the `fastapi`, `database`, and `inertia` providers. A stub is only synced when its provider is registered. Running `--sync` copies them into `.ai/fastapi-startkit/` in your project first, then renders them to the AI agent files.
+The framework ships stubs for the `fastapi`, `database`, and `inertia` providers, and a stub is only synced when its provider is registered. When you run `--sync`, the stubs are first copied into `.ai/fastapi-startkit/` in your project, then rendered to the AI agent files.
 
 ## SKILL.md format
 
-Only `name` and `description` are read from the frontmatter:
+A skill file is ordinary Markdown with a small frontmatter block. Only `name` and `description` are read from it:
 
 ```markdown
 ---
@@ -66,4 +70,4 @@ Body content (markdown).
 
 ## Custom skills
 
-To override a bundled stub, edit or create `.ai/fastapi-startkit/<key>/SKILL.md` in your project root, where `<key>` is `fastapi`, `database`, or `inertia`. The registry reads the project copy first and falls back to the bundled stub. Files under other keys are not picked up.
+If a bundled stub doesn't quite fit your project, you can override it. Edit or create `.ai/fastapi-startkit/<key>/SKILL.md` in your project root, where `<key>` is `fastapi`, `database`, or `inertia`. The registry reads your project copy first and falls back to the bundled stub. Files under any other key are not picked up.

@@ -1,7 +1,7 @@
 ---
 outline: deep
 title: AI Agents
-description: Build declarative AI agents in FastAPI Startkit — a LangChain-powered agent module with support for Anthropic, OpenAI, and Google providers, tool calling, streaming, document attachments, structured output, middleware, and built-in testing utilities.
+description: Build declarative AI agents in FastAPI Startkit on top of LangChain, with Anthropic, OpenAI, and Google providers, tool calling, streaming, document attachments, structured output, middleware, and built-in testing helpers.
 keywords: AI agents, Anthropic, OpenAI, Google Gemini, LLM, tool calling, streaming, FastAPI, fastapi-startkit, agent testing, structured output, middleware
 ---
 
@@ -9,9 +9,9 @@ keywords: AI agents, Anthropic, OpenAI, Google Gemini, LLM, tool calling, stream
 
 ## Introduction
 
-An agent is a class that extends `Agent`. You configure it with decorators and by overriding methods, then call `await agent.prompt(...)` or iterate over `agent.stream(...)`. The agent builds a LangChain chat model for the active provider, binds your tools, and returns the turn as a LangChain-style `{"messages": [...]}` dict.
+FastAPI Startkit lets you describe an AI agent as a plain Python class. Each agent extends `Agent`; you configure it with a few decorators and by overriding methods, then call `await agent.prompt(...)` or iterate over `agent.stream(...)`. Behind the scenes, the agent builds a LangChain chat model for the active provider, binds your tools, and returns the turn as a LangChain-style `{"messages": [...]}` dict.
 
-You can switch between Anthropic, OpenAI, and Google with one environment variable, and test agents offline with fakes and recorded cassettes.
+Because the provider is just configuration, you can move between Anthropic, OpenAI, and Google by changing one environment variable. And when it's time to write tests, you can run your agents offline with fakes and recorded cassettes.
 
 | Provider | `@provider` name | Default text model | LangChain integration package |
 |---|---|---|---|
@@ -32,7 +32,7 @@ uv add "fastapi-startkit[ai]"
 
 > Python 3.12, 3.13, 3.14 and 3.15 are supported. The `fastapi-startkit[ai]` extra cannot be installed on Python 3.15 or newer yet, because its `langgraph` dependency requires `ormsgpack`, which does not support 3.15. Use Python 3.14 or older for the `ai` extra.
 
-The `ai` extra installs `langchain` and `langchain-core` only. Provider SDKs are loaded lazily through LangChain's integration packages — install the one(s) for the provider you use:
+The `ai` extra installs only `langchain` and `langchain-core`. Provider SDKs are loaded lazily through LangChain's integration packages, so you only need to install the ones for the providers you actually use:
 
 ```bash
 uv add langchain-anthropic        # Anthropic
@@ -42,7 +42,7 @@ uv add langchain-google-genai     # Google Gemini
 
 ### Registering the provider
 
-Register `AIProvider` so the AI configuration is merged into the `ai` config key:
+Next, register `AIProvider` in your application. It merges the AI configuration into the `ai` config key:
 
 ```python
 # bootstrap/application.py
@@ -103,7 +103,7 @@ class AIConfig:
                             #  "anthropic": AnthropicConfig(), "elevenlabs": ElevenLabsConfig()}
 ```
 
-Read it at runtime with the `Config` facade:
+You can read any of these values at runtime with the `Config` facade:
 
 ```python
 from fastapi_startkit import Config
@@ -114,7 +114,7 @@ Config.get("ai.providers.google.models.default")  # "gemini-2.5-flash-lite"
 
 ## Creating an Agent
 
-Extend `Agent`, add decorators, and return your system prompt from `instructions()`:
+To create an agent, extend `Agent`, add any decorators you need, and return your system prompt from `instructions()`:
 
 ```python
 from fastapi_startkit.ai import Agent, provider, model, max_tokens, state
@@ -136,7 +136,7 @@ print(state.text(result))  # "To reset your password, click …"
 
 ### Overridable methods
 
-All of these methods are optional:
+Beyond `instructions()`, you can override any of the following methods. Every one of them is optional:
 
 | Method | Returns | Purpose |
 |---|---|---|
@@ -149,7 +149,7 @@ All of these methods are optional:
 
 ## Decorators Reference
 
-Each decorator sets a class attribute:
+Each decorator sets a class attribute on the agent:
 
 | Decorator | Default | Description |
 |---|---|---|
@@ -160,7 +160,7 @@ Each decorator sets a class attribute:
 | `@timeout(seconds)` | `30.0` | Per-request timeout in seconds |
 | `@top_p(value)` | `1.0` | Top-p nucleus sampling parameter |
 
-Decorators can be stacked:
+You may stack as many decorators as you like:
 
 ```python
 @provider("openai")
@@ -171,7 +171,7 @@ class AnalysisAgent(Agent):
     ...
 ```
 
-Or set the attributes on the class directly:
+If you prefer, you can set the same attributes on the class directly:
 
 ```python
 class AnalysisAgent(Agent):
@@ -182,7 +182,7 @@ class AnalysisAgent(Agent):
 
 ## prompt()
 
-`Agent.prompt()` sends a user message and returns the turn as a dict:
+The `Agent.prompt()` method sends a user message to the model and returns the whole turn as a dict:
 
 ```python
 result = await agent.prompt("Summarise this lead and score it 1–10.")
@@ -203,7 +203,7 @@ async def prompt(
 
 ### Reading the result
 
-The result has the same shape as LangChain's `create_agent().invoke()`: `{"messages": [HumanMessage, AIMessage, ToolMessage, ...]}`, plus `"structured_response"` when the agent defines a [`schema()`](#structured-output). Read it with the helpers in `fastapi_startkit.ai.state`:
+The result has the same shape as LangChain's `create_agent().invoke()`: `{"messages": [HumanMessage, AIMessage, ToolMessage, ...]}`, plus `"structured_response"` when the agent defines a [`schema()`](#structured-output). Rather than digging through the messages yourself, you can read it with the helpers in `fastapi_startkit.ai.state`:
 
 | Helper | Returns |
 |---|---|
@@ -225,7 +225,7 @@ print(state.usage(result))  # {"input": 312, "output": 78}
 
 ## stream()
 
-`Agent.stream()` is an async generator. It yields the same event dicts as LangChain's `astream_events`: `on_chat_model_start`, `on_chat_model_stream`, and `on_chat_model_end` for the model turn, then `on_tool_start` and `on_tool_end` around each tool call. The text arrives in `on_chat_model_stream` events, in `event["data"]["chunk"]`:
+When you want to show the reply as it's generated, use `Agent.stream()`. It's an async generator that yields the same event dicts as LangChain's `astream_events`: `on_chat_model_start`, `on_chat_model_stream`, and `on_chat_model_end` for the model turn, then `on_tool_start` and `on_tool_end` around each tool call. The text arrives in `on_chat_model_stream` events, in `event["data"]["chunk"]`:
 
 ```python
 async for event in agent.stream("Write a follow-up email to the lead."):
@@ -247,7 +247,7 @@ async def stream(
 
 ### Streaming in FastAPI
 
-Wrap the generator in a `StreamingResponse` to send the text to the browser as server-sent events:
+To send the text to the browser as server-sent events, wrap the generator in a `StreamingResponse`:
 
 ```python
 from fastapi import APIRouter
@@ -272,7 +272,7 @@ When the agent uses tools, the model events are followed by an `on_tool_start` a
 
 ## Prompting
 
-`prompt()` and `stream()` build the message list in this order:
+Both `prompt()` and `stream()` build the message list in the same order:
 
 1. The system message from `instructions()` (skipped when it returns `None`).
 2. Any prior turns from `messages()`.
@@ -291,7 +291,7 @@ class JobAssistant(Agent):
         ]
 ```
 
-A call to `await JobAssistant().prompt("Find me a job")` is sent as:
+With that agent, a call to `await JobAssistant().prompt("Find me a job")` is sent as:
 
 ```python
 [
@@ -302,11 +302,11 @@ A call to `await JobAssistant().prompt("Find me a job")` is sent as:
 ]
 ```
 
-`instructions()` is a regular method, so it can build the prompt from the current user, request data, or configuration.
+Since `instructions()` is a regular method, you're free to build the prompt from the current user, request data, or configuration.
 
 ## Tools
 
-Tools are LangChain tools. Define them with `@tool` from `langchain_core.tools` and return them from `tools()`. The docstring becomes the tool's description, and the type hints become its input schema:
+Tools let the model call your own code, and they're ordinary LangChain tools. Define them with `@tool` from `langchain_core.tools` and return them from `tools()`. The docstring becomes the tool's description, and the type hints become its input schema:
 
 ```python
 # app/tools/job_search_tool.py
@@ -351,7 +351,7 @@ print(state.text(result))   # the tool's output
 
 ## Documents
 
-Pass files to `prompt()` with the `Document` helper. Attachments are sent in an extra user message that repeats your text. A document whose `media_type` is `text/*` is inlined as a labelled text part; any other type, such as `image/png` or `application/pdf`, is sent as a base64 block.
+You can hand files to the model by passing `Document` instances to `prompt()`. Attachments are sent in an extra user message that repeats your text. A document whose `media_type` is `text/*` is inlined as a labelled text part; any other type, such as `image/png` or `application/pdf`, is sent as a base64 block.
 
 ```python
 from fastapi_startkit.ai import Document
@@ -361,6 +361,8 @@ result = await agent.prompt("Summarise this report.", attachments=[doc])
 ```
 
 ### Loading documents
+
+You can also load a document from a file, from application storage, or from a URL:
 
 ```python
 # From a local file: text files load as str, binary files fall back to bytes
@@ -387,7 +389,7 @@ The loaders don't detect the type: `media_type` stays `text/plain` unless you se
 
 ## Structured Output
 
-Return a Pydantic model from `schema()` to get a validated object back in `result["structured_response"]`:
+Sometimes you want data rather than prose. Return a Pydantic model from `schema()` and you'll get a validated object back in `result["structured_response"]`:
 
 ```python
 from pydantic import BaseModel
@@ -426,11 +428,9 @@ The model is called through LangChain's `with_structured_output()`, so providers
 
 ## Middleware (Pipeline)
 
-Override `middleware()` to wrap each model request. A middleware is any object with a `handle(self, model, handler)` method, sync or async. The first item in the list is the outermost layer.
+Middleware gives you a place to run code around every model request, which is handy for logging, metrics, or swapping the model. Override `middleware()` to return your layers. A middleware is any object with a `handle(self, model, handler)` method, sync or async, and the first item in the list is the outermost layer.
 
-- `model` is the LangChain `BaseChatModel`. You can inspect it, wrap it, or replace it.
-- `handler(model)` calls the next layer and returns a deferred `Response`.
-- To run code after the response, attach a callback with `.then(callback)` and return the `Response` without awaiting it, so streaming still works. The callback receives the final value when the response completes.
+The `model` argument is the LangChain `BaseChatModel`, which you can inspect, wrap, or replace. Calling `handler(model)` invokes the next layer and returns a deferred `Response`. To run code after the response, attach a callback with `.then(callback)` and return the `Response` without awaiting it, so streaming keeps working. The callback receives the final value when the response completes.
 
 ```python
 import time
@@ -454,7 +454,7 @@ class AgentLogger:
         return handler(model).then(log_response)
 ```
 
-Register middleware on the agent:
+Then register the middleware on your agent:
 
 ```python
 from fastapi_startkit.ai import Agent, Middleware
@@ -477,7 +477,7 @@ A `.then()` callback runs once, whether the stream is read to the end or closed 
 
 ## Provider Options
 
-Return provider-specific parameters from `provider_options()`, keyed by provider name. The options for the agent's `@provider` are merged into the model's keyword arguments. Agents without `@provider` don't get these options:
+Each provider has its own settings, such as Anthropic's `thinking` option below. You can pass them by returning provider-specific parameters from `provider_options()`, keyed by provider name. The options for the agent's `@provider` are merged into the model's keyword arguments. Agents without `@provider` don't get these options:
 
 ```python
 @provider("anthropic")
@@ -489,7 +489,7 @@ class ThinkingAgent(Agent):
         }
 ```
 
-Pass `provider_options` to `prompt()` to override them for one call:
+To override them for a single call, pass `provider_options` to `prompt()`:
 
 ```python
 result = await agent.prompt(
@@ -500,13 +500,13 @@ result = await agent.prompt(
 
 ## Multiple Providers
 
-Agents without `@provider` use the `AI_PROVIDER` setting:
+Any agent without a `@provider` decorator uses the `AI_PROVIDER` setting:
 
 ```ini
 AI_PROVIDER=anthropic   # or openai, google
 ```
 
-Use the decorator to pin an agent to one provider:
+When an agent should always use a particular provider, pin it with the decorator:
 
 ```python
 @provider("openai")
@@ -520,7 +520,7 @@ class ReviewAgent(Agent):
 
 ## Testing
 
-`Agent.fake()` replaces only the chat model. Message building, middleware, and tool execution still run, so a faked tool call executes the real tool. `Agent.record()` calls the real model once, saves the result to a cassette, and replays it on later runs.
+Calling a real model in every test would be slow and expensive, so agents come with two testing helpers. `Agent.fake()` replaces only the chat model. Message building, middleware, and tool execution still run, so a faked tool call executes the real tool. `Agent.record()` calls the real model once, saves the result to a cassette, and replays it on later runs.
 
 > [!NOTE]
 > `Agent.fake()` is keyed by class name, so any `YourAgent()` created inside the `with` block or decorated test is faked, including one built inside a controller. `Agent.record()` only records and replays calls made through the handle it returns (`with YourAgent.record(...) as agent`). Code that creates its own `YourAgent()` calls the real model.
@@ -541,7 +541,7 @@ with SupportAgent.fake(["first reply", "second reply"]):
     await SupportAgent().prompt("two")
 ```
 
-As a decorator on a controller test:
+You can also use it as a decorator on a controller test:
 
 ```python
 class TestChatController(TestCase):
@@ -571,7 +571,7 @@ If you omit the path, the cassette is `cassettes/<Test_qualname>.json` next to t
 
 ### Fluent record() — prompt() + assertions
 
-The handle's `assert_*()` methods check the most recent turn:
+The handle returned by `record()` also has a set of `assert_*()` methods, each of which checks the most recent turn:
 
 ```python
 class TestRouterAgent(IsolatedAsyncioTestCase):
@@ -599,7 +599,7 @@ class TestRouterAgent(IsolatedAsyncioTestCase):
 | `agent.assert_response_time_lt(seconds)` | The recorded response times of all turns so far add up to less than `seconds` |
 | `await agent.assert_response_judged(model=..., expectation=...)` | An LLM judge, using `model`, grades the current response against `expectation`. Verdicts are cached in a `<cassette>.judge.json` file next to the cassette, so replays don't call the judge again |
 
-Seed earlier history with `messages=`, as dicts or LangChain messages. The seed is part of the cassette key, so a seeded session doesn't collide with an unseeded one that sends the same text:
+To start from an existing conversation, seed earlier history with `messages=`, as dicts or LangChain messages. The seed is part of the cassette key, so a seeded session doesn't collide with an unseeded one that sends the same text:
 
 ```python
 from langchain_core.messages import AIMessage, HumanMessage
@@ -617,7 +617,7 @@ with RouterAgent.record(
 
 ### Assertions
 
-The handles returned by `fake()` and `record()` count the calls made through them:
+Both `fake()` and `record()` return handles that count the calls made through them, so you can assert how often an agent was prompted:
 
 | Method | Description |
 |---|---|
@@ -635,7 +635,7 @@ async def test_agent_is_called_once():
 
 ## Provider Backends
 
-Models are created with LangChain's `init_chat_model`, which selects the integration package for the active provider. Install the matching package alongside `fastapi-startkit[ai]`:
+Models are created with LangChain's `init_chat_model`, which picks the integration package for the active provider. For each provider you use, install the matching package alongside `fastapi-startkit[ai]` and set its API key.
 
 ### Anthropic
 
@@ -669,7 +669,7 @@ GEMINI_API_KEY=AIza...   # GOOGLE_API_KEY also works
 
 ## Complete Example
 
-A support agent with a tool, logging middleware, FastAPI routes, and a controller test, laid out like the `example/agents` app.
+To tie everything together, here's a support agent with a tool, logging middleware, FastAPI routes, and a controller test, laid out like the `example/agents` app.
 
 ```python
 # app/tools/job_search_tool.py
