@@ -7,7 +7,9 @@ keywords: storage, file, local, s3, disk, fastapi startkit
 
 # Storage
 
-FastAPI Startkit provides first-party support to read, write and manipulate files across multiple storage options, such as `S3` and the local filesystem, with the same set of APIs. With Storage you can:
+FastAPI Startkit provides a simple filesystem abstraction through the `Storage` facade. Its drivers work with the local filesystem and Amazon S3 (through `boto3`). Even better, it is simple to switch between these storage options between your local development machine and your production server, as the API remains the same for each disk.
+
+With Storage you can:
 
 - Write, read, append to, copy, move and delete files on any disk.
 - Switch between disks, or change the default, through configuration instead of code.
