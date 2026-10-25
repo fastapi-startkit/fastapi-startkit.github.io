@@ -7,7 +7,7 @@ keywords: casts, serialization, model attributes, pydantic, json, orm
 
 # Casts
 
-A cast converts a column value when you read it from the database and when you write it back. The type annotation on a model field picks the cast. You can also declare a field explicitly with `Field[T]()`.
+Databases store a fairly small set of types, but your application usually wants richer ones: booleans instead of `1` and `0`, dicts instead of JSON strings, dates instead of text. Casts bridge that gap. A cast converts a column value when you read it from the database and again when you write it back. The type annotation on a model field picks the cast, so most of the time you don't have to do anything beyond writing the annotation. You can also declare a field explicitly with `Field[T]()`.
 
 ## Built-in Casts
 
@@ -25,7 +25,7 @@ A cast converts a column value when you read it from the database and when you w
 | `time` | Time | `"09:00:00"` → `datetime.time`                |
 | `timedelta` | TimeDelta | `3600.0` → `datetime.timedelta(seconds=3600)` |
 
-Annotate the model fields. No other configuration is needed:
+To use them, annotate the model fields. No other configuration is needed:
 
 ```python
 from fastapi_startkit.masoniteorm import Model
@@ -39,7 +39,7 @@ class User(Model):
     tags: list          # stored as JSON text
 ```
 
-Values come back as the annotated type:
+When you read a model, the values come back as the annotated type:
 
 ```python
 user = await User.first()
@@ -49,7 +49,7 @@ isinstance(user.is_admin, bool)   # True
 isinstance(user.preferences, dict) # True
 ```
 
-When you write, pass Python values. You don't need `json.dumps`:
+Writing works the same way in reverse. Pass plain Python values, and there's no need for `json.dumps`:
 
 ```python
 await User.create({
@@ -64,7 +64,7 @@ await User.create({
 
 ### `datetime` and `date`
 
-A field annotated with `datetime` or `date` comes back as a pendulum `DateTime`, which is a `datetime` subclass. Annotate with `Carbon` if you want the field typed as `Carbon` and its helpers.
+A field annotated with `datetime` or `date` comes back as a pendulum `DateTime`, which is a `datetime` subclass. If you want the field typed as `Carbon`, along with its helpers, annotate it with `Carbon` instead.
 
 ```python
 from datetime import datetime, date
@@ -75,7 +75,7 @@ class User(Model):
     date_of_birth: date
 ```
 
-You can write a string or a native `datetime` / `date`:
+When writing, you can pass either a string or a native `datetime` / `date`:
 
 ```python
 import datetime
@@ -138,7 +138,7 @@ session.duration.total_seconds()              # 3600.0
 
 ### Default values
 
-Use `Field(default=...)` or `Field(default_factory=...)` to set the value returned when the column is `NULL`:
+If you'd rather not deal with `NULL`, use `Field(default=...)` or `Field(default_factory=...)` to set the value returned when the column is `NULL`:
 
 ```python
 from datetime import time
@@ -152,7 +152,7 @@ A `NULL` in the database now reads as `time(9, 0, 0)`.
 
 ## Nested Pydantic Models
 
-To store a value object in one column, define it as a Pydantic `BaseModel` and use it as the field type. It is serialized to JSON on write and rebuilt as the Pydantic model on read.
+Sometimes a group of values belongs together, like the parts of an address. To store a value object like that in one column, define it as a Pydantic `BaseModel` and use it as the field type. It's serialized to JSON on write and rebuilt as the Pydantic model on read.
 
 ### Defining a custom cast
 
@@ -179,9 +179,9 @@ class User(Model):
     address: Address
 ```
 
-The older form `address: Address = ModelField()` still works. `ModelField` is importable from `fastapi_startkit.masoniteorm`, but it emits a `DeprecationWarning` and will be removed in 2.x. Switch to `address: Address`, or to `address = Field[Address]()` if you prefer an explicit field.
+The older form `address: Address = ModelField()` still works. `ModelField` is importable from `fastapi_startkit.masoniteorm`, but it emits a `DeprecationWarning` and will be removed in 2.x, so switch to `address: Address`, or to `address = Field[Address]()` if you prefer an explicit field.
 
-Store the value in a `text` or `json` column:
+In your migration, store the value in a `text` or `json` column:
 
 ```python
 async def up(self):
@@ -204,7 +204,7 @@ user.address.country                # "Australia"
 
 ### Inserting
 
-Pass an `Address`, a plain dict, or nothing:
+When creating a record, you can pass an `Address`, a plain dict, or nothing at all:
 
 ```python
 await User.create({

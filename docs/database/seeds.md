@@ -1,17 +1,17 @@
 ---
 outline: deep
 title: Seeds
-description: Populate your database with test data using seeder files in Fastapi Startkit.
+description: Populate your database with test data using seeder files in FastAPI Startkit.
 keywords: database, seeding, test data, python, fastapi
 ---
 
 # Seeds
 
-A seeder inserts a known set of rows into your database. Seeders are async classes, and one seeder can call others.
+A fresh database is an empty one, and that makes it hard to click around your app or demo a feature. Seeders fix that by inserting a known set of rows into your database whenever you need them. They're async classes, and one seeder can call others, so you can keep each seeder small and compose them as your data grows.
 
 ## Creating a Seeder
 
-Put seeders in `databases/seeders/`. Extend `Seeder` and implement an async `run` method:
+Seeders live in `databases/seeders/`. Each one extends `Seeder` and implements an async `run` method:
 
 ```python
 # databases/seeders/user_seeder.py
@@ -30,11 +30,11 @@ class UserSeeder(Seeder):
         )
 ```
 
-`first_or_create` only inserts a row when no match exists, so you can run the seeder again without creating duplicates.
+Because `first_or_create` only inserts a row when no match exists, you can run the seeder again without creating duplicates.
 
 ## Database Seeder (Entry Point)
 
-`DatabaseSeeder` is the seeder `db:seed` runs by default. Call your other seeders from it:
+`DatabaseSeeder` is the seeder `db:seed` runs by default, which makes it a natural entry point. Call your other seeders from it:
 
 ```python
 # databases/seeders/database_seeder.py
@@ -48,11 +48,11 @@ class DatabaseSeeder(Seeder):
         await self.call(PostSeeder)
 ```
 
-`self.call` waits for each seeder to finish before starting the next, so list them in dependency order. Here posts need users to exist first.
+`self.call` waits for each seeder to finish before starting the next, so list them in dependency order. In this example, posts need users to exist first.
 
 ## Complete Example
 
-The blog example seeds tags, posts, and the pivot rows that link them:
+Here's a fuller seeder from the blog example. It seeds tags, posts, and the pivot rows that link them:
 
 ```python
 # databases/seeders/post_seeder.py
@@ -88,13 +88,13 @@ class PostSeeder(Seeder):
 
 ## Running Seeds
 
-Run `DatabaseSeeder`:
+To run `DatabaseSeeder`, use `db:seed`:
 
 ```bash
 uv run python artisan db:seed
 ```
 
-Run one seeder class:
+If you only want to run one seeder class, pass it with `--class`:
 
 ```bash
 uv run python artisan db:seed --class UserSeeder

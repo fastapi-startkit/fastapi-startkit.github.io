@@ -7,11 +7,11 @@ keywords: redis, cache, pipeline, transaction, pub/sub, redis.asyncio, fastapi s
 
 # Redis
 
-[Redis](https://redis.io) is an in-memory key-value store, often used for caching, counters, locks, and pub/sub. The Redis component is built on [`redis.asyncio`](https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html). You define named connections in config, and the `Redis` facade sends commands to the default connection. Every call is awaitable.
+[Redis](https://redis.io) is an in-memory key-value store, and it's a natural fit for caching, counters, locks, and pub/sub. FastAPI Startkit's Redis component is built on [`redis.asyncio`](https://redis.readthedocs.io/en/stable/examples/asyncio_examples.html), so every call is awaitable and plays nicely with your async endpoints. You define named connections in config, and the `Redis` facade sends commands to the default connection.
 
 ## Installation
 
-Install the `redis` extra. It pulls in [redis-py](https://github.com/redis/redis-py) 5.0.1 or newer:
+To get started, install the `redis` extra. It pulls in [redis-py](https://github.com/redis/redis-py) 5.0.1 or newer:
 
 ```bash
 pip install "fastapi-startkit[redis]"
@@ -19,11 +19,11 @@ pip install "fastapi-startkit[redis]"
 uv add "fastapi-startkit[redis]"
 ```
 
-`redis` is imported lazily, so importing `fastapi_startkit.redis`, the provider, or the facade works without it. If the package is missing, resolving a connection raises `RedisNotInstalledError`, a subclass of `ImportError` whose message tells you what to install.
+`redis` is imported lazily, so you can import `fastapi_startkit.redis`, the provider, or the facade without it. If the package is missing, resolving a connection raises `RedisNotInstalledError`, a subclass of `ImportError` whose message tells you what to install.
 
 ## Registering the Provider
 
-Add `RedisProvider` to the providers in `bootstrap/application.py`:
+Next, add `RedisProvider` to the providers in `bootstrap/application.py`:
 
 ```python
 from fastapi_startkit import Application
@@ -38,13 +38,13 @@ app = Application(
 )
 ```
 
-The provider binds a `RedisManager` under the `redis` key, which the `Redis` facade resolves. It merges its settings under the `redis` config key, so `config("redis.connections.default.host")` works. It can publish `config/redis.py`, and it disconnects every open connection when the FastAPI app shuts down (see [Shutdown and Lifespan](#shutdown-and-lifespan)).
+The provider binds a `RedisManager` under the `redis` key, which the `Redis` facade resolves. It merges its settings under the `redis` config key, so `config("redis.connections.default.host")` works. The provider can also publish `config/redis.py`, and it disconnects every open connection when the FastAPI app shuts down (see [Shutdown and Lifespan](#shutdown-and-lifespan)).
 
 ## Configuration
 
 ### Publishing the Config
 
-Copy the default config into your project:
+To customise your connections, copy the default config into your project:
 
 ```bash
 uv run python artisan provider:publish --provider=redis
@@ -96,7 +96,7 @@ class RedisConfig(Config):
     )
 ```
 
-Pass your config class to the provider:
+Then pass your config class to the provider:
 
 ```python
 from fastapi_startkit import Application
@@ -112,7 +112,7 @@ app = Application(
 )
 ```
 
-Your config is merged over the framework defaults one top-level key at a time. If you define `connections`, it replaces the whole default `connections` dict, so list every connection you need.
+Your config is merged over the framework defaults one top-level key at a time. That means if you define `connections`, it replaces the whole default `connections` dict, so be sure to list every connection you need.
 
 ### Environment Variables
 
@@ -128,7 +128,7 @@ Your config is merged over the framework defaults one top-level key at a time. I
 | `REDIS_DB` | `0` | `database` of the `default` connection |
 | `REDIS_CACHE_DB` | `1` | `database` of the `cache` connection |
 
-A minimal `.env`:
+For most local setups, a minimal `.env` is all you need:
 
 ```ini
 REDIS_HOST=127.0.0.1
@@ -138,15 +138,15 @@ REDIS_PORT=6379
 
 ### Key Prefix
 
-Each connection adds `options.prefix` to the front of every key it sends, so several applications can share one Redis server. With `APP_NAME="My Shop"` the default prefix is `my_shop_database_`, and `await Redis.set("name", "taylor")` stores the key `my_shop_database_name`.
+Each connection adds `options.prefix` to the front of every key it sends. That way, several applications can share one Redis server without stepping on each other's keys. With `APP_NAME="My Shop"` the default prefix is `my_shop_database_`, and `await Redis.set("name", "taylor")` stores the key `my_shop_database_name`.
 
-Set `REDIS_PREFIX` to use your own prefix:
+To use your own prefix, set `REDIS_PREFIX`:
 
 ```ini
 REDIS_PREFIX=shop:
 ```
 
-An empty `REDIS_PREFIX` falls back to the default prefix. To store keys exactly as given, set the prefix to an empty string in config:
+An empty `REDIS_PREFIX` falls back to the default prefix. If you want keys stored exactly as given, set the prefix to an empty string in config instead:
 
 ```python
 @dataclass
@@ -154,7 +154,7 @@ class RedisConfig(Config):
     options: RedisOptions = field(default_factory=lambda: RedisOptions(prefix=""))
 ```
 
-redis-py has no prefix option, so the framework prefixes key arguments itself, using a table of key positions for each command. The table covers:
+redis-py has no prefix option of its own, so the framework prefixes key arguments itself, using a table of key positions for each command. The table covers:
 
 - single-key and multi-key commands (`DEL`, `MGET`, `SINTER`, ...)
 - blocking pops such as `BLPOP`, leaving the trailing timeout alone
@@ -163,11 +163,11 @@ redis-py has no prefix option, so the framework prefixes key arguments itself, u
 - the stream keys after `STREAMS` in `XREAD` and `XREADGROUP`
 - container commands such as `XGROUP CREATE`, `XINFO STREAM`, `OBJECT ENCODING`, and `MEMORY USAGE`
 
-Pipelines and transactions are prefixed the same way. Commands missing from the table are sent unchanged. See [Known Limitations](#known-limitations).
+Pipelines and transactions are prefixed the same way. Commands missing from the table are sent unchanged; see [Known Limitations](#known-limitations) for the details.
 
 ### Connections
 
-The default config has two connections, `default` and `cache`. They point at the same server and use different databases. Add more under `connections`. A connection can be a `RedisConnectionConfig` or a plain dict:
+The default config has two connections, `default` and `cache`, which point at the same server but use different databases. You can add more under `connections`, either as a `RedisConnectionConfig` or as a plain dict:
 
 ```python
 @dataclass
@@ -186,9 +186,9 @@ class RedisConfig(Config):
     )
 ```
 
-`env()` returns a dataclass field default, so use it only in a field declaration or as an argument to a `Config` class such as `RedisConnectionConfig(database=env("REDIS_CACHE_DB", 1))`. A plain dict keeps the field object instead of the value. In a dict, use `os.getenv()` or a literal.
+`env()` returns a dataclass field default, so use it only in a field declaration or as an argument to a `Config` class such as `RedisConnectionConfig(database=env("REDIS_CACHE_DB", 1))`. A plain dict would keep the field object instead of the value, so in a dict, use `os.getenv()` or a literal.
 
-Each connection accepts:
+Each connection accepts the following keys:
 
 | Key | Meaning |
 |---|---|
@@ -201,7 +201,7 @@ Each connection accepts:
 
 ### URLs and Credentials
 
-When a connection has a `url`, such as `REDIS_URL=redis://redis.internal:6379/0`, the client is built with `redis.asyncio.Redis.from_url()`:
+If your Redis provider hands you a connection URL, you can use it directly. When a connection has a `url`, such as `REDIS_URL=redis://redis.internal:6379/0`, the client is built with `redis.asyncio.Redis.from_url()`, and the other settings behave like this:
 
 - `host` and `port` are ignored. The URL decides where to connect.
 - `username`, `password`, and `database` are used as fallbacks. `REDIS_URL=redis://redis:6379` with `REDIS_PASSWORD=secret` authenticates with `secret`.
@@ -211,7 +211,7 @@ For TLS, use a `rediss://` URL.
 
 ### Unix Sockets
 
-Connect over a Unix domain socket with a `unix://` URL:
+To connect over a Unix domain socket, use a `unix://` URL:
 
 ```ini
 REDIS_URL=unix:///var/run/redis/redis.sock
@@ -221,13 +221,13 @@ REDIS_URL=unix:///var/run/redis/redis.sock
 
 ## Interacting With Redis
 
-Import the `Redis` facade:
+Once the provider is registered, import the `Redis` facade:
 
 ```python
 from fastapi_startkit.facades import Redis
 ```
 
-Calling a redis-py command on the facade runs it on the `default` connection. Every command is a coroutine, so await it:
+Calling a redis-py command on the facade runs it on the `default` connection. Every command is a coroutine, so remember to await it:
 
 ```python
 from fastapi_startkit.facades import Redis
@@ -243,7 +243,7 @@ async def show(user_id: int):
 router.get("/users/{user_id}", show)
 ```
 
-Method names and signatures are the ones redis-py uses:
+Method names and signatures are the same ones redis-py uses, so anything you know from redis-py carries over:
 
 ```python
 await Redis.set("name", "Taylor", ex=60)
@@ -255,11 +255,11 @@ await Redis.rpush("queue", "a", "b")
 await Redis.lrange("queue", 0, -1)      # ["a", "b"]
 ```
 
-The facade's `.pyi` stub types it as a `redis.asyncio.Redis` subclass, so your IDE type-checks and completes redis-py commands.
+Better still, the facade's `.pyi` stub types it as a `redis.asyncio.Redis` subclass, so your IDE type-checks and completes redis-py commands.
 
 ### Using Multiple Connections
 
-`Redis.connection(name)` returns the `Connection` with that name, or `default` when you pass no name. A connection is created on first use and cached:
+When you need a connection other than the default, `Redis.connection(name)` returns the `Connection` with that name, or `default` when you pass no name. A connection is created on first use and cached:
 
 ```python
 await Redis.connection("cache").set("name", "Taylor")
@@ -272,7 +272,7 @@ An unknown name raises `ValueError("Redis connection [name] not configured.")`.
 
 ### Running Raw Commands
 
-`Redis.command()` sends a command in Redis protocol form, whatever redis-py calls the method. Pass the command name and a list of arguments in protocol order:
+Sometimes it's easier to write a command the way Redis itself spells it. `Redis.command()` sends a command in Redis protocol form, whatever redis-py calls the method. Pass the command name and a list of arguments in protocol order:
 
 ```python
 await Redis.command("set", ["name", "Taylor", "EX", 10])
@@ -285,7 +285,7 @@ The command name is upper-cased, and key arguments are prefixed as usual.
 
 ### Pipelining Commands
 
-A pipeline sends many commands in one round trip. Pass `pipeline()` a callback that queues commands. They run when the callback returns, and you get a list of results. The callback can be a plain function or a coroutine function:
+When you have many commands to send, a pipeline sends them all in one round trip. Pass `pipeline()` a callback that queues commands. They run when the callback returns, and you get back a list of results. The callback can be a plain function or a coroutine function:
 
 ```python
 def queue(pipe):
@@ -303,9 +303,9 @@ async def queue(pipe):
 await Redis.pipeline(queue)              # [True, 2]
 ```
 
-Don't await commands on a pipeline. They are buffered until it executes.
+Don't await commands on a pipeline. They're buffered until it executes.
 
-Without a callback, `pipeline()` returns the redis-py pipeline for use with `async with`:
+If you'd rather manage it yourself, call `pipeline()` without a callback. It returns the redis-py pipeline for use with `async with`:
 
 ```python
 async with Redis.pipeline() as pipe:
@@ -313,11 +313,11 @@ async with Redis.pipeline() as pipe:
     results = await pipe.execute()       # [True, True]
 ```
 
-Neither form is transactional. Both apply the key prefix.
+Neither form is transactional, and both apply the key prefix.
 
 ### Transactions
 
-`transaction()` works like `pipeline()` but wraps the queued commands in `MULTI` / `EXEC`, so they run atomically:
+When the commands must run together or not at all, use `transaction()`. It works like `pipeline()` but wraps the queued commands in `MULTI` / `EXEC`, so they run atomically:
 
 ```python
 await Redis.set("balance", 10)
@@ -340,7 +340,7 @@ As in Laravel, you can't read values inside a transaction. Commands are only que
 
 ### Lua Scripts
 
-`eval()` is redis-py's `eval(script, numkeys, *keys_and_args)`. The first `numkeys` arguments after the script are keys and get prefixed. The rest are passed as `ARGV`:
+Lua scripts let you run logic on the Redis server itself. `eval()` is redis-py's `eval(script, numkeys, *keys_and_args)`. The first `numkeys` arguments after the script are keys and get prefixed, and the rest are passed as `ARGV`:
 
 ```python
 await Redis.set("name", "taylor")
@@ -358,13 +358,13 @@ result = await Redis.eval(
 
 ## Pub / Sub
 
-Publish a message with a regular command. It returns the number of subscribers that received it:
+Redis pub/sub lets one part of your system broadcast messages that others listen for. Publishing is a regular command, and it returns the number of subscribers that received the message:
 
 ```python
 await Redis.publish("orders", "created")
 ```
 
-`subscribe()` listens on one channel or a list of channels and calls `callback(message, channel)` for each message. The callback can be sync or async. `subscribe()` runs until its task is cancelled, so start it as a background task, for example in a long-running console command or worker:
+On the other side, `subscribe()` listens on one channel or a list of channels and calls `callback(message, channel)` for each message. The callback can be sync or async. Because `subscribe()` runs until its task is cancelled, start it as a background task, for example in a long-running console command or worker:
 
 ```python
 import asyncio
@@ -385,7 +385,7 @@ Subscription confirmations are skipped. Cancelling the task closes the underlyin
 
 ### Wildcard Subscriptions
 
-`psubscribe()` subscribes to channel patterns. The callback receives the channel the message was published on:
+To listen on many channels at once, `psubscribe()` subscribes to channel patterns. The callback receives the channel the message was published on:
 
 ```python
 async def handle(message, channel):
@@ -397,13 +397,13 @@ listener = asyncio.create_task(Redis.psubscribe("users.*", handle))
 await Redis.publish("users.1", "updated")
 ```
 
-Channel names and patterns are not prefixed.
+Note that channel names and patterns are not prefixed.
 
 ## Managing Connections
 
 ### Custom Clients
 
-`Redis.extend(client, factory)` registers a client factory under a name, like Laravel's `Redis::extend`. The factory receives the connection parameters (`host`, `port`, `db`, `decode_responses`, ...) and returns a client compatible with `redis.asyncio`. Choose it with `client` in config (`REDIS_CLIENT`):
+`Redis.extend(client, factory)` registers a client factory under a name, like Laravel's `Redis::extend`. The factory receives the connection parameters (`host`, `port`, `db`, `decode_responses`, ...) and returns a client compatible with `redis.asyncio`. You then choose it with `client` in config (`REDIS_CLIENT`):
 
 ```python
 import fakeredis
@@ -419,9 +419,11 @@ Redis.extend("fake", lambda parameters: fakeredis.FakeAsyncRedis(server=server, 
 REDIS_CLIENT=fake
 ```
 
-The framework's own tests use this to run against [fakeredis](https://github.com/cunla/fakeredis-py). A client name that was never registered raises `ValueError("Redis client [name] is not supported.")`. `extend()` returns the manager, so you can chain calls.
+This is handy in tests. The framework's own tests use it to run against [fakeredis](https://github.com/cunla/fakeredis-py). A client name that was never registered raises `ValueError("Redis client [name] is not supported.")`. `extend()` returns the manager, so you can chain calls.
 
 ### Purging and Disconnecting
+
+You can inspect, close, and forget connections through the facade:
 
 ```python
 Redis.connections()            # the open connections, {"default": <Connection>, ...}
@@ -435,7 +437,7 @@ A purged connection is created again the next time you use it. Purging a connect
 
 ## Shutdown and Lifespan
 
-When FastAPI is installed, `RedisProvider` wraps the router's `lifespan_context` so that `await Redis.disconnect()` runs at shutdown. It wraps the lifespan instead of adding a `shutdown` handler, so it works with your own `lifespan=` as well. Your startup and shutdown code still run, and the state your lifespan yields is kept.
+When FastAPI is installed, `RedisProvider` wraps the router's `lifespan_context` so that `await Redis.disconnect()` runs at shutdown. Because it wraps the lifespan instead of adding a `shutdown` handler, it works with your own `lifespan=` as well. Your startup and shutdown code still run, and the state your lifespan yields is kept.
 
 The wrap applies to the FastAPI instance and lifespan that exist when the provider boots. If your application replaces either one later, disconnect Redis in your own lifespan:
 
@@ -451,9 +453,11 @@ async def lifespan(app):
     await Redis.disconnect()
 ```
 
-Outside FastAPI, for example in console commands, call `await Redis.disconnect()` when you finish.
+Outside FastAPI, for example in console commands, call `await Redis.disconnect()` when you're finished.
 
 ## Differences From Laravel
+
+If you're coming from Laravel, most of this will feel familiar, but there are a few differences to keep in mind:
 
 - Connections are nested under `connections`. Laravel puts named connections next to `client` and `options` in `database.redis`. A Python dataclass can't hold arbitrary sibling keys, so they live under `connections`, as in `DatabaseConfig`.
 - Everything is async. Await every command, as well as `command()`, `pipeline(callback)`, `transaction(callback)`, `subscribe()`, `psubscribe()`, `purge()`, and `disconnect()`.
@@ -463,6 +467,8 @@ Outside FastAPI, for example in console commands, call `await Redis.disconnect()
 - An unknown connection raises `ValueError`, not `InvalidArgumentException`.
 
 ## Known Limitations
+
+Key prefixing covers the common cases, but there are a few gaps to be aware of:
 
 - Keys inside command options are not prefixed: `SORT ... STORE / BY / GET`, `GEORADIUS` / `GEORADIUSBYMEMBER ... STORE / STOREDIST`, and `MIGRATE ... KEYS`.
 - Results keep the prefix. `keys()`, `scan()` / `scan_iter()`, and stream names in `XREAD` replies come back prefixed, and passing them to another command prefixes them again, as phpredis does. Strip the prefix (`Redis.connection().prefix`) before you reuse them.

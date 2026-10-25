@@ -1,17 +1,17 @@
 ---
 outline: deep
 title: Database Overview
-description: Overview of the database layer in Fastapi Startkit, powered by Masonite ORM.
+description: An overview of the database layer in FastAPI Startkit, powered by an async fork of Masonite ORM.
 keywords: database, orm, fastapi, python
 ---
 
 # Database
 
-Fastapi Startkit includes an async fork of Masonite ORM. It gives you models, an async query builder, migrations, and seeders.
+Almost every application needs to talk to a database. FastAPI Startkit ships with an async fork of Masonite ORM, so you get models, an async query builder, migrations, and seeders out of the box. You describe your tables as Python classes, query them with `await`, and keep your schema under version control alongside the rest of your code.
 
 ## Installation
 
-Install the `database` extra:
+The ORM lives in the optional `database` extra, so install it first:
 
 ```bash
 uv add fastapi-startkit --extra database
@@ -21,11 +21,11 @@ pip install "fastapi-startkit[database]"
 
 ## Setup
 
-Register `DatabaseProvider` in your application and give it a database config dataclass. The provider does not accept a plain dictionary, and each connection must be a config object such as `SQLiteConfig` or `MySQLConfig`.
+Next, register `DatabaseProvider` in your application and give it a database config dataclass. The provider won't accept a plain dictionary, and each connection must be a config object such as `SQLiteConfig` or `MySQLConfig`.
 
 ### Inline Config
 
-For a quick prototype, build the config inline:
+When you're putting together a quick prototype, you can build the config inline:
 
 ```python
 # bootstrap/application.py
@@ -47,7 +47,7 @@ app: Application = Application(
 
 ### Config Class (Recommended)
 
-In a real project, keep the config in `config/database.py` and pass the class. The application instantiates it when the provider registers:
+In a real project, you'll want the config in its own file, `config/database.py`, and pass the class instead. The application instantiates it when the provider registers:
 
 ```python
 # bootstrap/application.py
@@ -65,13 +65,13 @@ app: Application = Application(
 
 ## Configuration
 
-Publish the default config file with `provider:publish`:
+The quickest way to get a config file is to publish the default one with `provider:publish`:
 
 ```bash
 uv run python artisan provider:publish --provider=database
 ```
 
-This creates `config/database.py`. You can also write it yourself:
+This creates `config/database.py`. If you prefer, you can write it yourself:
 
 ```python
 # config/database.py
@@ -105,7 +105,7 @@ class DatabaseConfig(BaseDatabaseConfig):
 
 `env()` returns a dataclass field. Use it as a field default or as an argument to a config class such as `SQLiteConfig`. Don't wrap it in `field(default_factory=lambda: env(...))`, and don't put it in a plain dict, because the value is never read there.
 
-Keep credentials in `.env`:
+Your credentials belong in `.env`, not in code:
 
 ```dotenv
 DB_CONNECTION=mysql
@@ -118,7 +118,7 @@ DB_PORT=3306
 
 ## Project Structure
 
-A typical database-enabled project looks like this:
+Once everything is in place, a typical database-enabled project looks like this:
 
 ```text
 .
@@ -140,4 +140,4 @@ A typical database-enabled project looks like this:
 
 ## Example Application
 
-The [database example app](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/database-app) is a complete working project.
+The [database example app](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/database-app) is a complete working project you can browse or run to see all of these pieces together.
