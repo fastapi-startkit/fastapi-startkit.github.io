@@ -55,6 +55,7 @@
     --vp-code-copy-code-hover-bg: #2b2926;
     --vp-code-copy-code-border-color: var(--site-term-rule);
     --vp-code-copy-code-hover-border-color: var(--site-orange);
+    --vp-code-copy-code-active-text: var(--site-term-ink);
     --vp-code-tab-text-color: #9a9488;
     --vp-code-tab-hover-text-color: var(--site-term-ink);
     --vp-code-tab-active-text-color: var(--site-term-ink);
