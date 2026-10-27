@@ -1,0 +1,339 @@
+.tut-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font: 700 11px/1.6 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--site-muted);
+}
+
+.tut-lesson-header {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 28px;
+}
+
+.tut-crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font: 600 12px/1.6 var(--site-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--site-muted);
+}
+
+.tut-crumbs a {
+    color: var(--site-ink-soft);
+    text-decoration: none;
+}
+
+.tut-crumbs a:hover {
+    color: var(--site-orange-ink);
+}
+
+.tut-lesson-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tut-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1.5px solid var(--site-line);
+    border-radius: 999px;
+    background: var(--site-card);
+    font: 600 12px/1.4 var(--site-mono);
+    color: var(--site-ink);
+}
+
+.tut-pill--accent {
+    background: var(--site-orange);
+    color: #111110;
+}
+
+.tut-progress {
+    position: relative;
+    height: 8px;
+    border: 1.5px solid var(--site-line);
+    border-radius: 999px;
+    background: var(--site-card);
+    overflow: hidden;
+}
+
+.tut-progress > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: var(--site-orange);
+    transition: width 0.3s ease;
+}
+
+.tut-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding: 16px;
+    border: 1.5px solid var(--site-line);
+    border-radius: 12px;
+    background: var(--site-card);
+    box-shadow: 3px 3px 0 var(--site-shadow);
+}
+
+.tut-aside__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.tut-aside__percent {
+    font: 700 14px/1 var(--site-mono);
+    color: var(--site-ink);
+}
+
+.tut-aside__title {
+    margin-top: 8px;
+}
+
+.tut-aside__list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tut-aside__list a {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--site-ink-soft);
+    text-decoration: none;
+}
+
+.tut-aside__list a:hover {
+    background: var(--site-bg-alt);
+    color: var(--site-ink);
+}
+
+.tut-aside__list a.is-current {
+    background: var(--site-orange-soft);
+    color: var(--site-ink);
+    font-weight: 600;
+}
+
+.tut-aside__num {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 18px;
+    font: 700 11px/1 var(--site-mono);
+    color: var(--site-muted);
+}
+
+.tut-aside__list a.is-done .tut-aside__num,
+.tut-aside__list a.is-current .tut-aside__num {
+    color: var(--site-orange-ink);
+}
+
+.tut-pager {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 48px;
+}
+
+.tut-pager__link,
+.tut-card,
+.tut-course__lesson {
+    border: 1.5px solid var(--site-line);
+    border-radius: 12px;
+    background: var(--site-card);
+    box-shadow: 3px 3px 0 var(--site-shadow);
+    color: var(--site-ink);
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tut-pager__link:hover,
+.tut-card:hover,
+.tut-course__lesson:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--site-orange);
+}
+
+.tut-pager__link {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+}
+
+.tut-pager__link--next {
+    grid-column: 2;
+    align-items: flex-end;
+    text-align: right;
+}
+
+.tut-pager__title {
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+.tut-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1.5px solid var(--site-line);
+    border-radius: 10px;
+    background: var(--site-orange);
+    box-shadow: 3px 3px 0 var(--site-shadow);
+    font: 700 14px/1 var(--site-sans);
+    color: #111110;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tut-button:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--site-shadow);
+}
+
+.tut-course {
+    margin-top: 48px;
+}
+
+.tut-course__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 24px;
+    border-top: 1.5px solid var(--site-line);
+}
+
+.tut-course__title {
+    margin: 0;
+    font: 700 1.6rem/1.3 var(--site-sans);
+}
+
+.tut-course__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tut-course__lesson {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 14px 16px;
+}
+
+.tut-course__num {
+    flex: none;
+    font: 700 20px/1.2 var(--site-mono);
+    color: var(--site-orange-ink);
+}
+
+.tut-course__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.tut-course__name {
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1.4;
+}
+
+.tut-course__desc {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--site-ink-soft);
+}
+
+.tut-course__time {
+    flex: none;
+    font: 600 12px/1.8 var(--site-mono);
+    color: var(--site-muted);
+}
+
+.tut-index {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 32px;
+}
+
+.tut-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+}
+
+.tut-card__title {
+    font: 700 1.3rem/1.3 var(--site-sans);
+}
+
+.tut-card__desc {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--site-ink-soft);
+}
+
+.tut-card__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font: 700 13px/1 var(--site-sans);
+    color: var(--site-orange-ink);
+}
+
+@media (max-width: 639px) {
+    .tut-pager {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tut-pager__link--next {
+        grid-column: 1;
+    }
+
+    .tut-course__time {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tut-progress > span,
+    .tut-pager__link,
+    .tut-card,
+    .tut-course__lesson,
+    .tut-button {
+        transition: none;
+    }
+}
