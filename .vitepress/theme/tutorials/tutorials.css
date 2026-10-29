@@ -337,3 +337,7 @@
         transition: none;
     }
 }
+
+.VPDocFooter .tutorials-footer {
+  margin-bottom: 32px;
+}

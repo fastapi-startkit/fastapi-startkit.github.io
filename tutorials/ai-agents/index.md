@@ -3,7 +3,7 @@ course: true
 title: Build an AI Agent
 description: Build a job-search assistant that chats, streams, calls tools, returns structured data, remembers conversations and is fully tested without an API key.
 level: Beginner
-order: 1
+order: 2
 aside: false
 ---
 

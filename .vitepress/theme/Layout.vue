@@ -5,18 +5,17 @@
     import HomeNav from "./home/HomeNav.vue"
     import HomePage from "./home/HomePage.vue"
     import CourseHeader from "./tutorials/CourseHeader.vue"
-    import CourseLessons from "./tutorials/CourseLessons.vue"
     import LessonAside from "./tutorials/LessonAside.vue"
     import LessonHeader from "./tutorials/LessonHeader.vue"
-    import LessonNav from "./tutorials/LessonNav.vue"
-    import TutorialsIndex from "./tutorials/TutorialsIndex.vue"
+    import TutorialsFooter from "./tutorials/TutorialsFooter.vue"
 
     const { Layout } = DefaultTheme
-    const { frontmatter } = useData()
+    const { frontmatter, page, theme } = useData()
     const isHome = computed(() => frontmatter.value.layout === "home")
-    const isTutorialsIndex = computed(() => frontmatter.value.tutorials === "index")
     const isCourse = computed(() => frontmatter.value.course === true)
     const isLesson = computed(() => typeof frontmatter.value.lesson === "number")
+    const isTutorialPage = computed(() => frontmatter.value.tutorials === "index" || isCourse.value || isLesson.value)
+    const hasDocFooter = computed(() => Boolean(page.value.lastUpdated || theme.value.editLink))
 </script>
 
 <template>
@@ -31,10 +30,11 @@
             <CourseHeader v-if="isCourse"/>
             <LessonHeader v-else-if="isLesson"/>
         </template>
+        <template #doc-footer-before>
+            <TutorialsFooter v-if="isTutorialPage && hasDocFooter"/>
+        </template>
         <template #doc-after>
-            <TutorialsIndex v-if="isTutorialsIndex"/>
-            <CourseLessons v-else-if="isCourse"/>
-            <LessonNav v-else-if="isLesson"/>
+            <TutorialsFooter v-if="isTutorialPage && !hasDocFooter"/>
         </template>
         <template #aside-top>
             <LessonAside v-if="isLesson"/>
