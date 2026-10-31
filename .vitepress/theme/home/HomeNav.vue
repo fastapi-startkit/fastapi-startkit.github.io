@@ -50,11 +50,11 @@
                 <button
                     type="button"
                     class="hp-nav__toggle"
-                    :aria-label="isDark ? 'Switch to light theme' : 'Switch to dark theme'"
+                    aria-label="Toggle dark theme"
                     @click="isDark = !isDark"
                 >
-                    <Sun v-if="isDark" :size="16" aria-hidden="true"/>
-                    <Moon v-else :size="16" aria-hidden="true"/>
+                    <Sun :size="16" class="hp-nav__sun" aria-hidden="true"/>
+                    <Moon :size="16" class="hp-nav__moon" aria-hidden="true"/>
                 </button>
             </div>
         </nav>
@@ -192,6 +192,15 @@
 
     .hp-nav__icon:hover {
         color: var(--hp-orange-ink);
+    }
+
+    .hp-nav__sun,
+    .dark .hp-nav__moon {
+        display: none;
+    }
+
+    .dark .hp-nav__sun {
+        display: block;
     }
 
     @media (prefers-reduced-motion: reduce) {
