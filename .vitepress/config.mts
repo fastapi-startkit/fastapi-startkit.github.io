@@ -78,7 +78,7 @@ export default defineConfig({
 
         if (!jsonLd) {
             const isBlog = pageData.relativePath.startsWith('blog/') || pageData.frontmatter.layout === 'blog'
-            const isDoc = pageData.relativePath.startsWith('docs/')
+            const isDoc = pageData.relativePath.startsWith('docs/') || pageData.relativePath.startsWith('tutorials/')
 
             const graph: any[] = [
                 {
@@ -154,69 +154,72 @@ export default defineConfig({
     },
 
     themeConfig: {
-        sidebar: [
-            {
-                text: 'Guide',
-                items: [
-                    { text: 'Getting Started', link: '/docs/getting-started' },
-                    { text: 'Env Variables', link: '/docs/configuration' },
-                    { text: 'FastAPI', link: '/docs/fastapi' },
-                    { text: 'Exception Handling', link: '/docs/exception-handling' },
-                    { text: 'Logging', link: '/docs/logging' },
-                    { text: 'Console Commands', link: '/docs/console' }
-                ]
-            },
-            {
-                text: 'AI',
-                items: [
-                    { text: 'Agents', link: '/docs/ai/agent' },
-                    { text: 'Image', link: '/docs/ai/image' },
-                    { text: 'Audio', link: '/docs/ai/audio' },
-                    { text: 'MCP', link: '/docs/ai/mcp' },
-                    { text: 'Skills', link: '/docs/ai/skills' },
-                ]
-            },
-            {
-                text: 'Database',
-                items: [
-                    { text: 'Introduction', link: '/docs/database/' },
-                    { text: 'Models', link: '/docs/database/models' },
-                    { text: 'Casts', link: '/docs/database/casts' },
-                    { text: 'Migrations', link: '/docs/database/migrations' },
-                    { text: 'Seeds', link: '/docs/database/seeds' },
-                    { text: 'Factories', link: '/docs/orm-factory' },
-                    { text: 'Relationships', link: '/docs/database/relationships' },
-                ]
-            },
-            {
-                text: 'Frontend',
-                items: [
-                    { text: 'Introduction', link: '/docs/frontend/' },
-                    { text: 'Vite', link: '/docs/frontend/vite' },
-                    { text: 'Inertia', link: '/docs/frontend/inertia' },
-                ]
-            },
-            {
-                text: 'Digging Deeper',
-                items: [
-                    { text: 'Authentication', link: '/docs/authentication' },
-                    { text: 'Storage', link: '/docs/storage' },
-                    { text: 'Cache', link: '/docs/cache' },
-                    { text: 'Redis', link: '/docs/redis' },
-                    { text: 'Queues', link: '/docs/queues' },
-                    { text: 'Process', link: '/docs/process' },
-                    { text: 'Broadcasting', link: '/docs/broadcasting' },
-                    { text: 'JSON:API Resources', link: '/docs/jsonapi' },
-                ]
-            },
-            {
-                text: 'Testing',
-                items: [
-                    { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
-                    { text: 'Database Testing', link: '/docs/testing/database' },
-                ]
-            }
-        ],
+        sidebar: {
+            '/docs/': [
+                {
+                    text: 'Guide',
+                    items: [
+                        { text: 'Getting Started', link: '/docs/getting-started' },
+                        { text: 'Env Variables', link: '/docs/configuration' },
+                        { text: 'FastAPI', link: '/docs/fastapi' },
+                        { text: 'Exception Handling', link: '/docs/exception-handling' },
+                        { text: 'Logging', link: '/docs/logging' },
+                        { text: 'Console Commands', link: '/docs/console' }
+                    ]
+                },
+                {
+                    text: 'AI',
+                    items: [
+                        { text: 'Agents', link: '/docs/ai/agent' },
+                        { text: 'Image', link: '/docs/ai/image' },
+                        { text: 'Audio', link: '/docs/ai/audio' },
+                        { text: 'MCP', link: '/docs/ai/mcp' },
+                        { text: 'Skills', link: '/docs/ai/skills' },
+                        { text: 'Tutorial: Build an Agent', link: '/tutorials/ai-agents/' },
+                    ]
+                },
+                {
+                    text: 'Database',
+                    items: [
+                        { text: 'Introduction', link: '/docs/database/' },
+                        { text: 'Models', link: '/docs/database/models' },
+                        { text: 'Casts', link: '/docs/database/casts' },
+                        { text: 'Migrations', link: '/docs/database/migrations' },
+                        { text: 'Seeds', link: '/docs/database/seeds' },
+                        { text: 'Factories', link: '/docs/orm-factory' },
+                        { text: 'Relationships', link: '/docs/database/relationships' },
+                    ]
+                },
+                {
+                    text: 'Frontend',
+                    items: [
+                        { text: 'Introduction', link: '/docs/frontend/' },
+                        { text: 'Vite', link: '/docs/frontend/vite' },
+                        { text: 'Inertia', link: '/docs/frontend/inertia' },
+                    ]
+                },
+                {
+                    text: 'Digging Deeper',
+                    items: [
+                        { text: 'Authentication', link: '/docs/authentication' },
+                        { text: 'Storage', link: '/docs/storage' },
+                        { text: 'Cache', link: '/docs/cache' },
+                        { text: 'Redis', link: '/docs/redis' },
+                        { text: 'Queues', link: '/docs/queues' },
+                        { text: 'Process', link: '/docs/process' },
+                        { text: 'Broadcasting', link: '/docs/broadcasting' },
+                        { text: 'JSON:API Resources', link: '/docs/jsonapi' },
+                    ]
+                },
+                {
+                    text: 'Testing',
+                    items: [
+                        { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
+                        { text: 'Database Testing', link: '/docs/testing/database' },
+                    ]
+                }
+            ],
+        },
 
         search: {
             provider: 'local'

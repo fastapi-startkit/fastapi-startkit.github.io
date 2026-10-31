@@ -8,6 +8,7 @@
 
     const { isDark, page } = useData()
     const inDocs = computed(() => page.value.relativePath.startsWith("docs/"))
+    const inTutorials = computed(() => page.value.relativePath.startsWith("tutorials/"))
 
     function openSearch() {
         document.dispatchEvent(new KeyboardEvent("keydown", {
@@ -29,6 +30,12 @@
                     aria-label="Documentation"
                     :aria-current="inDocs ? 'true' : undefined"
                 ><span class="hp-nav__link-full">Documentation</span><span class="hp-nav__link-short" aria-hidden="true">Docs</span></a>
+                <a
+                    href="/tutorials/"
+                    class="hp-nav__link"
+                    aria-label="Tutorials"
+                    :aria-current="inTutorials ? 'true' : undefined"
+                ><span class="hp-nav__link-full">Tutorials</span><span class="hp-nav__link-short" aria-hidden="true">Learn</span></a>
             </div>
             <div class="hp-nav__right">
                 <button type="button" class="hp-nav__search" @click="openSearch">
@@ -247,6 +254,10 @@
 
         .hp-nav__right {
             gap: 8px;
+        }
+
+        .hp-nav__icon {
+            display: none;
         }
     }
 </style>
