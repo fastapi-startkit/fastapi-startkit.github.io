@@ -17,9 +17,8 @@ The Database overview page only covered installing the `database` extra, registe
 Option 1. `docs/database/index.md` becomes "Database: Getting Started" with these sections:
 
 - Introduction, with a table of supported databases, drivers, install extras, and config classes (SQLite/aiosqlite, MySQL/aiomysql, PostgreSQL/asyncpg). Any other driver raises `DriverNotFound`.
-- Installation, with `database` plus a driver extra and a tip that MySQL 8's default auth needs `cryptography`.
-- Setup, as before.
-- Configuration, which covers the published config (now including PostgreSQL), `default` as a connection name, connection options and their env variables, SQLite file and `:memory:` databases, URLs (async driver schemes, the shared `DB_URL` pitfall), and pool tuning by overriding `engine_options()`.
+- Installation, with `database` plus a driver extra and a tip that MySQL 8's default auth needs `cryptography`. Then `uv run python artisan db:install --driver=...` is the primary setup path (see "db:install as the setup path" below), and the earlier inline-config and config-class setup are kept under "Manual Setup".
+- Configuration, which shows the file `db:install` writes, then a multi-connection example. Connections are named `sqlite`, `mysql` and `postgres` to match `db:install`. It also covers `default` as a connection name, connection options and their env variables, SQLite file and `:memory:` databases, URLs (async driver schemes, the shared `DB_URL` pitfall), and pool tuning by overriding `engine_options()`.
 - Project Structure, as before.
 - Running SQL Queries, which covers `select`, `select_one`, `insert`, `update`, `delete`, and `statement` with `?` bindings, PostgreSQL `RETURNING`, multiple connections through `DB.connection(name)` and `__connection__`, and query logging with `echo` / `DB_ECHO`.
 - Database Transactions, unchanged from the first version of this ADR: the context manager, rollback on exception, early commit/rollback, manual control, savepoints, named connections, task scoping, `after_commit`, and test mixins.
@@ -32,6 +31,19 @@ Behaviour that surprises readers is documented where it applies:
 - In-memory SQLite and `engine_options()` behave differently under `APP_ENV=testing`, where the engine uses `NullPool`.
 - SQLite defers `BEGIN` until the first write, so a savepoint that makes the first write is committed for real.
 - `after_commit` never runs inside test transactions.
+
+### db:install as the setup path
+
+A later review asked whether the page could use `db:install`. The command is registered by the framework's `AppProvider` and has shipped since 0.68.0 (it's in 0.71.0, the current release). It writes `config/database.py` for the chosen driver, registers `(DatabaseProvider, DatabaseConfig)` in `bootstrap/application.py`, and prints the `.env` keys and next steps. It doesn't install packages, edit `.env`, or create `databases/migrations`.
+
+The page leads with it, and documents the limits that change what a reader must do:
+
+- Install the extras first. Once the provider is registered, every `artisan` command imports SQLAlchemy.
+- Re-running skips existing files, and `--force` overwrites them.
+- Switching drivers with `--force` also needs `.env` updated.
+- A `bootstrap/application.py` without a literal `providers=[...]` list gets manual instructions and exit status 1.
+
+`provider:publish --provider=database` is removed from the page. In a new app it reports "No provider found" before the provider is registered, and once the provider is registered `artisan` can't import a missing `config/database.py`.
 
 Left out because the framework lacks them, and reported as gaps:
 
@@ -52,4 +64,7 @@ Left out because the framework lacks them, and reported as gaps:
 ## Validation
 
 - Every code example ran in scratch scripts outside the repo, through a real `Application` with `DatabaseProvider`, using the framework on `main`. SQLite examples ran locally. The PostgreSQL examples (URL config, `RETURNING`, `insert` returning `None`, pool settings) ran against a throwaway `postgres:17` container, and the MySQL examples against a throwaway `mysql:8.0` container, which also confirmed the `cryptography` requirement.
+- `db:install` ran in fresh `fastapi-startkit init` apps on 0.71.0:
+  - the default SQLite run, `--driver=postgres` (the documented output is copied from that run), a re-run, `--force` driver switching, an unsupported driver, and a bootstrap with a non-literal `providers` list
+  - the printed next steps followed through to `db:migrate` on SQLite and on a throwaway `postgres:17` container
 - `npm run docs:build` succeeds. In `npm run docs:preview` the page has no console errors, the outline lists every section, and in-page anchors resolve.

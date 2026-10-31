@@ -2,7 +2,7 @@
 outline: deep
 title: "Database: Getting Started"
 description: Supported databases, configuration, raw SQL queries, multiple connections, and transactions in FastAPI Startkit's async ORM.
-keywords: database, orm, sqlite, mysql, postgresql, raw sql, transactions, fastapi, python
+keywords: database, orm, db:install, sqlite, mysql, postgresql, raw sql, transactions, fastapi, python
 ---
 
 # Database: Getting Started
@@ -23,6 +23,10 @@ A connection with any other driver raises `DriverNotFound` when it's first used.
 
 ## Installation
 
+Setting up a database takes three steps: install the ORM with a driver, run `db:install`, and add your connection details to `.env`.
+
+### Installing the ORM and a Driver
+
 The ORM lives in the `database` extra, and each driver is its own extra. Install `database` together with the driver for your database:
 
 ```bash
@@ -42,11 +46,65 @@ With pip, use the same extras: `pip install "fastapi-startkit[database,postgres]
 MySQL 8 authenticates with `caching_sha2_password` by default, and the MySQL driver needs the `cryptography` package for that. If connecting fails with `'cryptography' package is required`, install it with `uv add cryptography`.
 :::
 
-## Setup
+### Running `db:install`
 
-Next, register `DatabaseProvider` in your application and give it a database config dataclass. The provider won't accept a plain dictionary, and each connection must be a config object such as `SQLiteConfig` or `MySQLConfig`.
+Next, run the `db:install` command with the driver you installed. `--driver` accepts `sqlite` (the default), `mysql`, or `postgres`:
 
-### Inline Config
+```bash
+uv run python artisan db:install --driver=postgres
+```
+
+The command does two things:
+
+- It creates `config/database.py` with one connection for your driver, and makes that connection the default.
+- It registers `DatabaseProvider` with that config in `bootstrap/application.py`, adding the imports for you.
+
+Then it prints the remaining steps:
+
+```text
+Created config/database.py
+Registered DatabaseProvider in bootstrap/application.py
+
+Next steps:
+  Add to .env:
+    DB_CONNECTION=postgres
+    DB_HOST=127.0.0.1
+    DB_PORT=5432
+    DB_DATABASE=blog
+    DB_USERNAME=postgres
+    DB_PASSWORD=
+  Create the migrations directory: mkdir -p databases/migrations
+  Create a migration: uv run python artisan db:make:migration create_users_table
+  Run migrations: uv run python artisan db:migrate
+```
+
+`DB_DATABASE` defaults to your project's directory name. For SQLite, the command suggests `DB_DATABASE=databases/database.sqlite`.
+
+`db:install` doesn't install packages, edit `.env`, or create directories. Copy the printed keys into `.env` with your real credentials, then create the migrations directory and run your first migration:
+
+```bash
+mkdir -p databases/migrations
+uv run python artisan db:make:migration create_users_table
+uv run python artisan db:migrate
+```
+
+::: warning Install the extras first
+Once `DatabaseProvider` is registered, every `artisan` command imports the ORM. If you run `db:install` before installing the `database` extra, the command still succeeds and reminds you to install it, but `artisan` fails with `No module named 'sqlalchemy'` until you do.
+:::
+
+Running `db:install` again is safe. An existing `config/database.py` is skipped, and the provider isn't registered twice. To replace the config, for example to switch to another driver, pass `--force` and update `DB_CONNECTION` and the other keys in `.env` to match:
+
+```bash
+uv run python artisan db:install --driver=mysql --force
+```
+
+If `bootstrap/application.py` doesn't pass `Application(...)` a literal `providers=[...]` list, the command can't edit it safely. It still creates the config, prints the imports and the provider entry to add by hand, and exits with status 1.
+
+### Manual Setup
+
+If you'd rather not use `db:install`, register `DatabaseProvider` yourself and give it a database config dataclass. The provider won't accept a plain dictionary, and each connection must be a config object such as `SQLiteConfig` or `MySQLConfig`.
+
+#### Inline Config
 
 When you're putting together a quick prototype, you can build the config inline:
 
@@ -68,9 +126,9 @@ app: Application = Application(
 )
 ```
 
-### Config Class (Recommended)
+#### Config Class
 
-In a real project, you'll want the config in its own file, `config/database.py`, and pass the class instead. The application instantiates it when the provider registers:
+In a real project, keep the config in its own file, `config/database.py`, and pass the class instead. This is what `db:install` sets up. The application instantiates the class when the provider registers:
 
 ```python
 # bootstrap/application.py
@@ -88,13 +146,24 @@ app: Application = Application(
 
 ## Configuration
 
-The quickest way to get a config file is to publish the default one with `provider:publish`:
+Your database configuration lives in `config/database.py`. The file `db:install` writes has a single connection named after your driver:
 
-```bash
-uv run python artisan provider:publish --provider=database
+```python
+# config/database.py
+from dataclasses import dataclass, field
+
+from fastapi_startkit.environment import env
+from fastapi_startkit.masoniteorm.config.config import PostgresConfig
+from fastapi_startkit.masoniteorm.config.database import DatabaseConfig as BaseDatabaseConfig
+
+
+@dataclass
+class DatabaseConfig(BaseDatabaseConfig):
+    default: str = env("DB_CONNECTION", "postgres")
+    connections: dict = field(default_factory=lambda: {"postgres": PostgresConfig()})
 ```
 
-This creates `config/database.py`. In this file you define every connection your application uses and choose which one is the default. If you prefer, you can write it yourself:
+`PostgresConfig()` with no arguments reads its host, database, and credentials from `.env`, as described in [Connection Options](#connection-options). Add more connections to the dictionary as your application needs them, and choose which one is the default:
 
 ```python
 # config/database.py
@@ -118,7 +187,7 @@ class DatabaseConfig(BaseDatabaseConfig):
             username=env("DB_USERNAME", "root"),
             password=env("DB_PASSWORD", ""),
         ),
-        "pgsql": PostgresConfig(
+        "postgres": PostgresConfig(
             host=env("DB_HOST", "127.0.0.1"),
             port=env("DB_PORT", 5432),
             database=env("DB_DATABASE", "app"),
@@ -133,7 +202,7 @@ class DatabaseConfig(BaseDatabaseConfig):
     })
 ```
 
-`default` is the name of a key in `connections`, not a driver name. With the file above, `DB_CONNECTION=pgsql` selects the PostgreSQL connection.
+`default` is the name of a key in `connections`, not a driver name. With the file above, `DB_CONNECTION=postgres` selects the PostgreSQL connection. `migrations` is optional, and the values shown are the defaults.
 
 `env()` returns a dataclass field. Use it as a field default or as an argument to a config class such as `SQLiteConfig`. Don't wrap it in `field(default_factory=lambda: env(...))`, and don't put it in a plain dict, because the value is never read there.
 
@@ -205,7 +274,7 @@ A plain `postgres://` or `mysql://` URL fails with `NoSuchModuleError`. Use the 
 Every config class reads `DB_URL` by default. If you set `DB_URL` and define more than one connection, every connection without its own `url` connects to that same database. Give each connection its own variable instead:
 
 ```python
-"pgsql": PostgresConfig(url=env("DATABASE_URL", "")),
+"postgres": PostgresConfig(url=env("DATABASE_URL", "")),
 "reporting": PostgresConfig(url=env("REPORTING_DATABASE_URL", "")),
 ```
 :::
