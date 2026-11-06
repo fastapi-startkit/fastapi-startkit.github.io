@@ -186,6 +186,7 @@ export default defineConfig({
                     { text: 'Seeds', link: '/docs/database/seeds' },
                     { text: 'Factories', link: '/docs/orm-factory' },
                     { text: 'Relationships', link: '/docs/database/relationships' },
+                    { text: 'Tortoise ORM', link: '/docs/database/tortoise' },
                 ]
             },
             {
