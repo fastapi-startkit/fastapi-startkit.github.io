@@ -64,6 +64,23 @@ HasOne["RelatedModel"](foreign_key=..., local_key=...)
 | `foreign_key` | Column on the related model that references this model |
 | `local_key` | Column on this model that the foreign key points at. Defaults to `"id"`. |
 
+#### Table Structure
+
+```text
+users
+    id - integer
+    name - string
+
+profiles
+    id - integer
+    user_id - integer
+    bio - string
+```
+
+`profiles.user_id` references `users.id`, so a user has one profile.
+
+#### Model Structure
+
 ```python
 # app/models/user.py
 from fastapi_startkit.masoniteorm import Model, HasOne
@@ -77,11 +94,28 @@ class User(Model):
     profile = HasOne["Profile"](foreign_key="user_id", local_key="id")
 ```
 
+```python
+# app/models/profile.py
+from fastapi_startkit.masoniteorm import Model
+
+class Profile(Model):
+    __table__ = "profiles"
+
+    id: int
+    user_id: int
+    bio: str
+```
+
+```python
+user = await User.with_("profile").where("id", 1).first()
+print(user.profile.bio)
+```
+
 When no related row exists, the loaded attribute is `None`.
 
 ### BelongsTo
 
-`BelongsTo` is the inverse. Use it when this model holds the foreign key, such as a profile pointing at its user or a post pointing at its author:
+`BelongsTo` is the inverse. Use it when this model holds the foreign key, such as a user that belongs to a role:
 
 ```python
 BelongsTo["RelatedModel"](local_key=..., foreign_key=...)
@@ -92,23 +126,58 @@ BelongsTo["RelatedModel"](local_key=..., foreign_key=...)
 | `local_key` | Foreign key column on this model |
 | `foreign_key` | Column on the related model that `local_key` references, usually its primary key |
 
+#### Table Structure
+
+```text
+users
+    id - integer
+    role_id - integer
+    name - string
+
+roles
+    id - integer
+    name - string
+```
+
+`users.role_id` references `roles.id`, so a user belongs to a role.
+
+#### Model Structure
+
 ```python
-# app/models/profile.py
+# app/models/user.py
 from fastapi_startkit.masoniteorm import Model, BelongsTo
 
-class Profile(Model):
-    __table__ = "profiles"
+class User(Model):
+    __table__ = "users"
 
     id: int
-    user_id: int
-    bio: str
+    role_id: int
+    name: str
 
-    user = BelongsTo["User"](local_key="user_id", foreign_key="id")
+    role = BelongsTo["Role"](local_key="role_id", foreign_key="id")
 ```
+
+```python
+# app/models/role.py
+from fastapi_startkit.masoniteorm import Model
+
+class Role(Model):
+    __table__ = "roles"
+
+    id: int
+    name: str
+```
+
+```python
+user = await User.with_("role").where("id", 1).first()
+print(user.role.name)
+```
+
+The inverse of the `HasOne` above is a `BelongsTo` too: `Profile.user = BelongsTo["User"](local_key="user_id", foreign_key="id")`.
 
 ## One to Many
 
-`HasMany` is like `HasOne`, but it loads every matching row as a `Collection`. Use it for a user with many posts or a post with many comments:
+`HasMany` is like `HasOne`, but it loads every matching row as a `Collection`. Use it for a user with many posts:
 
 ```python
 HasMany["RelatedModel"](foreign_key=..., local_key=...)
@@ -119,9 +188,26 @@ HasMany["RelatedModel"](foreign_key=..., local_key=...)
 | `foreign_key` | Column on the related model that references this model |
 | `local_key` | Column on this model that the foreign key points at. Defaults to `"id"`. |
 
+#### Table Structure
+
+```text
+users
+    id - integer
+    name - string
+
+posts
+    id - integer
+    user_id - integer
+    title - string
+```
+
+`posts.user_id` references `users.id`, so a user has many posts and each post belongs to one user.
+
+#### Model Structure
+
 ```python
 # app/models/user.py
-from fastapi_startkit.masoniteorm import Model, HasMany, HasOne
+from fastapi_startkit.masoniteorm import Model, HasMany
 
 class User(Model):
     __table__ = "users"
@@ -129,19 +215,12 @@ class User(Model):
     id: int
     name: str
 
-    profile = HasOne["Profile"](foreign_key="user_id", local_key="id")
     posts = HasMany["Post"](foreign_key="user_id", local_key="id")
 ```
 
-The inverse of `HasMany` is a `BelongsTo` on the child model, like `Post.author` above.
-
-## Has One of Many
-
-Sometimes you want a single row out of a `HasMany`, such as a post's latest comment. Derive it from the `HasMany` with `latest_of_many()`, `oldest_of_many()`, or `of_many()`, and declare it with the `@relationship` decorator:
-
 ```python
 # app/models/post.py
-from fastapi_startkit.masoniteorm import Model, BelongsTo, HasMany, HasOne, relationship
+from fastapi_startkit.masoniteorm import Model, BelongsTo
 
 class Post(Model):
     __table__ = "posts"
@@ -151,6 +230,54 @@ class Post(Model):
     title: str
 
     author = BelongsTo["User"](local_key="user_id", foreign_key="id")
+```
+
+```python
+user = await User.with_("posts").where("id", 1).first()
+print([post.title for post in user.posts])
+```
+
+`Post.author` is the inverse `BelongsTo`.
+
+## Has One of Many
+
+Sometimes you want a single row out of a `HasMany`, such as a post's latest comment. Derive it from the `HasMany` with `latest_of_many()`, `oldest_of_many()`, or `of_many()`, and declare it with the `@relationship` decorator.
+
+| Method | Picks the row with |
+|---|---|
+| `latest_of_many(column="created_at")` | The highest `column` value |
+| `oldest_of_many(column="created_at")` | The lowest `column` value |
+| `of_many(column=None, aggregate="max")` | The `"max"` or `"min"` value of `column`. With no column, the primary key is used. |
+
+#### Table Structure
+
+```text
+posts
+    id - integer
+    title - string
+
+comments
+    id - integer
+    post_id - integer
+    body - string
+    votes - integer
+    created_at - timestamp
+```
+
+`comments.post_id` references `posts.id`, so a post has many comments, and one of them is the latest, the oldest, or the most voted.
+
+#### Model Structure
+
+```python
+# app/models/post.py
+from fastapi_startkit.masoniteorm import Model, HasMany, HasOne, relationship
+
+class Post(Model):
+    __table__ = "posts"
+
+    id: int
+    title: str
+
     comments = HasMany["Comment"](foreign_key="post_id", local_key="id")
 
     @relationship
@@ -166,11 +293,23 @@ class Post(Model):
         return self.comments.of_many("votes", "max")
 ```
 
-| Method | Picks the row with |
-|---|---|
-| `latest_of_many(column="created_at")` | The highest `column` value |
-| `oldest_of_many(column="created_at")` | The lowest `column` value |
-| `of_many(column=None, aggregate="max")` | The `"max"` or `"min"` value of `column`. With no column, the primary key is used. |
+```python
+# app/models/comment.py
+from fastapi_startkit.masoniteorm import Model
+
+class Comment(Model):
+    __table__ = "comments"
+
+    id: int
+    post_id: int
+    body: str
+    votes: int
+```
+
+```python
+post = await Post.with_("latest_comment", "top_comment").where("id", 1).first()
+print(post.latest_comment.body, post.top_comment.votes)
+```
 
 Rows where the column is `NULL` are skipped, and ties are broken by the primary key. The result behaves like a `HasOne`, so you can eager load it and use it with `where_has()`, and it is `None` when there are no rows. The method must return a new relationship derived from another one. `@relationship` also works on top of a `@classmethod`, in which case you write `cls.comments` instead of `self.comments`.
 
@@ -198,27 +337,62 @@ BelongsToMany["RelatedModel"](
 | `attribute` | Name of the attribute that holds the pivot row on each related model. Defaults to `"pivot"`. |
 | `with_fields` | Extra pivot columns to load onto the pivot attribute, as a list |
 
-So a `Post` belongs to many `Tag`s:
+#### Table Structure
+
+```text
+posts
+    id - integer
+    title - string
+
+tags
+    id - integer
+    name - string
+
+post_tag
+    id - integer
+    post_id - integer
+    tag_id - integer
+```
+
+Each `post_tag` row links one post to one tag: `post_tag.post_id` references `posts.id` and `post_tag.tag_id` references `tags.id`.
+
+#### Model Structure
 
 ```python
 # app/models/post.py
-tags = BelongsToMany["Tag"](
-    local_foreign_key="post_id",
-    other_foreign_key="tag_id",
-    table="post_tag",
-)
-```
+from fastapi_startkit.masoniteorm import Model, BelongsToMany
 
-And the inverse, where a `Tag` belongs to many `Post`s, uses the same pivot table with the keys swapped:
+class Post(Model):
+    __table__ = "posts"
+
+    id: int
+    title: str
+
+    tags = BelongsToMany["Tag"](
+        local_foreign_key="post_id",
+        other_foreign_key="tag_id",
+        table="post_tag",
+    )
+```
 
 ```python
 # app/models/tag.py
-posts = BelongsToMany["Post"](
-    local_foreign_key="tag_id",
-    other_foreign_key="post_id",
-    table="post_tag",
-)
+from fastapi_startkit.masoniteorm import Model, BelongsToMany
+
+class Tag(Model):
+    __table__ = "tags"
+
+    id: int
+    name: str
+
+    posts = BelongsToMany["Post"](
+        local_foreign_key="tag_id",
+        other_foreign_key="post_id",
+        table="post_tag",
+    )
 ```
+
+The inverse on `Tag` uses the same pivot table with the keys swapped.
 
 ### Attaching and Detaching
 
@@ -242,24 +416,49 @@ for tag in post.tags:
     print(tag.name, tag.pivot.post_id, tag.pivot.tag_id)
 ```
 
-Rename the attribute with `attribute=`, and load extra pivot columns with `with_fields=`:
+Rename the attribute with `attribute=`, and load extra pivot columns with `with_fields=`. Here the pivot table has no `id` column and stores each member's position:
+
+```text
+teams
+    id - integer
+    name - string
+
+users
+    id - integer
+    name - string
+
+team_user
+    team_id - integer
+    user_id - integer
+    position - string
+```
 
 ```python
 # app/models/team.py
-members = BelongsToMany["User"](
-    local_foreign_key="team_id",
-    other_foreign_key="user_id",
-    table="team_user",
-    pivot_id=None,
-    attribute="membership",
-    with_fields=["role"],
-)
+from fastapi_startkit.masoniteorm import Model, BelongsToMany
+
+class Team(Model):
+    __table__ = "teams"
+
+    id: int
+    name: str
+
+    members = BelongsToMany["User"](
+        local_foreign_key="team_id",
+        other_foreign_key="user_id",
+        table="team_user",
+        pivot_id=None,
+        attribute="membership",
+        with_fields=["position"],
+    )
 ```
 
 ```python
 team = await Team.with_("members").first()
-print(team.members[0].membership.role)
+print(team.members[0].membership.position)
 ```
+
+Name `with_fields` columns so they don't clash with an attribute or relationship on the related model. Here a pivot column called `role` would collide with `User.role` and break eager loading.
 
 ### Pivot Model
 
@@ -286,13 +485,7 @@ await PostTag.first_or_create({"post_id": post.id, "tag_id": tag.id})
 
 ## Has One Through
 
-Use `HasOneThrough` when a model reaches one distant model through an intermediate model. Consider this schema:
-
-```
-IncomingShipment → (via from_port_id) → Port → (via port_country_id) → Country
-```
-
-The first argument is a list with the distant and intermediate model names, followed by the keys that connect them:
+Use `HasOneThrough` when a model reaches one distant model through an intermediate model. The first argument is a list with the distant and intermediate model names, followed by the keys that connect them:
 
 ```python
 HasOneThrough["DistantModel"](
@@ -312,7 +505,27 @@ HasOneThrough["DistantModel"](
 | `local_owner_key` | Primary key on the intermediate model |
 | `other_owner_key` | Primary key on the distant model |
 
-Putting it together, an `IncomingShipment` has one `Country` through `Port`:
+#### Table Structure
+
+```text
+incoming_shipments
+    shipment_id - integer
+    from_port_id - integer
+    name - string
+
+ports
+    port_id - integer
+    port_country_id - integer
+    name - string
+
+countries
+    country_id - integer
+    name - string
+```
+
+A shipment comes from one port (`incoming_shipments.from_port_id` → `ports.port_id`), and a port is in one country (`ports.port_country_id` → `countries.country_id`). So a shipment has one country through its port.
+
+#### Model Structure
 
 ```python
 # app/models/incoming_shipment.py
@@ -323,8 +536,8 @@ class IncomingShipment(Model):
     __primary_key__ = "shipment_id"
 
     shipment_id: int
-    name: str
     from_port_id: int
+    name: str
 
     from_country = HasOneThrough["Country"](
         ["Country", "Port"],
@@ -333,6 +546,31 @@ class IncomingShipment(Model):
         "port_id",          # PK on Port
         "country_id",       # PK on Country
     )
+```
+
+```python
+# app/models/port.py
+from fastapi_startkit.masoniteorm import Model
+
+class Port(Model):
+    __table__ = "ports"
+    __primary_key__ = "port_id"
+
+    port_id: int
+    port_country_id: int
+    name: str
+```
+
+```python
+# app/models/country.py
+from fastapi_startkit.masoniteorm import Model
+
+class Country(Model):
+    __table__ = "countries"
+    __primary_key__ = "country_id"
+
+    country_id: int
+    name: str
 ```
 
 Eager load it and read it like any other relationship:
@@ -345,13 +583,7 @@ for shipment in shipments:
 
 ## Has Many Through
 
-`HasManyThrough` works the same way, but for many distant models. Use it when a model reaches many distant models through an intermediate model, as in this schema:
-
-```
-Course → (via in_course_id on Enrolment) → Enrolment → (via active_student_id) → Student
-```
-
-The arguments mirror `HasOneThrough`, but the keys are read from the intermediate table's side:
+`HasManyThrough` works the same way, but for many distant models. The arguments mirror `HasOneThrough`, but the keys are read from the intermediate table's side:
 
 ```python
 HasManyThrough["DistantModel"](
@@ -371,7 +603,26 @@ HasManyThrough["DistantModel"](
 | `local_owner_key` | Primary key on this model |
 | `other_owner_key` | Primary key on the distant model |
 
-Here, a `Course` has many `Student`s through `Enrolment`:
+#### Table Structure
+
+```text
+courses
+    course_id - integer
+    name - string
+
+enrolments
+    enrolment_id - integer
+    in_course_id - integer
+    active_student_id - integer
+
+students
+    student_id - integer
+    name - string
+```
+
+Each enrolment links a course (`enrolments.in_course_id` → `courses.course_id`) to a student (`enrolments.active_student_id` → `students.student_id`). So a course has many students through its enrolments.
+
+#### Model Structure
 
 ```python
 # app/models/course.py
@@ -394,6 +645,31 @@ class Course(Model):
 ```
 
 ```python
+# app/models/enrolment.py
+from fastapi_startkit.masoniteorm import Model
+
+class Enrolment(Model):
+    __table__ = "enrolments"
+    __primary_key__ = "enrolment_id"
+
+    enrolment_id: int
+    in_course_id: int
+    active_student_id: int
+```
+
+```python
+# app/models/student.py
+from fastapi_startkit.masoniteorm import Model
+
+class Student(Model):
+    __table__ = "students"
+    __primary_key__ = "student_id"
+
+    student_id: int
+    name: str
+```
+
+```python
 courses = await Course.with_("students").get()
 for course in courses:
     print([student.name for student in course.students])
@@ -401,7 +677,29 @@ for course in courses:
 
 ## Polymorphic Relationships
 
-A polymorphic relationship lets one model belong to more than one kind of parent through a single pair of columns. For example, an `Image` can belong to a `Post` or a `Video`. The `images` table stores the parent's type in `imageable_type` and its id in `imageable_id`.
+A polymorphic relationship lets one model belong to more than one kind of parent through a single pair of columns. For example, an `Image` can belong to a `Post` or a `Video`.
+
+#### Table Structure
+
+```text
+posts
+    id - integer
+    title - string
+
+videos
+    id - integer
+    title - string
+
+images
+    id - integer
+    imageable_type - string
+    imageable_id - integer
+    url - string
+```
+
+`images.imageable_type` stores which kind of parent the image belongs to (`"post"` or `"video"`), and `images.imageable_id` stores that parent's id.
+
+#### Model Structure
 
 First, register a morph map so the ORM knows which model each stored type name stands for:
 
@@ -443,7 +741,7 @@ class Video(Model):
     images = MorphMany("Image", morph_key="imageable_type", morph_id="imageable_id")
 ```
 
-`MorphMany` takes the child model's name. `MorphTo` takes the name of the model it is declared on, and resolves each parent from the morph map. Both are eager loaded with `with_()`:
+`Post` declares the same `images = MorphMany(...)` attribute. `MorphMany` takes the child model's name. `MorphTo` takes the name of the model it is declared on, and resolves each parent from the morph map. Both are eager loaded with `with_()`:
 
 ```python
 images = await Image.with_("imageable").get()
