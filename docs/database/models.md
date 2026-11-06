@@ -386,8 +386,7 @@ To tie it all together, here's the `Post` model from the example app, with its c
 ```python
 # app/models/post.py
 from typing import TYPE_CHECKING
-from fastapi_startkit.masoniteorm import Model
-from fastapi_startkit.masoniteorm.relationships import BelongsTo, HasMany, BelongsToMany
+from fastapi_startkit.masoniteorm import Model, BelongsTo, BelongsToMany, HasMany
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -402,9 +401,13 @@ class Post(Model):
     title: str
     content: str
 
-    author: "User" = BelongsTo('User', local_key='user_id', foreign_key="id")
-    media: list["Media"] = HasMany("Media")
-    tags: list["Tag"] = BelongsToMany("Tag", "post_id", "tag_id", table="post_tag")
+    author = BelongsTo["User"](local_key="user_id", foreign_key="id")
+    media = HasMany["Media"](foreign_key="post_id", local_key="id")
+    tags = BelongsToMany["Tag"](
+        local_foreign_key="post_id",
+        other_foreign_key="tag_id",
+        table="post_tag",
+    )
 ```
 
 From here, head to [Relationships](./relationships) to learn how to declare relationships, or [Casts](./casts) for type conversion and value objects.
