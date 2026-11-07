@@ -180,7 +180,9 @@ A dict without a `driver` key uses `"passport"`, an alias of `"oauth2"`. An OAut
 
 The model drivers accept `username_field` (default `email`), `password_field` (default `password`), `password_key`, `id_field` and `is_active`. `is_active` is an attribute name or a `callable(user) -> bool`. An inactive user can't log in, authenticate, refresh a token or exchange a code, and their tokens introspect as inactive.
 
-To write your own provider, implement the `UserProvider` protocol from `fastapi_startkit_auth.providers.base`: `retrieve_by_id`, `retrieve_by_credentials`, `validate_credentials` and `update_password` as coroutines, and `get_identifier` as a plain method. Optional `dummy_verify` and `is_active` coroutines are used when present.
+A model's methods can be sync or async. Async ones are awaited on the event loop, and sync `find`, `where(...).first()`, `save()` and `is_active` callables run in the threadpool, so a blocking ORM never stalls other requests. The old `async_model` driver is gone: configuring it raises a `ValueError` that points you to `model`.
+
+To write your own provider, implement the `UserProvider` protocol from `fastapi_startkit_auth.providers.base`: `retrieve_by_id`, `retrieve_by_credentials`, `validate_credentials`, `update_password` and `get_identifier`. Optional `dummy_verify` and `is_active` methods are used when present. Guards, grants, the password broker and the `Auth` facade all await the provider, but its methods can be coroutines or plain functions. Sync ones run in the threadpool, just like user-supplied stores and hooks. Write them as coroutines when the backing store has an async client.
 
 ### Password resets
 
