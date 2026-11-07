@@ -212,10 +212,13 @@ in the threadpool, so a blocking ORM never stalls other requests. The old
 to `model`.
 
 Any object implementing `retrieve_by_id`, `retrieve_by_credentials`,
-`validate_credentials`, `dummy_verify`, `is_active` and `update_password` as
-coroutines, plus `get_identifier`, is a valid provider. The package is
-async-only: guards, grants, the password broker and the `Auth` facade all
-await the provider.
+`validate_credentials`, `dummy_verify`, `is_active`, `update_password` and
+`get_identifier` is a valid provider. The package's API is async-only, so
+guards, grants, the password broker and the `Auth` facade all await the
+provider. Its methods may be coroutines or plain functions: async methods are
+awaited on the event loop and sync ones run in the threadpool, the same as
+user-supplied stores and hooks. Write them as coroutines when the backing store
+has an async client.
 
 ### Password resets
 
