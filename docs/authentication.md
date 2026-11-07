@@ -257,11 +257,11 @@ async def reports(ctx=Depends(require_scopes("reports:read"))):  # 403 insuffici
     return {"client": ctx.client_id}
 ```
 
-- `require_scopes("a", "b")` requires every listed scope; `require_scopes("a", "b", mode="any")` requires at least one. `"*"` satisfies any scope.
-- `require_abilities` is the same function under another name, for API-token abilities.
-- `auth` returns the `AuthContext` (`user`, `scopes`, `client_id`, `jti`, `can(...)`, `can_any(...)`, `can_all(...)`) and rejects tokens without a user.
+`require_scopes("a", "b")` needs every listed scope, and `mode="any"` needs just one. A token with `"*"` passes any scope check. `require_abilities` is the same function under a name that reads better for API-token abilities.
 
-These dependencies use the default guard (`AuthConfig.default["guard"]`). To authenticate through another guard, use `Depends(Auth.guard("api"))`, which returns the user or answers 401.
+`auth` gives you the `AuthContext`, with `user`, `scopes`, `client_id`, `jti` and the `can`, `can_any` and `can_all` helpers. It rejects tokens that have no user.
+
+All of these use the default guard, `AuthConfig.default["guard"]`. To use a different one, depend on `Auth.guard("api")`, which returns the user or answers 401.
 
 ## Sessions
 
@@ -297,9 +297,11 @@ Sessions back the `session` guard driver and `Auth.login` / `Auth.logout`. Insid
 
 ### CSRF protection
 
-CSRF protection is always on when sessions are enabled. A `POST`, `PUT`, `PATCH` or `DELETE` request that carries a session cookie must send the session's CSRF token in the `X-XSRF-TOKEN` header, or in the `_token` field of an HTML form. Otherwise it gets `403 csrf_token_mismatch`.
+Sessions come with CSRF protection, and it can't be turned off. Any `POST`, `PUT`, `PATCH` or `DELETE` request with a session must send the session's token in the `X-XSRF-TOKEN` header, or in a `_token` field if it's a form post. If the token is missing or wrong, the request gets `403 csrf_token_mismatch`. Requests without a session, like those from bearer-token clients, aren't checked.
 
-The token is sent to the browser in the readable `XSRF-TOKEN` cookie. Requests without a session cookie, such as bearer-token clients, are not checked. `/oauth/token`, `/oauth/introspect` and `/oauth/revoke` are always exempt; list other paths in `csrf_exempt_paths`, where a trailing `*` matches a prefix.
+The token reaches the browser in the `XSRF-TOKEN` cookie, which JavaScript can read. Login issues a new token and logout deletes the cookie. For a server-rendered form, put `Session.token()` in a hidden `_token` input.
+
+The OAuth `/oauth/token`, `/oauth/introspect` and `/oauth/revoke` endpoints are exempt. To exempt others, such as webhooks, add them to `csrf_exempt_paths`; a trailing `*` matches a prefix.
 
 ## API tokens
 
@@ -357,9 +359,7 @@ Setting `stateful_origins` lets a first-party SPA authenticate with the session 
 AuthApiTokenProvider(ApiTokenConfig(stateful_origins=["https://app.example.com"])).register(app)
 ```
 
-- Token guards try the `session_guard` session cookie first, then the token header.
-- `GET /__auth__/csrf-cookie` gives the SPA a session and a CSRF cookie.
-- On unsafe requests, an `Origin` not listed in `stateful_origins` is rejected before the CSRF token is checked.
+Token guards then check the `session_guard` session cookie first and fall back to the token header. Before logging in, the SPA calls `GET /__auth__/csrf-cookie` to get a session and a CSRF cookie. Unsafe requests from an `Origin` that isn't in `stateful_origins` are rejected before the CSRF token is even looked at.
 
 ## OAuth 2.1 server
 
@@ -431,7 +431,9 @@ Clients authenticate with HTTP Basic (`client_secret_basic`) or form fields (`cl
 
 A client is either confidential, with a secret, or public (an SPA or native app), with no secret and PKCE required.
 
-A client's `grant_types` and `scopes` limit what it may use; empty lists allow every enabled grant and every catalog scope. A request for a scope outside the client's list fails with `invalid_scope`, and that includes `default_scopes` filled in for a request that names none. Don't give a client `"*"`: a token granted `"*"` passes every `require_scopes` check, and the command refuses it. Narrowing a client's scopes doesn't affect refresh tokens it already holds; they keep their scopes until their family expires or is revoked.
+A client's `grant_types` and `scopes` limit what it can use. Leave them empty to allow every enabled grant and every scope in the catalog. Asking for a scope outside the client's list fails with `invalid_scope`, even when the scope came from `default_scopes` because the request named none.
+
+Don't give a client `"*"`. A token with `"*"` passes every `require_scopes` check, which is why the command refuses it. If you narrow a client's scopes later, its existing refresh tokens keep their old scopes until their family expires or is revoked.
 
 There are no HTTP routes for managing clients. Under Startkit, create them with the command:
 
@@ -479,7 +481,9 @@ A refresh token is bound to the client it was issued to. Refreshing it requires 
 
 A refresh can narrow the scopes, but can't widen them or change the resource.
 
-A refresh token that was already rotated out is treated as stolen: the request fails with `invalid_grant` and the whole family is revoked, so both the attacker and the real client must start over. This happens whenever the replayed token reaches the grant, from any authenticated client or, for an unbound token, without one. Requests that fail client authentication, or that send a client-bound token without `client_id`, get `invalid_client` and leave the family intact. So does presenting an unused token through the wrong client, which gets `invalid_grant`.
+If someone uses a refresh token that was already rotated out, the server assumes it was stolen. The request fails with `invalid_grant` and the whole family is revoked, so the attacker and the real client both have to start over. This happens whenever the replayed token reaches the grant, whether it comes from any authenticated client or, for an unbound token, from no client at all.
+
+Some failures leave the family alone. A request that fails client authentication, or sends a client-bound token without `client_id`, gets `invalid_client`. An unused token sent through the wrong client gets `invalid_grant`. In both cases nothing is revoked.
 
 Rotation and code redemption are atomic: when requests race, exactly one wins, across workers too when the database store is used.
 
@@ -507,13 +511,11 @@ Adding `"password"` to `grant_types` enables `grant_type=password` on `/oauth/to
 
 ## Stores and migrations
 
-Sessions, API tokens, OAuth tokens and OAuth clients each have a `driver` setting that takes the same values:
+Sessions, API tokens, OAuth tokens and OAuth clients each have a `driver` setting, and they all take the same values.
 
-- `"database"` stores state in the database through the fastapi-startkit ORM (install the `startkit` extra and run the migrations). `connection` names the database connection; leave it out for the default one.
-- `"memory"` keeps state in the process, so it is lost on restart. Use it for tests and single-process demos.
-- `"instance"` uses a store object you pass as `instance=`.
-- `"orm"` is a deprecated alias of `"database"` and emits a `DeprecationWarning`.
-- The `"sql"` and `"async_sql"` stores were removed; configuring one raises a `ValueError` that points at `"database"`.
+`"database"` keeps state in your database through the fastapi-startkit ORM. It needs the `startkit` extra and the migrations below. Set `connection` to use a connection other than the default. `"memory"` keeps state in the process and loses it on restart, which is fine for tests and single-process demos. `"instance"` uses a store object you pass as `instance=`.
+
+`"orm"` still works as an alias of `"database"` but warns that it's deprecated. The old `"sql"` and `"async_sql"` stores are gone, and configuring one raises a `ValueError` that tells you to use `"database"`.
 
 | Config | Default `driver` | Database store and tables |
 | --- | --- | --- |
@@ -561,10 +563,11 @@ A request to a token or OAuth2 guard without a bearer token gets `401 invalid_se
 
 ## Upgrading from 0.6
 
-- `store` is now `driver` on `SessionConfig`, `ApiTokenConfig`, `OAuthTokenConfig` and `OAuthClientConfig`, in the dict form too. `store=` raises a `TypeError`.
-- `OAuthClientsConfig` is now `OAuthClientConfig`, and `OAuthTokensConfig` is now `OAuthTokenConfig`. The old names still work with a `DeprecationWarning`.
-- The exception classes were renamed as below. The old names remain as deprecated aliases. Error codes and statuses are unchanged, except that a missing bearer token now answers `invalid_session` instead of `invalid_token`.
-- From a release before 0.6.3, publish and run the three newest OAuth migrations: `create_oauth_clients_table`, `add_family_id_to_oauth_refresh_tokens_table` and `add_scopes_to_oauth_clients_table`. They only add tables and columns.
+The `store` setting is now called `driver` on `SessionConfig`, `ApiTokenConfig`, `OAuthTokenConfig` and `OAuthClientConfig`, including the dict form. Passing `store=` raises a `TypeError`. `OAuthClientsConfig` and `OAuthTokensConfig` lost their plural: they're now `OAuthClientConfig` and `OAuthTokenConfig`, and the old names still work with a `DeprecationWarning`.
+
+The exception classes were renamed as shown below, and the old names stay as deprecated aliases. Error codes and statuses didn't change, with one exception: a missing bearer token now answers `invalid_session` instead of `invalid_token`.
+
+If you're upgrading from a release before 0.6.3, publish and run the three newest OAuth migrations: `create_oauth_clients_table`, `add_family_id_to_oauth_refresh_tokens_table` and `add_scopes_to_oauth_clients_table`. They only add tables and columns.
 
 | 0.6 | 0.7 |
 | --- | --- |
