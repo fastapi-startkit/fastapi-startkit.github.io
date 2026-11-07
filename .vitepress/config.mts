@@ -161,7 +161,6 @@ export default defineConfig({
                     { text: 'Getting Started', link: '/docs/getting-started' },
                     { text: 'Env Variables', link: '/docs/configuration' },
                     { text: 'FastAPI', link: '/docs/fastapi' },
-                    { text: 'Validation', link: '/docs/validation' },
                     { text: 'Exception Handling', link: '/docs/exception-handling' },
                     { text: 'Logging', link: '/docs/logging' },
                     { text: 'Console Commands', link: '/docs/console' }
@@ -201,6 +200,7 @@ export default defineConfig({
                 text: 'Digging Deeper',
                 items: [
                     { text: 'Authentication', link: '/docs/authentication' },
+                    { text: 'Validation', link: '/docs/validation' },
                     { text: 'Storage', link: '/docs/storage' },
                     { text: 'Cache', link: '/docs/cache' },
                     { text: 'Redis', link: '/docs/redis' },

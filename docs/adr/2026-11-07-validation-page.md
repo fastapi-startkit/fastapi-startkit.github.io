@@ -8,13 +8,13 @@ Validation shipped in fastapi-startkit (the async-first `FormRequest`, `Validate
 
 ## Alternatives
 
-1. **One Validation page in the Guide group, ordered like Laravel's Validation docs (chosen).** Quickstart first (form request, route, failed response, query strings), then how rules run, the rule reference, custom messages, custom rules, hooks, the `Validator`, multiple form requests, `validate_input`, error responses and `MessageBag`. It sits next to the FastAPI page because `Validated` is a FastAPI parameter type.
+1. **One Validation page in the Digging Deeper group, ordered like Laravel's Validation docs (chosen).** Quickstart first (form request, route, failed response, query strings), then how rules run, the rule reference, custom messages, custom rules, hooks, the `Validator`, multiple form requests, `validate_input`, error responses and `MessageBag`. It sits in Digging Deeper after Authentication, alongside the other request-level features.
 2. **A section on the FastAPI page.** Rejected: the feature is large enough that it would bury the routing content, and readers look for "Validation" by name.
 3. **Split pages (form requests, rules, responses).** Rejected: the parts are short and reference each other constantly.
 
 ## Design
 
-`docs/validation.md`, linked from the Guide sidebar after FastAPI. Every rule in the table, message, placeholder, hook, `Validator` attribute and response shape comes from `fastapi_startkit/src/fastapi_startkit/validation/` and `fastapi/exceptions.py` on framework `main` (0.74.0). The page covers:
+`docs/validation.md`, linked from the Digging Deeper sidebar after Authentication. Every rule in the table, message, placeholder, hook, `Validator` attribute and response shape comes from `fastapi_startkit/src/fastapi_startkit/validation/` and `fastapi/exceptions.py` on framework `main` (0.74.0). The page covers:
 
 - `FastAPIProvider` as the prerequisite for 422 responses; the database rules need a connection.
 - Query-string input for `GET`/`HEAD`/`OPTIONS`/`DELETE` (coercion, repeated keys for sequence fields, aliases, ignored keys, OpenAPI query parameters), and body input for writes with query parameters merged underneath; the missing-body error.
