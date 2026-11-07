@@ -37,6 +37,8 @@ In `fastapi-startkit-auth` ([PR #41](https://github.com/fastapi-startkit/fastapi
 - Removed outright: `AsyncMisconfiguration`, `ensure_sync`, `is_async_provider`, `guard_is_async`, `is_async`, `has_async_methods`, `PROVIDER_METHODS`, the `allow_async` flag of `active_check`, and the `"async_model"` provider driver (`"model"` covers it).
 - `InMemoryUserProvider` lookups, verification and `update_password` are coroutines.
 - `call()` stays, so user-supplied sync stores, listeners and `is_active` hooks still run in the threadpool.
+- The `"model"` driver accepts sync and async models. `ModelUserProvider` runs `find`, `where(...).first()` and `save()` through `call()`, so a sync model's queries run in the threadpool and never block the event loop.
+- Configuring `driver="async_model"` raises a `ValueError` that names `"model"` as the replacement, instead of the generic unknown-driver error.
 - `Auth.guard(name)` is unchanged: a FastAPI dependency on the class, and the guard object on an instance.
 
 In this repo, `docs/authentication.md`:
@@ -50,6 +52,7 @@ In this repo, `docs/authentication.md`:
 
 ## Validation
 
-- `uv run pytest` in `fastapi-startkit-auth`: 426 passed, 92 skipped (Postgres-gated). `ruff check` is clean.
+- `uv run pytest` in `fastapi-startkit-auth` with Postgres: the full suite passes, and `ruff check` is clean.
+- A test drives `ModelUserProvider` with a sync model and asserts that `find`, `where(...).first()` and `save()` all run off the event-loop thread. Another asserts the `async_model` migration error.
 - The login/logout example from the page ran against the branch with class-level `Auth.attempt`, `Auth.logout` and `Auth.check`, plus `Depends(Auth.guard("web"))`, in a scratch test. A wrong password returns 401, a correct one sets the session, and the route returns 401 after logout.
 - No page in this repo references a removed name.

@@ -205,6 +205,12 @@ The model drivers accept `username_field` (default `email`), `password_field`
 users can't log in, authenticate, refresh or exchange a code, and they
 introspect as inactive.
 
+A model's methods may be sync or async. Async methods are awaited on the event
+loop; sync `find`, `where(...).first()`, `save()` and `is_active` callables run
+in the threadpool, so a blocking ORM never stalls other requests. The old
+`async_model` driver is gone: configuring it raises a `ValueError` that points
+to `model`.
+
 Any object implementing `retrieve_by_id`, `retrieve_by_credentials`,
 `validate_credentials`, `dummy_verify`, `is_active` and `update_password` as
 coroutines, plus `get_identifier`, is a valid provider. The package is
