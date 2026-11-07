@@ -235,15 +235,20 @@ You can also inject an instance with `auth: Auth = Depends(Auth.scoped)`. These 
 
 ## Protecting routes
 
-Use the dependencies to require a user or a scope:
+Depend on `Auth.guard()` to require a user. It returns the user, or answers 401. With no name it uses the default guard, `AuthConfig.default["guard"]`; pass a name to use another one:
 
 ```python
 from fastapi import Depends
-from fastapi_startkit_auth import auth, current_user, optional_user, require_scopes
+from fastapi_startkit_auth import Auth, optional_user, require_scopes
 
 
 @app.get("/me")
-async def me(user=Depends(current_user)):  # 401 unless a user is authenticated
+async def me(user=Depends(Auth.guard())):
+    return user
+
+
+@app.get("/api/me")
+async def api_me(user=Depends(Auth.guard("api"))):
     return user
 
 
@@ -259,9 +264,7 @@ async def reports(ctx=Depends(require_scopes("reports:read"))):  # 403 insuffici
 
 `require_scopes("a", "b")` needs every listed scope, and `mode="any"` needs just one. A token with `"*"` passes any scope check. `require_abilities` is the same function under a name that reads better for API-token abilities.
 
-`auth` gives you the `AuthContext`, with `user`, `scopes`, `client_id`, `jti` and the `can`, `can_any` and `can_all` helpers. It rejects tokens that have no user.
-
-All of these use the default guard, `AuthConfig.default["guard"]`. To use a different one, depend on `Auth.guard("api")`, which returns the user or answers 401.
+`Auth.guard()` also notifies `on_authenticated` listeners when it resolves a user. The `current_user` dependency returns the same user from the default guard, without notifying them. `auth` gives you the `AuthContext`, with `user`, `scopes`, `client_id`, `jti` and the `can`, `can_any` and `can_all` helpers. It rejects tokens that have no user. `optional_user`, `require_scopes` and `auth` always use the default guard.
 
 ## Sessions
 
@@ -560,28 +563,3 @@ Every `AuthException` becomes a JSON body of the form `{"error": ..., "error_des
 | `throttled` | 429 |
 
 A request to a token or OAuth2 guard without a bearer token gets `401 invalid_session` (`AuthenticationException`); an invalid bearer token gets `401 invalid_token`. A wrong username or password on the password grant raises `InvalidCredentialsException`, a subclass of `InvalidGrantException`, and still answers `400 invalid_grant`.
-
-## Upgrading from 0.6
-
-The `store` setting is now called `driver` on `SessionConfig`, `ApiTokenConfig`, `OAuthTokenConfig` and `OAuthClientConfig`, including the dict form. Passing `store=` raises a `TypeError`. `OAuthClientsConfig` and `OAuthTokensConfig` lost their plural: they're now `OAuthClientConfig` and `OAuthTokenConfig`, and the old names still work with a `DeprecationWarning`.
-
-The exception classes were renamed as shown below, and the old names stay as deprecated aliases. Error codes and statuses didn't change, with one exception: a missing bearer token now answers `invalid_session` instead of `invalid_token`.
-
-If you're upgrading from a release before 0.6.3, publish and run the three newest OAuth migrations: `create_oauth_clients_table`, `add_family_id_to_oauth_refresh_tokens_table` and `add_scopes_to_oauth_clients_table`. They only add tables and columns.
-
-| 0.6 | 0.7 |
-| --- | --- |
-| `AuthError` | `AuthException` |
-| `InvalidRequest` | `InvalidRequestException` |
-| `InvalidSession` | `AuthenticationException` |
-| `InsufficientScope` | `MissingScopeException` |
-| `InvalidToken` | `InvalidTokenException` |
-| `InvalidGrant` | `InvalidGrantException` |
-| `InvalidClient` | `InvalidClientException` |
-| `InvalidScope` | `InvalidScopeException` |
-| `InvalidTarget` | `InvalidTargetException` |
-| `UnauthorizedClient` | `UnauthorizedClientException` |
-| `UnsupportedGrantType` | `UnsupportedGrantTypeException` |
-| `UnsupportedResponseType` | `UnsupportedResponseTypeException` |
-| `AccessDenied` | `AccessDeniedException` |
-| `CsrfTokenMismatch` | `CsrfTokenMismatchException` |
