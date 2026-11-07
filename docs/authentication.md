@@ -194,8 +194,7 @@ to that resource (see [Resource indicators](#resource-indicators)).
 
 | `driver` | Meaning |
 | --- | --- |
-| `masoniteorm` / `orm` / `model` | Wraps a model exposing `find(id)` and `where(field, value).first()` |
-| `async_model` | The same, for async ORMs |
+| `masoniteorm` / `orm` / `model` | Wraps a model exposing `find(id)` and `where(field, value).first()`, sync or async |
 | `memory` | An in-memory store for tests and demos |
 | `instance` | A ready `UserProvider` passed as `{"instance": ...}` |
 | `factory` | A zero-argument callable returning a `UserProvider` |
@@ -207,9 +206,10 @@ users can't log in, authenticate, refresh or exchange a code, and they
 introspect as inactive.
 
 Any object implementing `retrieve_by_id`, `retrieve_by_credentials`,
-`validate_credentials`, `get_identifier` and `update_password` is a valid
-provider. When one of its methods is `async def`, the manager builds the async
-guards, grants and password broker.
+`validate_credentials`, `dummy_verify`, `is_active` and `update_password` as
+coroutines, plus `get_identifier`, is a valid provider. The package is
+async-only: guards, grants, the password broker and the `Auth` facade all
+await the provider.
 
 ### Password resets
 
@@ -242,29 +242,28 @@ class Credentials(BaseModel):
 
 
 @app.post("/login")
-def login(payload: Credentials):
-    if not Auth.attempt(payload.model_dump()):
+async def login(payload: Credentials):
+    if not await Auth.attempt(payload.model_dump()):
         raise AuthenticationException("Invalid credentials.")
     return {"ok": True}
 
 
 @app.post("/logout")
-def logout():
-    Auth.logout()
+async def logout():
+    await Auth.logout()
     return {"ok": True}
 ```
 
 | Method | Does |
 | --- | --- |
-| `Auth.attempt(credentials, guard=None)` | Checks credentials and starts a session; `False` on any failure |
-| `Auth.login(user_or_id, guard=None)` | Starts a session for a user or id, regenerating the session id |
-| `Auth.logout(guard=None)` | Ends the session |
-| `Auth.validate(credentials, guard=None)` | Returns the user if the credentials are valid, without logging in; otherwise `None` |
-| `Auth.user(guard=None)` / `Auth.id(...)` / `Auth.check(...)` | The current user, its id, or whether one is authenticated. Never raises |
-| `Auth.guard(name=None)` | The guard object |
+| `await Auth.attempt(credentials, guard=None)` | Checks credentials and starts a session; `False` on any failure |
+| `await Auth.login(user_or_id, guard=None)` | Starts a session for a user or id, regenerating the session id |
+| `await Auth.logout(guard=None)` | Ends the session |
+| `await Auth.validate(credentials, guard=None)` | Returns the user if the credentials are valid, without logging in; otherwise `None` |
+| `await Auth.user(guard=None)` / `await Auth.id(...)` / `await Auth.check(...)` | The current user, its id, or whether one is authenticated. Never raises |
+| `Auth.guard(name=None)` | On the class, a dependency: `Depends(Auth.guard("api"))` returns the user or raises 401. On an instance from `Depends(Auth.scoped)`, the guard object |
 
-If you're using an async user provider or session store, reach for `AsyncAuth` instead. It has the same methods, as coroutines. `Auth` refuses an async session guard with a
-`RuntimeError` that points at `AsyncAuth`.
+Every `Auth` method except `guard` is a coroutine, so `await` it.
 
 ## Sessions: AuthSessionProvider
 
@@ -346,7 +345,7 @@ class Credentials(BaseModel):
 
 @app.post("/mobile/token")
 async def mobile_token(payload: Credentials):
-    user = Auth.validate(payload.model_dump(), guard="api")
+    user = await Auth.validate(payload.model_dump(), guard="api")
     if user is None:
         raise AuthenticationException("Invalid credentials.")
     token = await ApiToken.create(user, name="iPhone", abilities=["posts:read"], guard="api")
@@ -511,9 +510,7 @@ client, secret = await manager.client_repository.register(
 
 With the default `OAuthClientConfig(driver="database")`, clients live in the
 `oauth_clients` table through `OrmClientRepository`; `driver="memory"` uses
-`InMemoryClientRepository`. Both are async, so `await` their methods. An async
-client store makes the manager build the async refresh and authorization-code
-grants.
+`InMemoryClientRepository`. Both are async, so `await` their methods.
 
 ### Authorization code with PKCE
 
@@ -657,10 +654,6 @@ OAuth2Config(
 )
 ```
 
-The database stores are async, so the manager builds the async guards, grants
-and token service automatically. Use `AsyncAuth` for session login and logout
-with `SessionConfig(driver="database")`.
-
 ## Migrations
 
 Each provider publishes only its own migrations. All of them are reversible.
@@ -719,7 +712,7 @@ def reports(ctx=Depends(require_scopes("reports:read"))):   # 403 insufficient_s
 
 These dependencies resolve the request through the default guard
 (`AuthConfig.default["guard"]`). To read another guard in a route, use the
-facade, for example `Auth.user("api")` or `Auth.check("api")`.
+facade, for example `await Auth.user("api")` or `await Auth.check("api")`.
 
 ## Errors
 
