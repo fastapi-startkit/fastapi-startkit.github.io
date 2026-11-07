@@ -161,6 +161,7 @@ export default defineConfig({
                     { text: 'Getting Started', link: '/docs/getting-started' },
                     { text: 'Env Variables', link: '/docs/configuration' },
                     { text: 'FastAPI', link: '/docs/fastapi' },
+                    { text: 'Validation', link: '/docs/validation' },
                     { text: 'Exception Handling', link: '/docs/exception-handling' },
                     { text: 'Logging', link: '/docs/logging' },
                     { text: 'Console Commands', link: '/docs/console' }
