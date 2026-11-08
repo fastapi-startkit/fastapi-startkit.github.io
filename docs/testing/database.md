@@ -159,6 +159,10 @@ Not sure which mixin to use? Here's how they compare:
 | Needs a booted application | Yes, from `get_application()` | Yes, from `get_application()` |
 | Best for | Full integration tests | Tests against an existing schema |
 
+::: tip Browser tests
+Neither rollback can undo writes that a live server makes through its own connections. For [browser tests](/docs/testing/browser), use `DatabaseTruncation`, which empties the tables before each test instead. See [Resetting the Database](/docs/testing/browser#resetting-the-database).
+:::
+
 ## Querying the Database Directly
 
 You can query the ORM inside a test to check what a request actually wrote. There's no need to clean up afterwards, since the rollback takes care of it:

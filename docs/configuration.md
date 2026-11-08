@@ -164,3 +164,121 @@ Config.has('redis.host')               # True
 Config.set('redis.host', 'new-host')   # override at runtime
 Config.all()                           # full dict of everything registered
 ```
+
+## Config Classes Without a Base Class
+
+The framework describes application and database settings with structural protocols, not base classes. Any object with the right attributes is accepted, so your config class doesn't have to subclass `AppConfig` or `DatabaseConfig`.
+
+### Application Settings
+
+`fastapi_startkit.application.AppSettings` is a `runtime_checkable` `Protocol` with four attributes:
+
+| Attribute | Type |
+|---|---|
+| `name` | `str` |
+| `env` | `str` |
+| `debug` | `bool` |
+| `timezone` | `str` |
+
+`Application`'s config type is bound to this protocol, so a plain dataclass type-checks and keeps any extra fields you add:
+
+```python
+# config/app.py
+from dataclasses import dataclass
+from fastapi_startkit import environment
+
+@dataclass
+class AppConfig:
+    name: str = environment.env('APP_NAME', 'startkit')
+    env: str = environment.env('APP_ENV', 'local')
+    debug: bool = environment.env('APP_DEBUG', False)
+    timezone: str = environment.env('APP_TIMEZONE', 'UTC')
+    region: str = environment.env('APP_REGION', 'eu')
+```
+
+```python
+from config.app import AppConfig
+
+app = Application(base_path=Path(__file__).parent.parent, config=AppConfig)
+app.config.region   # 'eu'
+```
+
+The example calls `environment.env()` because a field named `env` would shadow an imported `env()` helper for the fields below it.
+
+### Database Settings
+
+`fastapi_startkit.masoniteorm.config.database.DatabaseSettings` is a `runtime_checkable` `Protocol` with three read-only members:
+
+| Member | Type |
+|---|---|
+| `default` | `str`, the name of the default connection |
+| `connections` | `Mapping[str, DBConfig]`, connection configs such as `SQLiteConfig` or `PostgresConfig` |
+| `migrations` | `Mapping[str, str]`, from which the migration commands read `directory` |
+
+Any object with that shape boots, whether it's a dataclass, a pydantic model, a plain class or a `SimpleNamespace`. `DatabaseProvider` uses the object as-is rather than copying it, and keeps extra dataclass fields under the `database` key:
+
+```python
+# config/database.py
+from dataclasses import dataclass, field
+from fastapi_startkit.environment import env
+from fastapi_startkit.masoniteorm import DBConfig, PostgresConfig
+
+@dataclass
+class DatabaseConfig:
+    default: str = env('DB_CONNECTION', 'postgres')
+    connections: dict[str, DBConfig] = field(default_factory=lambda: {
+        'postgres': PostgresConfig(host=env('DB_HOST', 'localhost')),
+    })
+    migrations: dict[str, str] = field(default_factory=lambda: {
+        'table': 'migrations',
+        'directory': 'databases/migrations',
+    })
+    pool: int = 5
+```
+
+```python
+Config.get('database.pool')                   # 5
+Config.get('database.migrations.directory')   # 'databases/migrations'
+```
+
+The `table` key is declared for completeness, but the migrator always uses a table named `migrations`.
+
+If your config has no `migrations` attribute, the provider fills in the framework default, `{'table': 'migrations', 'directory': 'databases/migrations'}`. Configs written before `migrations` joined the protocol keep booting:
+
+```python
+from types import SimpleNamespace
+from fastapi_startkit.masoniteorm import DatabaseProvider, SQLiteConfig
+
+settings = SimpleNamespace(default='sqlite', connections={'sqlite': SQLiteConfig()})
+
+app = Application(base_path=base_path, providers=[(DatabaseProvider, settings)])
+```
+
+Every connection must be a `DBConfig` instance, or the provider raises `TypeError` on boot. An object missing `default` or `connections` raises a `TypeError` that names what's missing:
+
+```
+TypeError: DatabaseProvider requires DatabaseSettings; missing attributes: connections
+```
+
+### Checking Your Own Settings
+
+`fastapi_startkit.support.config.ensure_config(owner, source, protocol)` runs the same check against any `runtime_checkable` protocol. When `isinstance(source, protocol)` passes, it returns `source` typed as the protocol. Otherwise it raises `TypeError` naming the owner, the protocol, and every missing member, including members inherited from parent protocols:
+
+```python
+from fastapi_startkit.application import AppSettings
+from fastapi_startkit.masoniteorm.config.database import DatabaseSettings
+from fastapi_startkit.support.config import ensure_config
+
+database = ensure_config('ReportService', settings, DatabaseSettings)
+database.default   # typed as str
+
+ensure_config('ReportService', object(), AppSettings)
+# TypeError: ReportService requires AppSettings; missing attributes: name, env, debug, timezone
+```
+
+### When to Keep the Base Class
+
+`AppConfig`, `DatabaseConfig` and the other `Config` subclasses work as before and remain the defaults. Subclass one of them, or `fastapi_startkit.support.config.Config`, when you need either of these:
+
+- **`env()` as a constructor argument.** In a plain dataclass, `env()` works as a field default, but `MyConfig(default=env('DB_CONNECTION'))` stores the unresolved field instead of the variable's value.
+- **Class-level defaults.** Reading a default from the class, such as `DatabaseConfig.connections`, needs the base class.

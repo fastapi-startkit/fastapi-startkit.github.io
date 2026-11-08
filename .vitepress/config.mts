@@ -215,6 +215,7 @@ export default defineConfig({
                 items: [
                     { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
                     { text: 'Database Testing', link: '/docs/testing/database' },
+                    { text: 'Browser Testing', link: '/docs/testing/browser' },
                 ]
             }
         ],
