@@ -94,7 +94,7 @@ class TestHome(TestCase):
 If a step fails, the steps after it are dropped and the test fails with an `AssertionError`.
 
 ::: warning Always await the chain
-A chain that is never awaited would test nothing. If a page was never awaited, or still has recorded steps when the test ends, the test errors at teardown with `visit("/") was never awaited, so its steps did not run.` A bare `visit("/")` counts too.
+A chain that is never awaited would test nothing. If a page was never awaited, or still has recorded steps when the test ends, the test errors at teardown, provided it otherwise passed, with `visit("/") was never awaited, so its steps did not run.` A bare `visit("/")` counts too.
 :::
 
 You can await the same page again after adding more steps, and keep querying the database in between:
@@ -182,7 +182,7 @@ await (
 await (
     visit("/search")
     .keys("query", "fastapi", "{Enter}")
-    .keys("notes", ["Control", "a"], "{Backspace}")
+    .keys("notes", ["ControlOrMeta", "a"], "{Backspace}")
     .with_key_down("Shift", lambda page: page.click("Item 3"))
 )
 ```
@@ -245,7 +245,7 @@ html = await page.content()
 
 ## Available Assertions
 
-Every assertion retries until the [timeout](#configuration). Failures name the target, the expectation and the current path, for example `Expected to see "Welcome" on /login.`
+Every assertion except the [console checks](#source-and-scripts) retries until the [timeout](#configuration). Failures name the target and the expectation, and usually the current path, for example `Expected to see "Welcome" on /login.` Title and URL assertions show the actual title or URL instead.
 
 ### Title and Text
 
@@ -257,7 +257,7 @@ Every assertion retries until the [timeout](#configuration). Failures name the t
 | `assert_see_in(selector, text)` / `assert_dont_see_in(selector, text)` | The element's rendered text contains, or doesn't contain, `text` |
 | `assert_see_anything_in(selector)` | The element has some visible text |
 | `assert_see_nothing_in(selector)` | The element has no visible text |
-| `assert_see_link(text)` / `assert_dont_see_link(text)` | A visible link containing `text` exists, or no such link exists |
+| `assert_see_link(text)` / `assert_dont_see_link(text)` | A visible link containing `text` exists, or no visible link containing `text` exists |
 
 Text comparisons are case-sensitive and read the rendered text, so hidden elements don't count. `assert_dont_see_in` first requires the selector to match, so a typo in the selector fails instead of passing quietly.
 
@@ -327,13 +327,17 @@ Text comparisons are case-sensitive and read the rendered text, so hidden elemen
 | `assert_no_javascript_errors()` | The page threw no uncaught errors |
 | `assert_no_smoke()` | Both of the above |
 
-These wait for the page's `load` event, then list anything the page recorded. `assert_no_smoke()` is a quick check that a page renders cleanly:
+These don't retry: they wait for the page's `load` event once, then list anything the page recorded. `assert_no_smoke()` is a quick check that a page renders cleanly:
 
 ```python
 async def test_pages_render_cleanly(self) -> None:
     for path in ["/", "/login", "/register"]:
         await visit(path).assert_no_smoke()
 ```
+
+::: tip Firefox console warnings
+Firefox also reports browser warnings as console messages, such as the quirks-mode warning for a page without `<!DOCTYPE html>`. A page can therefore pass `assert_no_smoke()` on Chromium and fail it on Firefox. Fix the warning, or use `assert_no_javascript_errors()` if you only care about errors.
+:::
 
 ## Resetting the Database
 
@@ -372,8 +376,8 @@ You can tune it with class attributes:
 | `migration_directory` | `"databases/migrations"` | Migrations to run, relative to the application's base path |
 | `except_tables` | `[]` | Extra tables to keep |
 | `tables_to_truncate` | `None` | Empty only these tables instead of every table |
-| `seed` | `True` | Set to `False` to skip seeding |
-| `seeder` | `None` | Seeder class to run instead of `DatabaseSeeder` |
+| `seed` | `True` | Set to `False` to skip seeding. Ignored when `seeder` is set |
+| `seeder` | `None` | Class name of the seeder to run instead of `DatabaseSeeder`, as a string such as `"ReportSeeder"` |
 | `seed_directory` | `"databases/seeders"` | Where seeders are loaded from |
 
 ```python

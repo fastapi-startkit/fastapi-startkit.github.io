@@ -7,7 +7,7 @@
 
 Framework v0.75.0 shipped three changes with no documentation:
 
-- fastapi-startkit-framework#352 adds `fastapi_startkit.playwright` (fluent async browser tests, the pytest plugin) and `DatabaseTruncation` (framework ADR 065; the task brief called it 063, but it was renumbered before merge).
+- fastapi-startkit-framework#352 adds `fastapi_startkit.playwright` (fluent async browser tests, the pytest plugin) and `DatabaseTruncation` (framework ADR 065).
 - fastapi-startkit-framework#353 adds `example/browser-testing` (framework ADR 066).
 - fastapi-startkit-framework#293 adds the `AppSettings` and `DatabaseSettings` protocols and `ensure_config` (framework ADR 027).
 

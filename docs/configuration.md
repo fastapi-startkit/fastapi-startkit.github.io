@@ -215,7 +215,7 @@ The example calls `environment.env()` because a field named `env` would shadow a
 | `connections` | `Mapping[str, DBConfig]`, connection configs such as `SQLiteConfig` or `PostgresConfig` |
 | `migrations` | `Mapping[str, str]`, from which the migration commands read `directory` |
 
-Any object with that shape boots, whether it's a dataclass, a pydantic model, a plain class or a `SimpleNamespace`. `DatabaseProvider` uses the object as-is rather than copying it, and keeps extra dataclass fields under the `database` key:
+Any object with that shape boots, whether it's a dataclass, a pydantic model, a plain class or a `SimpleNamespace`. When the object defines `migrations`, `DatabaseProvider` uses it as-is rather than copying it. Extra dataclass fields are kept under the `database` key:
 
 ```python
 # config/database.py
@@ -254,6 +254,8 @@ settings = SimpleNamespace(default='sqlite', connections={'sqlite': SQLiteConfig
 app = Application(base_path=base_path, providers=[(DatabaseProvider, settings)])
 ```
 
+In that case the provider passes the database manager a new `SimpleNamespace` holding only `default`, `connections` and `migrations`, so extra attributes and methods of your object are not available on `app.make('db').config`. `Config.get('database.<field>')` still returns extra dataclass fields, because the `database` entry is built from your original object. A source that supplies `migrations` only through `__getattr__` gets no fallback and fails the protocol check, so declare it as a real attribute.
+
 Every connection must be a `DBConfig` instance, or the provider raises `TypeError` on boot. An object missing `default` or `connections` raises a `TypeError` that names what's missing:
 
 ```
@@ -265,9 +267,17 @@ TypeError: DatabaseProvider requires DatabaseSettings; missing attributes: conne
 `fastapi_startkit.support.config.ensure_config(owner, source, protocol)` runs the same check against any `runtime_checkable` protocol. When `isinstance(source, protocol)` passes, it returns `source` typed as the protocol. Otherwise it raises `TypeError` naming the owner, the protocol, and every missing member, including members inherited from parent protocols:
 
 ```python
+from types import SimpleNamespace
 from fastapi_startkit.application import AppSettings
+from fastapi_startkit.masoniteorm import SQLiteConfig
 from fastapi_startkit.masoniteorm.config.database import DatabaseSettings
 from fastapi_startkit.support.config import ensure_config
+
+settings = SimpleNamespace(
+    default='sqlite',
+    connections={'sqlite': SQLiteConfig()},
+    migrations={'table': 'migrations', 'directory': 'databases/migrations'},
+)
 
 database = ensure_config('ReportService', settings, DatabaseSettings)
 database.default   # typed as str
@@ -275,6 +285,8 @@ database.default   # typed as str
 ensure_config('ReportService', object(), AppSettings)
 # TypeError: ReportService requires AppSettings; missing attributes: name, env, debug, timezone
 ```
+
+`ensure_config` only checks; it never fills in defaults. The `migrations` fallback described above happens in `DatabaseProvider`, so passing a settings object without `migrations` to `ensure_config` raises `TypeError: ReportService requires DatabaseSettings; missing attributes: migrations`.
 
 ### When to Keep the Base Class
 
