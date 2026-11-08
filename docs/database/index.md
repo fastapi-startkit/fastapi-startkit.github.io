@@ -242,7 +242,7 @@ DB_CONNECTION=sqlite
 DB_DATABASE=/absolute/path/to/database.sqlite
 ```
 
-A relative path is resolved from the directory you start the application in, so an absolute path is safer. SQLite creates the file the first time you connect.
+A relative path, in `DB_DATABASE` or in `DB_URL`, is resolved against the application's base path, not the directory you start the process in. The parent directory is created when the connection is made, and SQLite creates the file the first time you connect. `:memory:` and `file:` URIs are left as they are.
 
 For a throwaway database that lives only as long as the process, use `:memory:`:
 
