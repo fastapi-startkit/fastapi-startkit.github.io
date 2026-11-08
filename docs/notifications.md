@@ -56,7 +56,7 @@ uv run python artisan provider:publish --provider=notifications
 uv run python artisan db:migrate
 ```
 
-This writes `config/notifications.py` and `databases/migrations/2026_11_06_000000_create_notifications_table.py`. The table has a string `id`, the notification `type`, `notifiable_type` and `notifiable_id`, the JSON `data`, a nullable `read_at`, and timestamps.
+This writes `config/notifications.py` and `databases/migrations/2026_11_06_000000_create_notifications_table.py`. The table has a string `id`, the notification `type`, `notifiable_type` and `notifiable_id`, a `data` text column holding JSON, a nullable `read_at`, and timestamps.
 
 ## Creating Notifications
 
@@ -143,7 +143,7 @@ Every value is HTML-escaped in the HTML body. Because it is a `Mailable`, you ca
 
 ### Routing mail
 
-When the message has no recipients, the channel sends it to the notifiable's `email` attribute. To use another address, add a `route_notification_for_mail()` method. It can return anything `Mailable.to()` accepts:
+When the message has no `to()` recipients, the channel sends it to the notifiable's `email` attribute. To use another address, add a `route_notification_for_mail()` method. It can return anything `Mailable.to()` accepts:
 
 ```python
 class User(Model, Notifiable):

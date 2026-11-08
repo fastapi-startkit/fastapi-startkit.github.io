@@ -33,7 +33,22 @@ uv add "fastapi-startkit[ai]" langchain-openai
 
 ## Configuration
 
-Set the provider and its credentials in your `.env` file:
+First, register `AIProvider` in your application, as described in [Registering the provider](/docs/ai/agent#registering-the-provider). It loads `AIConfig` into the `ai` config key. Without it no embeddings provider is configured, and `generate()` raises `ValueError: None is not a valid Lab`, even under `Embeddings.fake()`:
+
+```python
+# bootstrap/application.py
+from fastapi_startkit.ai import AIProvider
+
+app: Application = Application(
+    base_path=Path(__file__).resolve().parent.parent,
+    providers=[
+        # ... other providers
+        AIProvider,
+    ],
+)
+```
+
+Then set the provider and its credentials in your `.env` file:
 
 ```ini
 # .env
@@ -158,7 +173,7 @@ await Document.create({"title": "Napa", "embedding": vector})
 
 ## Querying Vectors
 
-The query builder has four vector methods. They use cosine distance (`<=>`), where `0` means identical, and are also available directly on the model.
+The query builder has five vector methods. They use cosine distance (`<=>`), where `0` means identical. All except `or_where_vector_distance_less_than` are also available directly on the model.
 
 ### Similarity search
 
