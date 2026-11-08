@@ -64,13 +64,14 @@ A few things to keep in mind:
 - The names come from the class, never from `__table__`. A `Label` model with `__table__ = "blog_labels"` still gives `label_id`, and its pivot with `Essay` is `essay_label`.
 - Class names aren't singularized or pluralized. `Media` gives `media_id`, and its pivot with `Label` is `label_media`.
 - A relationship inherited by a subclass takes its keys from the subclass. If `Invoice` extends `BaseItem`, an inherited `HasMany` uses `invoice_id`.
+- Only the relationships in the table above have default keys. `HasManyThrough` and the morph relationships still need every key passed explicitly.
 - Any key you pass explicitly wins. When your columns don't follow the convention, pass every key, as the examples on this page do.
 
 ::: warning Upgrading to v0.75.0
 Before v0.75.0, some defaults were different. If you relied on one of them, pass the old name explicitly:
 
 - `HasOne` and `HasMany` used `{attribute}_id` as the foreign key (`posts_id`). They now use the owner's foreign key name (`user_id`).
-- A `BelongsToMany` without `table=` built the pivot name from the tables, so models with a custom `__table__` gave names like `cp_item_cp_shop`. It now comes from the class names, as in `cp_item_model_cp_shop_model`.
+- A `BelongsToMany` without `table=` built the pivot name from the tables. For `CpItemModel` (`__table__ = "cp_items"`) and `CpShopModel` (`__table__ = "cp_shops"`), that gave `cp_item_cp_shop`. It now comes from the class names, so the pivot is `cp_item_model_cp_shop_model`. Pass `table="cp_item_cp_shop"` to keep the old one.
 - Irregular plurals used to be singularized (`medium_tag`). The class name is now used as is (`media_tag`).
 - A subclass that shares its parent's table and inherits a `BelongsToMany` now gets a pivot name based on the subclass. Set `table=` on the parent to keep the old one.
 

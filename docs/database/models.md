@@ -152,7 +152,7 @@ posts = await Post.where("settings->meta->lang", "fr").order_by("settings->headl
 rows = await Post.query().select("id", "settings->headline as headline").get()
 ```
 
-Each database gets its own JSON syntax, and every one of them reads the value as text, so comparisons and `like` work the same way everywhere:
+Each database gets its own JSON syntax:
 
 | Database | `settings->meta->headline` compiles to |
 |---|---|
@@ -160,6 +160,16 @@ Each database gets its own JSON syntax, and every one of them reads the value as
 | SQLite | `json_extract("posts"."settings", '$."meta"."headline"')` |
 | MySQL | ``json_unquote(json_extract(`posts`.`settings`, '$."meta"."headline"'))`` |
 | SQL Server | `json_value([posts].[settings], '$."meta"."headline"')` |
+
+Comparisons and `like` behave the same way everywhere for **string** values. Numbers and booleans don't: SQLite's `json_extract` returns the native JSON type, while PostgreSQL's `->>` always returns text, so `where("settings->count", 5)` matches on SQLite but fails on PostgreSQL. Compare those values with `where_raw` and a cast for your database:
+
+```python
+# PostgreSQL
+posts = await Post.where_raw("(settings->>'count')::int = ?", (5,)).get()
+
+# SQLite
+posts = await Post.where_raw("json_extract(settings, '$.count') = ?", (5,)).get()
+```
 
 On PostgreSQL, `like` still compiles to `ILIKE`, so the match ignores case. A table prefix such as `drafts.settings->headline` is kept.
 
@@ -365,6 +375,8 @@ user_ids = await (
     .get()
 )
 ```
+
+On PostgreSQL, the first query compiles to:
 
 ```sql
 (SELECT "review_logs"."user_id" FROM "review_logs" WHERE "review_logs"."created_at" > ?) UNION ALL (SELECT "plays"."user_id" FROM "plays" WHERE "plays"."created_at" > ?)

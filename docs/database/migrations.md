@@ -134,7 +134,7 @@ table.boolean("active").default(True)
 table.integer("score").unsigned()
 ```
 
-Columns in primary keys, unique constraints, fulltext indexes, and `CREATE INDEX` statements are quoted the same way as column definitions, both when you create a table and when you alter one. That means a column named after a reserved word, such as `key`, `order`, `user`, or `group`, works on every database:
+Columns in primary keys, unique constraints, fulltext indexes, `CREATE INDEX` statements, and foreign keys (both the column and the column it references) are quoted the same way as column definitions, both when you create a table and when you alter one. That means a column named after a reserved word, such as `key`, `order`, `user`, or `group`, works on every database:
 
 ```python
 table.string("key").primary()

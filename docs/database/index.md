@@ -244,6 +244,10 @@ DB_DATABASE=/absolute/path/to/database.sqlite
 
 A relative path, in `DB_DATABASE` or in `DB_URL`, is resolved against the application's base path, not the directory you start the process in. The parent directory is created when the connection is made, and SQLite creates the file the first time you connect. `:memory:` and `file:` URIs are left as they are.
 
+::: warning Changed in v0.75.0
+Before v0.75.0, a relative SQLite path was resolved against the current working directory. If you start the process from a directory other than the application's base path, use an absolute path to keep pointing at the same file.
+:::
+
 For a throwaway database that lives only as long as the process, use `:memory:`:
 
 ```python
