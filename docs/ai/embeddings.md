@@ -151,15 +151,13 @@ class CreateDocumentsTable(Migration):
 
 ### Models
 
-Annotate the column as `list[float]`. The model then stores it as a JSON array and reads it back as a list:
+Annotate the column as `list[float]`. The model then stores it as a JSON array and reads it back as a list. Typed attributes are also what makes a column mass assignable, so there's no `__fillable__` list to maintain:
 
 ```python
 from fastapi_startkit.masoniteorm import Model
 
 
 class Document(Model):
-    __fillable__ = ["title", "embedding"]
-
     id: int
     title: str
     embedding: list[float]
