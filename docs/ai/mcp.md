@@ -137,9 +137,40 @@ class AddTool(Tool):
         return Response.structure({"total": total})
 ```
 
+### Authorizing a tool
+
+Override `authorize()` to refuse a call before any input is validated. A refused caller never sees field errors, and no database rule runs. `authorize()` can be sync or `async`, like a form request's `authorize`. What it returns decides the call:
+
+| Result | Effect |
+|---|---|
+| `True` | The call continues. |
+| `None` (the default) | The call continues, so a tool that only raises to refuse doesn't need `return True`. |
+| `False` | The call is refused with `AuthorizationException("This action is unauthorized.")`, answered as `-32000` with that message. |
+| An exception | The exception propagates and is rendered like any other (see [Rendering Exceptions](#rendering-exceptions)), so the tool can refuse with its own message. |
+
+```python
+import os
+
+class DeletePostTool(Tool):
+    name = "posts_delete"
+    description = "Delete a post."
+
+    def authorize(self) -> bool:
+        return os.getenv("ALLOW_POST_DELETES") == "true"
+```
+
 ### Validating input with a FormRequest
 
-When `schema()` returns a [`FormRequest`](/docs/validation), every `tools/call` runs `validate_input` before `handle()`. The request's `authorize`, `prepare_for_validation`, rules and `after` hooks all run, and `handle()` receives the validated values as a dict. Those values are coerced, and they include anything `prepare_for_validation` merged in:
+When `schema()` returns a [`FormRequest`](/docs/validation), every `tools/call` runs these steps in order:
+
+1. The tool's `authorize()`.
+2. `validate_input`, which runs the request's own `authorize`, `prepare_for_validation`, the rules, and `after`.
+3. `handle()`.
+
+`handle()` receives the validated values as a dict:
+
+- **JSON-compatible values.** Values are coerced, then serialised the way JSON would carry them: an enum arrives as its value and a date as an ISO string. A tool without a form request gets the same shape.
+- **Only the fields the caller sent.** An omitted field is absent from the dict, not filled with its default, so `handle()` can tell "left out" from "sent as `null`". Values merged by `prepare_for_validation` count as sent. Use `arguments.get("page", 1)` for defaults.
 
 ```python
 from typing import Annotated
@@ -175,7 +206,7 @@ A tool whose schema is a plain Pydantic model, or that has no schema, gets the r
 
 ## Rendering Exceptions
 
-Exceptions raised while handling a request are rendered as JSON-RPC errors. An exception without a renderer answers `{"code": -32000, "message": str(exc)}`. To change that, register renderers on an `McpExceptionHandler` subclass and set it as the server's `exception_handler`. Lookup follows the exception's MRO, the same as the [HTTP exception handler](/docs/exception-handling). A renderer returns a `JsonRpcError(code, message, data=None)`, and `data` is sent only when it is set:
+Exceptions raised while handling a request are rendered as JSON-RPC errors. An exception without a renderer answers `{"code": -32000, "message": str(exc)}`. To change that, register renderers on an `McpExceptionHandler` subclass and set it as the server's `exception_handler`. Matching works as in the [HTTP exception handler](/docs/exception-handling): `register_handler` matches the class and its subclasses through the MRO, and `register_render` matches the exact class only. A render callable or a handler's `render` can be `async`. A renderer returns a `JsonRpcError(code, message, data=None)`, and `data` is sent only when it is set:
 
 ```python
 from fastapi_startkit.mcp import JsonRpcError, McpExceptionHandler, Server
