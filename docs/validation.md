@@ -492,6 +492,8 @@ except ValidationException as error:
 
 The signature is `validate_input(data, context=None, request=None)`. `context` becomes `validator.context`, and `request` becomes `validator.request`. A hook that depends on the request, like `StoreComment.authorize` above, sees `None` here and decides accordingly.
 
+An MCP tool whose `schema()` returns a form request is validated this way on every call. A failure is answered as a JSON-RPC error with the field messages in `data`; see [Validating input with a FormRequest](/docs/ai/mcp#validating-input-with-a-formrequest).
+
 ## Error Responses
 
 When validation fails, a `ValidationException` is raised and `FastAPIProvider`'s handler builds the response. It picks the response from the request headers:
