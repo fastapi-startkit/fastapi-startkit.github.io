@@ -39,8 +39,43 @@ if TYPE_CHECKING:
 
 All relationship classes can be imported from `fastapi_startkit.masoniteorm` or from `fastapi_startkit.masoniteorm.relationships`.
 
-::: tip Pass the keys explicitly
-When a key is left out, its default is derived from the attribute name (for example `HasMany` falls back to `<attribute>_id`), which rarely matches your columns. Name both keys on every relationship. Pass them as keyword arguments, because the first positional argument is read as the related model.
+Pass the keys as keyword arguments, because the first positional argument is read as the related model.
+
+### Default Keys
+
+If your columns follow the usual naming convention, you can leave the keys out. A missing key is filled in, Laravel style, from the model **class names** and their `__primary_key__`. A model's foreign key name is its snake_cased class name followed by its primary key, so `User` gives `user_id`, `BlogPost` gives `blog_post_id`, and a model with `__primary_key__ = "uuid"` gives `..._uuid`:
+
+| Relationship | Default keys |
+|---|---|
+| `HasOne`, `HasMany` | `local_key` is the owner's primary key, and `foreign_key` is the owner's foreign key name (`User.posts` → `posts.user_id`) |
+| `BelongsTo` | `local_key` is `{attribute}_{related primary key}`, and `foreign_key` is the related primary key (`Post.author` → `posts.author_id`) |
+| `BelongsToMany` | The pivot `table` is the two snake_cased class names in alphabetical order, joined with `_` (`Post` and `Tag` → `post_tag`). `local_foreign_key` and `other_foreign_key` are each side's foreign key name (`post_id`, `tag_id`). |
+| `HasOneThrough` | The intermediate model holds the owner's foreign key, and the distant model holds the intermediate model's foreign key (`Novelist` → `essays.novelist_id` → `media.essay_id`) |
+
+```python
+class Post(Model):
+    user = BelongsTo["User"]()       # posts.user_id → users.id
+    comments = HasMany["Comment"]()  # comments.post_id → posts.id
+    tags = BelongsToMany["Tag"]()    # post_tag.post_id / post_tag.tag_id
+```
+
+A few things to keep in mind:
+
+- The names come from the class, never from `__table__`. A `Label` model with `__table__ = "blog_labels"` still gives `label_id`, and its pivot with `Essay` is `essay_label`.
+- Class names aren't singularized or pluralized. `Media` gives `media_id`, and its pivot with `Label` is `label_media`.
+- A relationship inherited by a subclass takes its keys from the subclass. If `Invoice` extends `BaseItem`, an inherited `HasMany` uses `invoice_id`.
+- Only the relationships in the table above have default keys. `HasManyThrough` and the morph relationships still need every key passed explicitly.
+- Any key you pass explicitly wins. When your columns don't follow the convention, pass every key, as the examples on this page do.
+
+::: warning Upgrading to v0.75.0
+Before v0.75.0, some defaults were different. If you relied on one of them, pass the old name explicitly:
+
+- `HasOne` and `HasMany` used `{attribute}_id` as the foreign key (`posts_id`). They now use the owner's foreign key name (`user_id`).
+- A `BelongsToMany` without `table=` built the pivot name from the tables. For `CpItemModel` (`__table__ = "cp_items"`) and `CpShopModel` (`__table__ = "cp_shops"`), that gave `cp_item_cp_shop`. It now comes from the class names, so the pivot is `cp_item_model_cp_shop_model`. Pass `table="cp_item_cp_shop"` to keep the old one.
+- Irregular plurals used to be singularized (`medium_tag`). The class name is now used as is (`media_tag`).
+- A subclass that shares its parent's table and inherits a `BelongsToMany` now gets a pivot name based on the subclass. Set `table=` on the parent to keep the old one.
+
+The pivot foreign keys follow the same class-name rule. Pass `local_foreign_key=` and `other_foreign_key=` to keep the old ones.
 :::
 
 ::: warning Deprecated: model name as the first argument

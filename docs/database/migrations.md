@@ -28,6 +28,8 @@ databases/migrations/
 └── 2026_01_01_000000_create_users_table.py
 ```
 
+The generator creates `databases/migrations/` if it doesn't exist yet. To create a model and its migration together, see [Generating a Model](./models#generating-a-model).
+
 ## Migration Class
 
 A migration class extends `Migration` and implements async `up` and `down` methods. Inside them, you build tables with `self.schema`:
@@ -55,6 +57,8 @@ When you're ready, run all pending migrations:
 ```bash
 uv run python artisan db:migrate
 ```
+
+If the migrations directory doesn't exist yet, `db:migrate` treats it as empty instead of failing.
 
 ### Checking Status
 
@@ -128,6 +132,12 @@ table.string("email").unique()
 table.string("bio").nullable()
 table.boolean("active").default(True)
 table.integer("score").unsigned()
+```
+
+Columns in primary keys, unique constraints, fulltext indexes, `CREATE INDEX` statements, and foreign keys (both the column and the column it references) are quoted the same way as column definitions, both when you create a table and when you alter one. That means a column named after a reserved word, such as `key`, `order`, `user`, or `group`, works on every database:
+
+```python
+table.string("key").primary()
 ```
 
 ## Updating Tables
