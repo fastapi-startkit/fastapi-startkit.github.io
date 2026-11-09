@@ -174,12 +174,28 @@ Sends each message to several channels.
 - `channels`: the channel names to include.
 
 ### `slack`
-Posts messages to a Slack channel.
-- `token`: your Slack bot token.
-- `channel`: the Slack channel, such as `#logs`.
+Posts messages to a Slack channel through Slack's [`chat.postMessage`](https://api.slack.com/methods/chat.postMessage) API.
+- `token`: your Slack bot token, sent as an `Authorization: Bearer` header. The bot needs the `chat:write` scope.
+- `channel`: the Slack channel name, such as `#logs`, or a channel ID. It's sent to Slack as is.
 - `emoji`: the bot's icon emoji.
 - `username`: the bot's username.
 - `level`: minimum level.
+
+```python
+from fastapi_startkit.environment import env
+from fastapi_startkit.logging.config import SlackChannel
+
+'slack': SlackChannel(
+    channel='#alerts',
+    token=env('SLACK_TOKEN'),
+    level='error',
+),
+```
+
+A failure to reach Slack never breaks your application. When the token isn't set, the request fails or times out (after 10 seconds), Slack returns an HTTP error, or the response says `ok: false` (for example `channel_not_found`), the driver prints the reason to stderr instead of raising. Other channels in a `stack` still receive the message. When Slack answers `429 Too Many Requests`, the driver drops messages until the `Retry-After` period has passed, or 30 seconds when the header is missing.
+
+> [!NOTE]
+> Before 0.75.0 the driver looked up the channel ID through Slack's retired `channels.list` method, so every Slack log failed. That lookup and `LogSlackDriver.find_channel()` are gone, and your configuration stays the same.
 
 ### `syslog`
 Sends messages to the system logger.

@@ -172,6 +172,7 @@ export default defineConfig({
                     { text: 'Agents', link: '/docs/ai/agent' },
                     { text: 'Image', link: '/docs/ai/image' },
                     { text: 'Audio', link: '/docs/ai/audio' },
+                    { text: 'Embeddings', link: '/docs/ai/embeddings' },
                     { text: 'MCP', link: '/docs/ai/mcp' },
                     { text: 'Skills', link: '/docs/ai/skills' },
                 ]
@@ -207,6 +208,8 @@ export default defineConfig({
                     { text: 'Queues', link: '/docs/queues' },
                     { text: 'Process', link: '/docs/process' },
                     { text: 'Broadcasting', link: '/docs/broadcasting' },
+                    { text: 'Mail', link: '/docs/mail' },
+                    { text: 'Notifications', link: '/docs/notifications' },
                     { text: 'JSON:API Resources', link: '/docs/jsonapi' },
                 ]
             },

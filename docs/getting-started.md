@@ -138,14 +138,14 @@ uvx fastapi-startkit@latest init my-app --database=postgres
 
 | Option | Values |
 |---|---|
-| `--app` | `web`, `worker` or `both` |
-| `--database` | `none`, `sqlite`, `postgres` or `mysql` |
-| `--frontend` | `none`, `react` or `vue` |
+| `--app` | `web` (default), `worker` or `both` |
+| `--database` | `none`, `sqlite` (default), `postgres` or `mysql` |
+| `--frontend` | `none` (default), `react` or `vue` |
 | `--dry-run` | Show the files and dependencies without creating anything |
 | `--no-deps` | Generate files without running `uv sync` |
-| `--no-interaction` / `-n` | Use the defaults for options you didn't pass, for example in scripts or CI |
+| `--no-interaction` / `-n` | Use the defaults for options you didn't pass, for example in scripts or CI. The directory argument is required |
 
-The directory must be new or empty. The install scripts always use the latest release; to use a specific one, set `FASTAPI_STARTKIT_VERSION`, for example `FASTAPI_STARTKIT_VERSION=0.67.0` on macOS and Linux or `$env:FASTAPI_STARTKIT_VERSION = "0.67.0"` in PowerShell.
+The directory must be new or empty. Pass `.` to create the application in the current empty directory, for example `uvx fastapi-startkit init . --no-interaction`. Run `uvx fastapi-startkit init --help` for the full reference. The install scripts always use the latest release; to use a specific one, set `FASTAPI_STARTKIT_VERSION`, for example `FASTAPI_STARTKIT_VERSION=0.67.0` on macOS and Linux or `$env:FASTAPI_STARTKIT_VERSION = "0.67.0"` in PowerShell.
 
 With PostgreSQL or MySQL, set the credentials in `.env` and start the database server before running `uv run python artisan db:migrate`. With React or Vue, install Node.js 22.12 or newer and run `npm install && npm run dev` in a second terminal.
 
