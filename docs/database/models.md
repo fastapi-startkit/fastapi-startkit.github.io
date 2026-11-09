@@ -43,6 +43,16 @@ class PostTag(Model):
     __timestamps__ = False
 ```
 
+### Generating a Model
+
+`db:make:model` writes a model class into `app/models/`, creating the directory if it doesn't exist yet. Add `-m` to also create a `create_<table>_table` migration, or `-s` for a seeder:
+
+```bash
+uv run python artisan db:make:model Post -m
+```
+
+The file is named after the class (`app/models/Post.py`). Pass `-p` for a snake_case file name (`app/models/post.py`), and `--directory` to write somewhere else. The migration and seeder generators also create their target directories, so a fresh app can run `db:make:model Post -m` and then `db:migrate` straight away.
+
 ## Querying
 
 Every method that hits the database is async, so remember to `await` it. Here are the queries you'll use most often.
@@ -129,6 +139,43 @@ users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").
 
 users = await User.where("name", "Alice").or_where_null("deleted_at").get()
 ```
+
+### JSON columns
+
+To reach a key inside a JSON column, join the column and its keys with `->`. This works anywhere the builder takes a column name, including `where`, `or_where`, `order_by`, and `select`:
+
+```python
+posts = await Post.where("settings->headline", "like", "%Paris%").get()
+
+posts = await Post.where("settings->meta->lang", "fr").order_by("settings->headline").get()
+
+rows = await Post.query().select("id", "settings->headline as headline").get()
+```
+
+Each database gets its own JSON syntax:
+
+| Database | `settings->meta->headline` compiles to |
+|---|---|
+| PostgreSQL | `"posts"."settings"->'meta'->>'headline'` |
+| SQLite | `json_extract("posts"."settings", '$."meta"."headline"')` |
+| MySQL | ``json_unquote(json_extract(`posts`.`settings`, '$."meta"."headline"'))`` |
+| SQL Server | `json_value([posts].[settings], '$."meta"."headline"')` |
+
+Comparisons and `like` behave the same way everywhere for **string** values. Numbers and booleans don't: SQLite's `json_extract` returns the native JSON type, while PostgreSQL's `->>` always returns text, so `where("settings->count", 5)` matches on SQLite but fails on PostgreSQL. Compare those values with `where_raw` and a cast for your database:
+
+```python
+# PostgreSQL
+posts = await Post.where_raw("(settings->>'count')::int = ?", (5,)).get()
+
+# SQLite
+posts = await Post.where_raw("json_extract(settings, '$.count') = ?", (5,)).get()
+```
+
+On PostgreSQL, `like` still compiles to `ILIKE`, so the match ignores case. A table prefix such as `drafts.settings->headline` is kept.
+
+Values are always sent as bindings. The keys, though, are written into the SQL, so each key may only contain letters, digits, and underscores. Anything else raises `ValueError`. Write `settings->headline`, not Postgres's `settings->>headline`: the builder picks the operator for you, and the extra `>` is rejected as part of the key.
+
+> Array indexes (`tags->0`) and JSON containment checks aren't supported yet. Use `where_raw` for those.
 
 ### Retrieving records
 
@@ -308,6 +355,77 @@ rows = await Post.query().table("categories").select("name").get()
 SELECT "categories"."name" FROM "categories"
 ```
 
+### Unions
+
+`union` and `union_all` combine the rows of two queries. `union` removes duplicate rows and `union_all` keeps them. Each takes a query builder, or a callable that receives an empty builder and returns one:
+
+```python
+user_ids = await (
+    ReviewLog.query()
+    .select("user_id")
+    .where("created_at", ">", since)
+    .union_all(Play.query().select("user_id").where("created_at", ">", since))
+    .get()
+)
+
+user_ids = await (
+    ReviewLog.query()
+    .select("user_id")
+    .union(lambda q: q.table("plays").select("user_id"))
+    .get()
+)
+```
+
+On PostgreSQL, the first query compiles to:
+
+```sql
+(SELECT "review_logs"."user_id" FROM "review_logs" WHERE "review_logs"."created_at" > ?) UNION ALL (SELECT "plays"."user_id" FROM "plays" WHERE "plays"."created_at" > ?)
+```
+
+The queries must select the same number of columns, as SQL requires. Every query stays bound, and the bindings follow the order of the SQL. Each database wraps the queries in its own way. PostgreSQL and MySQL put each one in parentheses, SQLite uses `SELECT * FROM (...)`, and SQL Server uses `SELECT * FROM (...) AS [temp_table]`.
+
+Each query keeps its own `order_by` and `limit`. `count()` and the other aggregates count the rows of the whole union. So do `paginate()`, `simple_paginate()`, `chunk()`, `chunk_by_id()`, and `chunk_by_id_desc()`, which also page across the whole union, not just the first query:
+
+```python
+total = await ReviewLog.query().select("user_id").union(Play.query().select("user_id")).count()
+
+page = await ReviewLog.query().select("user_id").union_all(Play.query().select("user_id")).paginate(per_page=20)
+```
+
+To order, filter, or group the union as a whole outside those methods, select from it with `from_sub`.
+
+### Subqueries as tables
+
+`from_sub(subquery, alias)` selects from a subquery instead of a table. Like `union`, it takes a builder or a callable. The outer query's columns, `where`, `group_by`, and `order_by` are prefixed with the alias.
+
+With a union as the subquery, you can count distinct users per day across several tables in one query:
+
+```python
+events = (
+    ReviewLog.query()
+    .select("user_id", "day")
+    .union_all(Play.query().select("user_id", "day"))
+)
+
+rows = await (
+    ReviewLog.from_sub(events, "events")
+    .select("day")
+    .select_raw("COUNT(DISTINCT user_id) AS learners")
+    .group_by("day")
+    .get()
+)
+```
+
+```sql
+SELECT "events"."day", COUNT(DISTINCT user_id) AS learners
+FROM ((SELECT "review_logs"."user_id", "review_logs"."day" FROM "review_logs") UNION ALL (SELECT "plays"."user_id", "plays"."day" FROM "plays")) AS "events"
+GROUP BY "events"."day"
+```
+
+Because the outer `group_by` is prefixed with the alias, a computed column, such as a local day, has to be selected inside each subquery, where it becomes a real column.
+
+`union`, `union_all`, and `from_sub` are also available directly on the model, as in `ReviewLog.from_sub(...)` above. Each raises `TypeError` if it gets anything other than a builder or a callable. `INTERSECT`, `EXCEPT`, and `GROUPING SETS` aren't supported.
+
 ## Creating Records
 
 ### `create`
@@ -348,6 +466,77 @@ await User.insert([
 
 > Unlike `create`, `insert` doesn't fire model events, set timestamps, or return models. Reach for it in bulk seeding and batch jobs.
 
+### `insert_or_ignore` and `upsert` — let the database handle duplicates
+
+`first_or_create` and `update_or_create` run a `SELECT` first and then an `INSERT`. If two requests do that at the same moment, both miss the row, and the second insert fails on the unique index. `insert_or_ignore` and `upsert` avoid that race by letting the database resolve the conflict in a single statement.
+
+`insert_or_ignore(values, unique_by=None)` inserts the rows and skips any row that would break a unique constraint:
+
+```python
+await Lexeme.insert_or_ignore(
+    {"slug": "chat", "language": "fr", "word": "chat"},
+    unique_by=["slug", "language"],
+)  # 1 the first time, 0 after that
+```
+
+`upsert(values, unique_by, update=None)` inserts the rows, and updates the `update` columns of any row that already exists:
+
+```python
+await Lexeme.upsert(
+    [
+        {"slug": "chat", "language": "fr", "word": "chat"},
+        {"slug": "dog", "language": "en", "word": "dog"},
+    ],
+    unique_by=["slug", "language"],
+    update=["word"],
+)
+```
+
+On PostgreSQL and SQLite, these compile to `ON CONFLICT`:
+
+```sql
+INSERT INTO "lexemes" ("slug", "language", "word") VALUES (?, ?, ?) ON CONFLICT ("slug", "language") DO NOTHING
+INSERT INTO "lexemes" ("slug", "language", "word") VALUES (?, ?, ?) ON CONFLICT ("slug", "language") DO UPDATE SET "word" = EXCLUDED."word"
+```
+
+Both methods work like this:
+
+- `values` is a dict or a list of dicts. Every value is a binding. Each row must have the same columns as the first row, or a `ValueError` is raised. The order of the keys doesn't matter.
+- `unique_by` and `update` take a column name or a list of names.
+- Both return the number of affected rows. An empty `values` runs nothing and returns `0`.
+- Like `insert`, they don't fire model events or fill in timestamps. Both are also query builder methods, so `Lexeme.query().upsert(...)` works the same way.
+
+For `insert_or_ignore`, leaving out `unique_by` gives `ON CONFLICT DO NOTHING`, which skips a conflict on any unique index.
+
+`upsert` has a few more rules:
+
+- It needs at least one `unique_by` column, or it raises `ValueError`.
+- With `update=None`, it updates every inserted column that isn't in `unique_by`. If that leaves nothing to update, it falls back to `insert_or_ignore`.
+- Every `update` column must be one of the inserted columns, or it raises `ValueError`. Otherwise the database would overwrite that column with its default.
+- On PostgreSQL, a batch that repeats a `unique_by` key fails with `ON CONFLICT DO UPDATE command cannot affect row a second time`. Send each key once per batch. SQLite applies the repeats in order and keeps the last one.
+
+SQLite needs version 3.24 or later.
+
+#### MySQL
+
+On MySQL, `insert_or_ignore` compiles to `INSERT IGNORE` and `upsert` to `ON DUPLICATE KEY UPDATE`:
+
+```sql
+INSERT IGNORE INTO `lexemes` (`slug`, `language`, `word`) VALUES (?, ?, ?)
+INSERT INTO `lexemes` (`slug`, `language`, `word`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `word` = VALUES(`word`)
+```
+
+These behave differently from `ON CONFLICT`, so keep the following in mind:
+
+- MySQL finds the conflicting unique index by itself, so `unique_by` isn't part of the SQL. `upsert` still requires it, because it uses `unique_by` to work out the default `update` columns.
+- `INSERT IGNORE` ignores more than duplicate keys. It also turns other errors, such as a `NOT NULL` violation, a failed foreign key, or a value that's too long for its column, into warnings. The row is then skipped or stored with an adjusted value instead of raising an error.
+- The `VALUES(col)` form is deprecated as of MySQL 8.0.20, but it still works.
+- Affected-row counts aren't the same as on other databases. MySQL counts an inserted row as 1 and an updated row as 2. A matched row that the upsert leaves unchanged counts as 1, because SQLAlchemy's MySQL drivers connect with the `FOUND_ROWS` flag. Without that flag, it would count as 0. Don't rely on the exact number across databases.
+
+::: warning SQL Server
+`insert_or_ignore` and `upsert` aren't supported on SQL Server. They raise `NotImplementedError`.
+:::
+
 ## Updating Records
 
 To update a row, change its attributes and call `save()`:
@@ -386,8 +575,7 @@ To tie it all together, here's the `Post` model from the example app, with its c
 ```python
 # app/models/post.py
 from typing import TYPE_CHECKING
-from fastapi_startkit.masoniteorm import Model
-from fastapi_startkit.masoniteorm.relationships import BelongsTo, HasMany, BelongsToMany
+from fastapi_startkit.masoniteorm import Model, BelongsTo, BelongsToMany, HasMany
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -402,9 +590,13 @@ class Post(Model):
     title: str
     content: str
 
-    author: "User" = BelongsTo('User', local_key='user_id', foreign_key="id")
-    media: list["Media"] = HasMany("Media")
-    tags: list["Tag"] = BelongsToMany("Tag", "post_id", "tag_id", table="post_tag")
+    author = BelongsTo["User"](local_key="user_id", foreign_key="id")
+    media = HasMany["Media"](foreign_key="post_id", local_key="id")
+    tags = BelongsToMany["Tag"](
+        local_foreign_key="post_id",
+        other_foreign_key="tag_id",
+        table="post_tag",
+    )
 ```
 
 From here, head to [Relationships](./relationships) to learn how to declare relationships, or [Casts](./casts) for type conversion and value objects.

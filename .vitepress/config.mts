@@ -14,6 +14,7 @@ export default defineConfig({
     },
     head: [
         ['meta', { name: 'google-site-verification', content: 'RpM5amadnjbR3TF0J4L4MXB4TWYVesPz0ssaXg7-jYM' }],
+        ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
         ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
         ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
         ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800;900&family=Instrument+Sans:wght@400..700&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;500;600;700&display=swap' }],
@@ -172,6 +173,7 @@ export default defineConfig({
                         { text: 'Agents', link: '/docs/ai/agent' },
                         { text: 'Image', link: '/docs/ai/image' },
                         { text: 'Audio', link: '/docs/ai/audio' },
+                        { text: 'Embeddings', link: '/docs/ai/embeddings' },
                         { text: 'MCP', link: '/docs/ai/mcp' },
                         { text: 'Skills', link: '/docs/ai/skills' },
                     ]
@@ -200,12 +202,15 @@ export default defineConfig({
                     text: 'Digging Deeper',
                     items: [
                         { text: 'Authentication', link: '/docs/authentication' },
+                        { text: 'Validation', link: '/docs/validation' },
                         { text: 'Storage', link: '/docs/storage' },
                         { text: 'Cache', link: '/docs/cache' },
                         { text: 'Redis', link: '/docs/redis' },
                         { text: 'Queues', link: '/docs/queues' },
                         { text: 'Process', link: '/docs/process' },
                         { text: 'Broadcasting', link: '/docs/broadcasting' },
+                        { text: 'Mail', link: '/docs/mail' },
+                        { text: 'Notifications', link: '/docs/notifications' },
                         { text: 'JSON:API Resources', link: '/docs/jsonapi' },
                     ]
                 },
@@ -214,6 +219,7 @@ export default defineConfig({
                     items: [
                         { text: 'FastAPI Testing', link: '/docs/testing/fastapi' },
                         { text: 'Database Testing', link: '/docs/testing/database' },
+                        { text: 'Browser Testing', link: '/docs/testing/browser' },
                     ]
                 }
             ],

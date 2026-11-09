@@ -16,7 +16,7 @@ A command is a class that extends `fastapi_startkit.console.Command`, a subclass
 ```python
 from cleo.helpers import argument
 from fastapi_startkit.console import Command
-from fastapi_startkit.logging import Logger
+from fastapi_startkit.logging import Log
 
 class HelloCommand(Command):
     name = "hello"
@@ -34,7 +34,7 @@ class HelloCommand(Command):
         name = self.argument('name')
         text = f"Hello {name}" if name else "Hello"
 
-        Logger.info(f"Greeting: {text}")
+        Log.info(f"Greeting: {text}")
 
         self.line(f"<info>{text}</info>")
 ```
