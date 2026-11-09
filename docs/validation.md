@@ -138,7 +138,7 @@ Because the query string is merged in, a declared field can also be set from the
 
 ### JSON-Only Bodies
 
-A form request reads JSON bodies only, unless it declares a [file field](#file-uploads). An `application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain` body isn't parsed. It fails before `authorize` or any rule runs:
+A form request reads JSON bodies only, unless it declares a [file field](#file-uploads). An `application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain` body isn't parsed. `authorize` still runs first, so a request it denies gets the usual 403. Otherwise the body is rejected with a 422 before `prepare_for_validation` or any rule runs:
 
 ```bash
 curl -X POST http://localhost:8000/posts \
