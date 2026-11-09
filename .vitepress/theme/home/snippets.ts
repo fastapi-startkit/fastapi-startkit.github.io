@@ -238,13 +238,13 @@ export type Comparison = {
 export const comparisons: Comparison[] = [
     {
         tab: "Models",
-        note: "Eloquent → Masonite ORM: $fillable becomes typed attributes",
+        note: "Eloquent → Masonite ORM: typed attributes declare the columns",
         lang: "python",
         laravel: {
             path: "app/Models/Order.php",
             code: `class Order extends Model
 {
-    protected $fillable = ['status'];
+    protected $table = 'orders';
 }
 
 Order::where('status', 'paid')->get();`,
