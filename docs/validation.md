@@ -1,8 +1,8 @@
 ---
 outline: deep
 title: Validation
-description: Validate request bodies and query strings with form requests — chainable field rules, custom messages, async and database rules, after() hooks, and Laravel-style 422 responses.
-keywords: validation, form request, fastapi validation, validation rules, custom validation rule, unique rule, exists rule, 422, validated, fastapi startkit
+description: Validate request bodies, query strings and file uploads with form requests — chainable field rules, custom messages, async and database rules, after() hooks, Laravel-style 422 responses, and testing.
+keywords: validation, form request, fastapi validation, validation rules, custom validation rule, unique rule, exists rule, file upload, multipart, csrf, 422, validated, fastapi startkit
 ---
 
 # Validation
@@ -130,7 +130,34 @@ curl -H 'Accept: application/json' 'http://localhost:8000/posts?page=0'
 
 Query keys the model doesn't declare are ignored. Field aliases work too: a field declared with `PydanticField(10, alias="pageSize")` reads `?pageSize=`. In the OpenAPI schema, the model's fields are listed as query parameters for these routes instead of a request body.
 
+### Validating Request Bodies
+
 On `POST`, `PUT` and `PATCH` routes, the JSON body is validated. Any query parameters the model declares are merged in underneath it, so a key in the body wins over the same key in the query string. A write request with no body at all is rejected with `{"": ["Field required"]}` in `errors`.
+
+Because the query string is merged in, a declared field can also be set from the URL: `PATCH /profile?role=admin` with `{"name": "Jo"}` validates with `role` set to `"admin"`. That gives the client no more power than putting `role` in the body, but URLs end up in access logs and proxies. Keep fields like roles and passwords off form requests that write routes use, or reject them in [`prepare_for_validation`](#preparing-input).
+
+### JSON-Only Bodies
+
+A form request reads JSON bodies only, unless it declares a [file field](#file-uploads). An `application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain` body isn't parsed. It fails before `authorize` or any rule runs:
+
+```bash
+curl -X POST http://localhost:8000/posts \
+  -H 'Accept: application/json' \
+  -d 'title=Hello&body=A long enough body'
+```
+
+```json
+{
+  "message": "Input should be a valid dictionary or instance of StorePost",
+  "errors": {
+    "": ["Input should be a valid dictionary or instance of StorePost"]
+  }
+}
+```
+
+This protects your write routes from cross-site request forgery (CSRF). A browser lets any website submit an HTML `<form>` to your app, with the visitor's cookies attached, and those three content types are exactly what a form can send without a CORS preflight. A JSON body can only be sent cross-site after a preflight, and your CORS settings decide whether that's allowed. So a forged form post to a `Validated` route can't pass validation. For the same reason, a write request with no body doesn't fall back to the query string: an empty `<form method="post" action="/transfer?to=attacker">` would otherwise carry its whole payload in the URL.
+
+`DELETE` reads the query string even though it changes data. HTML forms can't send `DELETE`, and a cross-site `DELETE` always needs a preflight.
 
 ## Writing the Validation Rules
 
@@ -159,7 +186,7 @@ class StoreTask(FormRequest):
 }
 ```
 
-Apart from `required` and `required_if`, rules skip empty values: `None`, an empty or whitespace-only string, and an empty list, tuple, set or dict. So `Field().email()` on an optional field accepts a missing value but rejects `"nope"`. A field with `required()` or `required_if()` that's left out of the input gets the rule's message, `The title field is required.`, rather than Pydantic's `Field required`.
+Apart from `required` and `required_if`, rules skip empty values: `None`, an empty or whitespace-only string, an empty list, tuple, set or dict, and an upload with no file name. So `Field().email()` on an optional field accepts a missing value but rejects `"nope"`. A field with `required()` or `required_if()` that's left out of the input gets the rule's message, `The title field is required.`, rather than Pydantic's `Field required`.
 
 ### Stopping on the First Failure
 
@@ -203,6 +230,8 @@ Each rule is a method on `Field` and returns the field, so rules chain. Every ru
 | `not_in(values)` | The value isn't in `values`. | The selected :attribute is invalid. |
 | `same_as(other)` | The value equals the `other` field's value. | The :attribute field must match :other. |
 | `confirmed()` | The value equals the `<field>_confirmation` field's value. | The :attribute field confirmation does not match. |
+| `file()` | The value is an uploaded file. See [File Uploads](#file-uploads). | The :attribute field must be a file. |
+| `extensions(values)` | An uploaded file whose name ends in one of `values`, ignoring case. | The :attribute field must have one of the following extensions: :values. |
 | `unique(table, ...)` | No row has this value. See [Database Rules](#database-rules). | The :attribute has already been taken. |
 | `exists(table, ...)` | A row has this value. | The selected :attribute is invalid. |
 | `using(callback)` | `callback` returns true. See [Closures](#using-closures). | The :attribute field is invalid. |
@@ -222,13 +251,14 @@ class Register(FormRequest):
 
 ### Sizes
 
-`min`, `max` and `between` measure a string by its length, a list (or any other collection) by its item count, and a number by its value. The message changes to match:
+`min`, `max` and `between` measure a string by its length, a list (or any other collection) by its item count, a number by its value, and an uploaded file by its size in kilobytes. The message changes to match:
 
 | Value | `min(3)` message |
 |---|---|
 | String | The :attribute field must be at least 3 characters. |
 | Number | The :attribute field must be at least 3. |
 | List | The :attribute field must have at least 3 items. |
+| Uploaded file | The :attribute field must be at least 3 kilobytes. |
 
 When the field also has `integer()` or `numeric()`, its value is always compared as a number, so `Field().numeric().between(1, 5)` checks `"9"` as nine, not as one character.
 
@@ -306,6 +336,7 @@ A message is either a string or a callable that takes `(attribute, value, data)`
 | `:min`, `:max` | The bounds of `min`, `max` and `between`. |
 | `:other` | The other field of `required_if` and `same_as`. |
 | `:value` | The expected value of `required_if`. |
+| `:values` | The allowed extensions of `extensions`, comma-separated. |
 
 Calling `.msg()` before any rule raises `ValueError: msg() needs a rule before it.`
 
@@ -473,6 +504,90 @@ curl -X POST http://localhost:8000/checkout -H 'Content-Type: application/json' 
 
 The key comes from the class name, not the parameter name. With a route like `note(data: Validated[StorePost], note: Annotated[str, Body()])`, the body is `{"store_post": {...}, "note": "..."}`. All of a route's form requests are validated before the response is sent, so the client sees every error at once.
 
+## File Uploads
+
+A form request accepts files when one of its fields is annotated with `UploadFile`. There's nothing to switch on: a request with a file field reads `multipart/form-data` bodies as well as JSON.
+
+```python
+from typing import Annotated
+
+from fastapi import UploadFile
+
+from fastapi_startkit.validation import Field, FormRequest, Validated
+
+
+class StoreAttachment(FormRequest):
+    title: Annotated[str, Field().required().min(3)]
+    document: Annotated[UploadFile, Field().required().file().extensions(["pdf", "txt"]).max(512)]
+    tags: list[str] = []
+
+
+@app.fastapi.post("/attachments")
+async def store_attachment(data: Validated[StoreAttachment]):
+    contents = await data.document.read()
+    return {"title": data.title, "file": data.document.filename, "bytes": len(contents), "tags": data.tags}
+```
+
+With a 2 KB `report.pdf`:
+
+```bash
+curl -X POST http://localhost:8000/attachments -H 'Accept: application/json' \
+  -F title='Q3 report' -F tags=q3 -F tags=finance -F document=@report.pdf
+# {"title":"Q3 report","file":"report.pdf","bytes":2048,"tags":["q3","finance"]}
+
+curl -X POST http://localhost:8000/attachments -H 'Accept: application/json' \
+  -F title=Q3 -F document=@setup.exe
+# {"message":"The title field must be at least 3 characters. (and 1 more error)","errors":{"title":["The title field must be at least 3 characters."],"document":["The document field must have one of the following extensions: pdf, txt."]}}
+```
+
+Form fields are read the way [query strings](#validating-query-strings) are: values are coerced to the field types, a list field gets every repeated value, and keys the model doesn't declare are ignored. Annotate with FastAPI's `UploadFile`, alone or as `UploadFile | None`, `list[UploadFile]` or `Annotated[UploadFile, ...]`.
+
+The upload is open while your endpoint runs and is closed once the response is sent, so read or store it inside the endpoint rather than keeping the object for later.
+
+### File Rules
+
+| Rule | Checks |
+|---|---|
+| `file()` | The value is an uploaded file. |
+| `extensions(["pdf", "txt"])` | The file name's extension, ignoring case. A leading dot is fine: `[".PDF"]` works too. It doesn't look at the file's contents. |
+| `min(n)`, `max(n)`, `between(lo, hi)` | The file size in kilobytes. `max(512)` allows up to 512 KB. |
+
+A browser sends an empty file input as a file with no name. That counts as empty, so `required()` reports `The document field is required.` and the other rules skip it.
+
+### Optional and Multiple Files
+
+```python
+class StoreGallery(FormRequest):
+    photos: Annotated[list[UploadFile], Field().max(3)] = []
+    cover: Annotated[UploadFile | None, Field().extensions(["png", "jpg"])] = None
+```
+
+Send `photos` several times to upload several files. `max(3)` on a list counts files, not kilobytes:
+
+```bash
+curl -X POST http://localhost:8000/gallery -H 'Accept: application/json' \
+  -F photos=@a.png -F photos=@b.png -F photos=@c.png -F photos=@d.png -F cover=@cover.gif
+# {"message":"The photos field must not have more than 3 items. (and 1 more error)","errors":{"photos":["The photos field must not have more than 3 items."],"cover":["The cover field must have one of the following extensions: png, jpg."]}}
+```
+
+When a browser form leaves an optional file input empty, the field holds an `UploadFile` with an empty `filename`, not `None`. Check `if data.cover and data.cover.filename:` before storing it.
+
+### What a Form Request With Files Accepts
+
+- **`multipart/form-data`** is read as described above, on a route whose only body parameter is that one form request. A route with [several form requests](#multiple-form-requests) or other body parameters expects an embedded JSON body, so a multipart request to it fails with `Field required` under each embed key.
+- **JSON** still works on the same route. A JSON body has no file, so `{"title": "Q3 report"}` reports `The document field is required.`
+- **`application/x-www-form-urlencoded`** is never read, because it can't carry a file. It fails with the same `""` error as on a [JSON-only](#json-only-bodies) request.
+
+A form request without a file field stays JSON-only, whatever its route.
+
+On failure, a browser form gets the usual redirect back with the errors in the session. An API client sending multipart has no JSON `Content-Type`, so it has to send `Accept: application/json` to get the [422 response](#error-responses).
+
+In the OpenAPI schema the route is still documented with a JSON request body, and a required `UploadFile` field is shown as `{"type": "string", "format": "binary"}`.
+
+### Protecting Upload Routes From Cross-Site Requests
+
+A route whose form request has a file field accepts a body that any website can send through a `<form>` without a CORS preflight. The [JSON-only protection](#json-only-bodies) doesn't cover it. Browsers only upload files through multipart forms, so this can't be avoided, but it's limited to the routes that take files. Protect them with CSRF tokens, or rely on a session cookie set with `SameSite=Lax` or `SameSite=Strict`, so a cross-site form doesn't carry the user's session.
+
 ## Validating Outside a Request
 
 `validate_input` runs the same steps without a route, which is handy in commands, jobs and tests. It returns the model, or raises `ValidationException` (or `AuthorizationException`):
@@ -537,7 +652,7 @@ curl -i -H 'Referer: http://localhost:8000/posts?page=1' 'http://localhost:8000/
 # location: http://localhost:8000/posts?page=1
 ```
 
-This is what you want for a browser following a link, but an API client that forgets the header gets a redirect instead of the errors. Send `Accept: application/json` from API clients. The same applies to a `POST` without a JSON `Content-Type`.
+This is what you want for a browser following a link, but an API client that forgets the header gets a redirect instead of the errors. Send `Accept: application/json` from API clients. The same applies to a `POST` without a JSON `Content-Type`, such as a [file upload](#file-uploads).
 
 ## Working With Error Messages
 
@@ -571,3 +686,72 @@ from fastapi_startkit.validation import ValidationException
 
 raise ValidationException({"email": ["The email has already been taken."]})
 ```
+
+## Testing
+
+### Testing Routes
+
+Send requests to a route with [`HttpTestCase`](/docs/testing/fastapi) and check the 422 body:
+
+```python
+from fastapi_startkit.fastapi.testing import HttpTestCase
+
+
+class TestStorePost(HttpTestCase):
+    def get_application(self):
+        from bootstrap.application import app
+        return app
+
+    async def test_title_and_body_are_required(self):
+        response = await self.post("/posts", json={})
+
+        response.assert_status(422).assert_json(exact={
+            "message": "The title field is required. (and 1 more error)",
+            "errors": {
+                "title": ["The title field is required."],
+                "body": ["The body field is required."],
+            },
+        })
+
+    async def test_document_must_be_a_pdf_or_text_file(self):
+        response = await self.post(
+            "/attachments",
+            data={"title": "Q3 report"},
+            files={"document": ("setup.exe", b"MZ")},
+            headers={"Accept": "application/json"},
+        )
+
+        response.assert_status(422)
+        assert response.json()["errors"] == {
+            "document": ["The document field must have one of the following extensions: pdf, txt."],
+        }
+```
+
+`json=` sends a JSON body, so the response is JSON without extra headers. For an upload, pass the form fields as `data=` and the files as `files=`, and add `Accept: application/json`; without it the test gets a 303 redirect. Error keys can contain dots (`billing.name`), so compare `response.json()["errors"]` directly rather than through a dotted path.
+
+### Testing Form Requests
+
+To test a form request's rules without a route, call [`validate_input`](#validating-outside-a-request):
+
+```python
+import pytest
+
+from fastapi_startkit.validation import ValidationException
+
+from app.http.requests.store_post import StorePost
+
+
+async def test_body_needs_ten_characters():
+    with pytest.raises(ValidationException) as error:
+        await StorePost.validate_input({"title": "Hello", "body": "short"})
+
+    assert error.value.errors == {"body": ["The body field must be at least 10 characters."]}
+
+
+async def test_status_defaults_to_draft():
+    post = await StorePost.validate_input({"title": "Hello", "body": "A long enough body"})
+
+    assert post.status == "draft"
+```
+
+Hooks that read `validator.request` see `None` here. Test those through a route.
