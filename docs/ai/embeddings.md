@@ -151,7 +151,7 @@ class CreateDocumentsTable(Migration):
 
 ### Models
 
-Annotate the column as `list[float]`. The model then stores it as a JSON array and reads it back as a list. You don't need a `__fillable__` list: the model builds one from its typed attributes, and `fill()` and `update()` ignore other keys. `create()` saves every key you pass.
+Annotate the column as `list[float]`. The model then stores it as a JSON array and reads it back as a list. The typed attributes are the columns `fill()` and `update()` accept; they ignore other keys. `create()` saves every key you pass.
 
 ```python
 from fastapi_startkit.masoniteorm import Model
