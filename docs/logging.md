@@ -1,7 +1,7 @@
 ---
 outline: deep
 title: Logging
-description: Configure log channels and drivers, and write logs with the Logger facade.
+description: Configure log channels and drivers, and write logs with the Log facade.
 keywords: logging, monitoring, debugging, fastapi
 ---
 
@@ -34,20 +34,24 @@ app: Application = Application(
 
 ## Usage
 
-You write logs through the `Logger` facade. Each entry records the file and line number it came from, so you can always trace a message back to its source.
+You write logs through the `Log` facade. Each entry records the file and line number it came from, so you can always trace a message back to its source.
 
 ```python
-from fastapi_startkit.logging import Logger
+from fastapi_startkit.logging import Log
 
-Logger.debug("This is a debug message")
-Logger.info("Application is starting...")
-Logger.notice("A formal notice")
-Logger.warning("Unusual activity detected")
-Logger.error("An error occurred during processing")
-Logger.critical("System failure!")
-Logger.alert("Immediate action required")
-Logger.emergency("System is unusable")
+Log.debug("This is a debug message")
+Log.info("Application is starting...")
+Log.notice("A formal notice")
+Log.warning("Unusual activity detected")
+Log.error("An error occurred during processing")
+Log.critical("System failure!")
+Log.alert("Immediate action required")
+Log.emergency("System is unusable")
 ```
+
+::: warning `Logger` is deprecated
+`Log` was called `Logger` in earlier releases. `from fastapi_startkit.logging import Logger` still works and returns `Log`, but it emits a `DeprecationWarning` and will be removed in a future major release.
+:::
 
 ## Configuration
 
@@ -141,7 +145,7 @@ app = Application(
 )
 ```
 
-`default` is the channel the `Logger` facade writes to. It reads `LOG_CHANNEL` and falls back to `stack`.
+`default` is the channel the `Log` facade writes to. It reads `LOG_CHANNEL` and falls back to `stack`.
 
 `channels` maps each channel name to a channel config class:
 

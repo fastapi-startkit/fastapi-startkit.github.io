@@ -439,17 +439,17 @@ from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from fastapi_startkit.logging import Logger
+from fastapi_startkit.logging import Log
 
 class AgentLogger:
     def handle(self, model: BaseChatModel, handler: Callable) -> Any:
-        Logger.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
+        Log.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
         started_at = time.monotonic()
 
         def log_response(final: Any) -> None:
             elapsed = time.monotonic() - started_at
             meta = getattr(final, "usage_metadata", None) or {}
-            Logger.info(f"response | {elapsed:.2f}s | out={meta.get('output_tokens', '?')} tokens")
+            Log.info(f"response | {elapsed:.2f}s | out={meta.get('output_tokens', '?')} tokens")
 
         return handler(model).then(log_response)
 ```
@@ -689,15 +689,15 @@ from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from fastapi_startkit.logging import Logger
+from fastapi_startkit.logging import Log
 
 class AgentLogger:
     def handle(self, model: BaseChatModel, handler: Callable) -> Any:
-        Logger.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
+        Log.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
         started_at = time.monotonic()
 
         def log_response(final: Any) -> None:
-            Logger.info(f"response | {time.monotonic() - started_at:.2f}s")
+            Log.info(f"response | {time.monotonic() - started_at:.2f}s")
 
         return handler(model).then(log_response)
 ```
