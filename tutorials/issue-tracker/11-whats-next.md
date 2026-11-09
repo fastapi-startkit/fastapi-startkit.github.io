@@ -39,4 +39,3 @@ The finished code is in [fastapi-startkit/issue-tracker](https://github.com/fast
 - [FastAPI](/docs/fastapi) covers routers, `resource()` and its options.
 - [Configuration](/docs/configuration) covers `env()`, environment files and config classes.
 - [HTTP tests](/docs/testing/fastapi) and [database tests](/docs/testing/database) list every assertion.
-- [Build an AI Agent](/tutorials/ai-agents/) adds an AI assistant to a FastAPI Startkit app.

@@ -39,5 +39,4 @@ Those pieces are most of what a real app needs. The rest builds on the same idea
 - [Database](/docs/database/), [Migrations](/docs/database/migrations), [Models](/docs/database/models), [Relationships](/docs/database/relationships) and [Seeding](/docs/database/seeds) go deeper into the ORM.
 - [Inertia](/docs/frontend/inertia) covers shared data, redirects, flash data and validation errors.
 - [HTTP tests](/docs/testing/fastapi) and [database tests](/docs/testing/database) list every assertion.
-- [Build an AI Agent](/tutorials/ai-agents/) is the next course. It adds an AI assistant to a FastAPI Startkit app.
 - [Build an Issue Tracker](/tutorials/issue-tracker/) goes further with the framework: validation rules, a status workflow, nested relationships, filters and pagination.

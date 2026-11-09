@@ -174,7 +174,6 @@ export default defineConfig({
                         { text: 'Audio', link: '/docs/ai/audio' },
                         { text: 'MCP', link: '/docs/ai/mcp' },
                         { text: 'Skills', link: '/docs/ai/skills' },
-                        { text: 'Tutorial: Build an Agent', link: '/tutorials/ai-agents/' },
                     ]
                 },
                 {
