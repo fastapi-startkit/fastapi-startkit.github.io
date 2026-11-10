@@ -1,46 +1,53 @@
-# Build an Issue Tracker tutorial course
+# One beginner course: Build an Issue Tracker
 
 Date: 2026-11-06
 
 ## Problem
 
-The tutorials section has a beginner framework course (Task Manager) and an AI course. Neither shows the parts of the framework a real business app leans on: rule-based validation with `FormRequest`, cross-field and database-aware validation, several relationships on one model, nested eager loading, query-string filters and a state machine. Readers who finish Task Manager have no guided next step for those.
+The tutorials section had two framework courses. "Build a Task Manager" was a beginner course on projects and tasks. "Build an Issue Tracker" was an intermediate course on validation rules, a status workflow, relationships and filters. Both started from `init` and repeated the same setup, migrations and seeders, so a reader doing both built the same foundations twice. Neither course alone covered the whole framework: Task Manager had the config value and the Inertia page, and Issue Tracker had everything after basic CRUD.
 
 ## Alternatives
 
-1. **Extend Task Manager with more lessons.** Keeps one app, but the course is already twelve lessons and aimed at first-time users. Adding workflow and filtering would make it long and mix levels.
-2. **Write reference pages instead of a course.** Cheaper, but the request was a hands-on tutorial built step by step.
-3. **A separate intermediate course with its own example repository.** One new app, one goal per lesson, and a public repository where every lesson is one tagged commit.
+1. **Keep both courses and link Task Manager to Issue Tracker.** No rewrite, but the setup is taught twice and the reader has to switch apps halfway.
+2. **Extend Task Manager with Issue Tracker's topics.** One course, but tasks don't need keys, a workflow or comments, so the later lessons would feel forced.
+3. **Merge into one beginner course built around the issue tracker.** The issue domain needs every topic naturally. Task Manager's introductory lessons (project tour, config value, routes and controllers, the Inertia page) move into it, and the Task domain is dropped.
 
 ## Decision
 
-Option 3. Add `tutorials/issue-tracker/` as "Build an Issue Tracker", `level: Intermediate`, `order: 3`, with eleven lessons:
+Option 3. `tutorials/issue-tracker/` is "Build an Issue Tracker", `level: Beginner`, `order: 1`, with fourteen lessons. `tutorials/task-manager/` is removed.
 
 | Lesson | Adds |
 |---|---|
-| 1 | The app, the data model and the workflow |
-| 2 | The project, created with `fastapi-startkit init --database=sqlite` |
-| 3 | `users` and `projects` migrations, models and seeders |
-| 4 | Projects and users API with `FormRequest` rules (`regex`, `unique`) |
-| 5 | Issues with per-project keys, enum priorities and `BelongsTo` reporter and assignee |
-| 6 | A status workflow enforced by an `after()` validation hook |
-| 7 | `PATCH` to assign, unassign and reprioritise |
-| 8 | Comments, `HasMany` and nested eager loading with `with_("comments.author")` |
-| 9 | Filters, search, sorting and pagination from `Validated` query strings and a config class |
-| 10 | HTTP tests with `HttpTestCase` and `RefreshDatabase` |
-| 11 | What's next |
+| 1 | The app, the data model, the workflow and the plan |
+| 2 | The project, created with the installer (Web, SQLite, Vue) |
+| 3 | A tour of the folders and providers, and `config/issues.py` read with `env()` |
+| 4 | A controller and `Router(prefix="/api")` with `resource(only=...)`, included by the provider |
+| 5 | `users` and `projects` migrations, models and seeders |
+| 6 | The projects API with `FormRequest` rules, `201` and `find_or_fail()` |
+| 7 | Issues with enums, `BelongsTo`/`HasMany`, and per-project keys from `Project.add_issue()` |
+| 8 | A status workflow enforced by an `after()` validation hook |
+| 9 | `PATCH` edits (title, description, priority, assignee) and `DELETE` |
+| 10 | Comments, eager loading with `with_()`/`load()`, `LazyLoadingViolation` and nested paths |
+| 11 | Filters, search, sorting and pagination from `Validated` query strings |
+| 12 | A Vue issue board rendered with Inertia, using the same requests and `add_issue()` as the API |
+| 13 | HTTP tests with `HttpTestCase`, `RefreshDatabase` and `assert_inertia` |
+| 14 | What's next |
 
-The finished app lives at `github.com/fastapi-startkit/issue-tracker`. Each lesson from 2 to 10 is one commit tagged `lesson-NN`. Every lesson links to its tag and to a compare view against the previous tag, so a reader can check their code against the exact diff.
+Issue numbering lives in `Project.add_issue()`, so the API and the board number issues the same way. The update request uses pydantic `StringConstraints(min_length=1)` for `title`, because `Field()` rules skip empty values on fields that aren't `required()`.
+
+The "Compare your code" boxes and "The finished app" section are removed. The `fastapi-startkit/issue-tracker` companion repository still has the old eleven-lesson tags, so linking to it would point readers at code that no longer matches. Rebuilding it with one tag per new lesson is a follow-up.
 
 ## Implementation
 
-- Course and lesson frontmatter follow the existing courses (`course: true`, `order`, `aside: false`; `lesson`, `title`, `description`, `duration`), so the existing tutorial components list and navigate the new course without theme changes.
-- Lessons use the same shape: `**Goal:**`, numbered steps, `// [!code ++]` diff markers on changed files, and a `## Check` section.
-- Task Manager's "What's next?" lesson links on to the new course.
+- Lessons that came from Task Manager were moved with `git mv` and rewritten for the issue domain. Issue Tracker lessons were renumbered and their `lesson:` frontmatter updated.
+- Course and lesson frontmatter follow the existing format, so the tutorial components list and navigate the course without theme changes.
+- Lessons keep the same shape: `**Goal:**`, numbered steps, `# [!code ++]`/`# [!code --]` diff markers on changed files, and a `## Check` section.
 - No framework code changes.
 
 ## Validation
 
-- Each tag was cloned fresh, migrated, seeded and served, and every `Check` command was run against it. The outputs in the lessons are those responses, with timestamps shortened.
-- `uv run pytest` passes at `lesson-10` and on `main` from a fresh clone.
-- `npm run docs:build` passes with no dead links, and the course appears on `/tutorials/` after the AI course.
+- A fresh app was made with the installer on framework 0.75.1. Lessons 3 to 5 were replayed on it: the config check printed the `.env` value, the made-up projects list returned `200`, and the migrations, `db:migrate:status` and seeded rows matched the lesson output.
+- The finished code for lessons 6 to 13 was built in a scratch app and every `Check` was run against it: `201`, `200`, `204`, `404` and `422` responses, the workflow refusal, comments, and filters and pagination driven by `ISSUES_PER_PAGE`. The outputs in the lessons are those responses, with timestamps shortened.
+- The board was driven in Chromium: add, the empty-title error, a move to In Progress and delete all worked with no page errors.
+- `uv run pytest` passes 9 tests (1 application, 8 issues).
+- `npm run docs:build` passes with no dead links.

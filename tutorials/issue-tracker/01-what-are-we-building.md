@@ -1,17 +1,17 @@
 ---
 lesson: 1
 title: What are we building?
-description: Meet Issue Tracker, its data model and the workflow every issue follows.
-duration: 4
+description: Meet Issue Tracker, its data model, the workflow every issue follows and the three ideas the whole course rests on.
+duration: 5
 ---
 
 # What are we building?
 
-**Goal:** know what you're going to build, how its data fits together and which status changes are allowed.
+**Goal:** know what you're going to build, how its data fits together and the three ideas you'll use in every lesson.
 
 ## Issue Tracker
 
-By the end of this course you'll have an API that works like a small Jira. You create an issue in a project and it gets the next key for that project:
+By the end of this course you'll have an app that works like a small Jira. You create an issue in a project and it gets the next key for that project:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/projects/1/issues \
@@ -35,6 +35,8 @@ curl -X POST http://127.0.0.1:8000/api/projects/1/issues \
 ```
 
 `transitions` lists the statuses the issue can move to next. The API refuses any other move.
+
+You'll also build a board at `/projects/1/board`: a Vue page with a column for each status, where you add issues, move them along and delete them without the page reloading.
 
 ## The data
 
@@ -62,21 +64,34 @@ Every issue starts in **To Do**. From there it can only move along these arrows:
 
 So you can't jump straight from To Do to Done, and a finished issue goes back to To Do if it needs reopening.
 
+## Three ideas
+
+You only need three ideas to follow along.
+
+**The application is built from providers.** `bootstrap/application.py` creates one `Application` and gives it a list of providers. Each provider switches on a feature, such as logging, FastAPI or the database. Adding a feature usually means adding a provider to that list.
+
+**Configuration is a dataclass.** Settings live in small dataclasses under `config/`. Each field reads its value from the environment with `env()`, so you change behaviour in `.env` instead of in code.
+
+**`artisan` does the chores.** `uv run python artisan` is the project's command line. It starts the server, creates files for you and runs your migrations and seeders.
+
 ## The plan
 
 | Lesson | You'll add |
 |---|---|
-| 2 | A new project with a SQLite database |
-| 3 | Users and projects: migrations, models and seeders |
-| 4 | An API for projects, with validation rules |
-| 5 | Issues with keys, priorities, reporters and assignees |
-| 6 | The status workflow |
-| 7 | Assigning issues and changing their priority |
-| 8 | Comments |
-| 9 | Filters, search, sorting and pagination |
-| 10 | Tests |
-| 11 | Where to go next |
+| 2 | A new project with a SQLite database, running on your machine |
+| 3 | A tour of the project and your first config value |
+| 4 | A route and a controller |
+| 5 | Users and projects: migrations, models and seeders |
+| 6 | An API for projects, with validation rules |
+| 7 | Issues with keys, priorities, reporters and assignees |
+| 8 | The status workflow |
+| 9 | Editing and deleting issues |
+| 10 | Comments and eager loading |
+| 11 | Filters, search, sorting and pagination |
+| 12 | An issue board in Vue, rendered with Inertia |
+| 13 | Tests |
+| 14 | Where to go next |
 
 ## Check
 
-Nothing to run yet. If you can say which status a new issue starts in, and why `todo` to `done` is refused, you're ready for the next lesson.
+Nothing to run yet. If you can say where providers are registered, which status a new issue starts in, and why `todo` to `done` is refused, you're ready for the next lesson.

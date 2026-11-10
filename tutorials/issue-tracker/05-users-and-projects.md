@@ -1,13 +1,13 @@
 ---
-lesson: 3
+lesson: 5
 title: Users and projects
-description: Create the users and projects tables, their models and some sample data.
-duration: 7
+description: Create the users and projects tables with migrations, add their models and fill them with seeders.
+duration: 10
 ---
 
 # Users and projects
 
-**Goal:** a database with three users and two projects in it.
+**Goal:** a database with three users and two projects in it, which you can rebuild with two commands.
 
 ## 1. Create the migrations
 
@@ -18,7 +18,7 @@ uv run python artisan db:make:migration create_users_table --create users
 uv run python artisan db:make:migration create_projects_table --create projects
 ```
 
-Each command prints the file it created, such as `databases/migrations/2026_11_06_115913_create_users_table.py`. The date at the front keeps migrations in order, so yours will differ.
+Each command prints the file it created, such as `databases/migrations/2026_11_06_115913_create_users_table.py`. The date and time at the front keep migrations in order, so yours will differ.
 
 Fill in the users migration:
 
@@ -57,40 +57,53 @@ class CreateProjectsTable(Migration):
         await self.schema.drop("projects")
 ```
 
+`up()` makes the change and `down()` undoes it. `timestamps()` adds `created_at` and `updated_at` columns, which the ORM fills in for you.
+
 The `key` is the short code in front of every issue key, like `WEB` in `WEB-1`. `unique()` makes the database refuse two projects with the same key.
 
 ## 2. Add the models
 
-A model is a class for one table. Its annotated fields are the columns you read and write. Create `app/models/user.py`:
+A model is a class for one table. You use it to read and write rows. Make one for each table:
+
+```bash
+uv run python artisan db:make:model User --directory app/models --pep
+uv run python artisan db:make:model Project --directory app/models --pep
+```
+
+`--pep` gives the files snake_case names, `user.py` and `project.py`. Open `app/models/user.py` and list its columns as annotated fields:
 
 ```python
 from fastapi_startkit.masoniteorm.models import Model
 
 
 class User(Model):
-    id: int
-    name: str
-    email: str
+    pass # [!code --]
+    id: int # [!code ++]
+    name: str # [!code ++]
+    email: str # [!code ++]
 ```
 
-And `app/models/project.py`:
+Do the same in `app/models/project.py`:
 
 ```python
 from fastapi_startkit.masoniteorm.models import Model
 
 
 class Project(Model):
-    id: int
-    key: str
-    name: str
-    description: str
+    pass # [!code --]
+    id: int # [!code ++]
+    key: str # [!code ++]
+    name: str # [!code ++]
+    description: str # [!code ++]
 ```
+
+The fields do two jobs. They decide which columns you can fill when you create a row, and they convert values as they come out of the database.
 
 You don't name the table. `User` uses `users` and `Project` uses `projects`, the plural of the class name.
 
 ## 3. Seed some data
 
-Seeders fill the tables with data to work with. Create one for each model:
+A seeder is a class that puts rows in the database. Create one for each model:
 
 ```bash
 uv run python artisan seed User
@@ -128,7 +141,9 @@ class ProjectTableSeeder(Seeder):
         await Project.create({"key": "APP", "name": "Mobile app"}) # [!code ++]
 ```
 
-`db:seed` runs `DatabaseSeeder`, so call both seeders from `databases/seeders/database_seeder.py`:
+`create()` inserts a row and returns the model, with the `id` the database just gave it.
+
+`db:seed` starts from one seeder called `DatabaseSeeder`, which calls the others. Call both from `databases/seeders/database_seeder.py`:
 
 ```python
 from fastapi_startkit.masoniteorm.seeders import Seeder
@@ -142,6 +157,8 @@ class DatabaseSeeder(Seeder):
         pass # [!code --]
         await self.call(UserTableSeeder, ProjectTableSeeder) # [!code ++]
 ```
+
+When you add more seeders later, pass them to the same `call()`.
 
 ## Check
 
@@ -160,6 +177,14 @@ Migrated: 2026_11_06_115914_create_projects_table (0.00s)
 Database Seeder seeded!
 ```
 
+Ask which migrations have run:
+
+```bash
+uv run python artisan db:migrate:status
+```
+
+Both are listed with `Y` in the **Ran?** column. If you made a mistake in a migration, undo the last batch with `db:migrate:rollback`, fix the file and run `db:migrate` again.
+
 If you have the `sqlite3` command, look inside:
 
 ```bash
@@ -172,9 +197,5 @@ sqlite3 databases/database.sqlite "select id, key, name from projects"
 ```
 
 ::: tip Start again any time
-`uv run python artisan db:migrate:fresh` drops every table and runs all migrations again. Follow it with `db:seed` to get the sample data back.
-:::
-
-::: info Compare your code
-This lesson's code is tagged [`lesson-03`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-03). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-02...lesson-03).
+`uv run python artisan db:migrate:fresh` drops every table and runs all migrations again. Follow it with `db:seed` to get the sample data back the way it started.
 :::

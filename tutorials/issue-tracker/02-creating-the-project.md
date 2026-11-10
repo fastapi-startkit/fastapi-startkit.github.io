@@ -1,8 +1,8 @@
 ---
 lesson: 2
 title: Creating the project
-description: Create a new FastAPI Startkit app with a SQLite database and start the development server.
-duration: 4
+description: Create a new FastAPI Startkit app with a SQLite database and a Vue frontend, then start the development server.
+duration: 5
 ---
 
 # Creating the project
@@ -11,16 +11,38 @@ duration: 4
 
 ## 1. Run the installer
 
-This time you'll ask the installer for a SQLite database straight away. Pass the answers as options, and `-n` turns off the questions:
+The installer creates a project for you. Run it without any options and it asks a few questions:
 
 ```bash
-uvx fastapi-startkit@latest init issue-tracker --app=web --database=sqlite --frontend=none -n
+uvx fastapi-startkit@latest init issue-tracker
 ```
+
+Answer them like this:
+
+| Question | Answer |
+|---|---|
+| Which services should your application run? | Web |
+| Which database will your application use? | SQLite |
+| Which frontend would you like to install? | Vue |
+
+If you'd rather skip the questions, pass the answers as options. `-n` turns off the questions:
+
+```bash
+uvx fastapi-startkit@latest init issue-tracker --app=web --database=sqlite --frontend=vue -n
+```
+
+::: tip No uv yet?
+On macOS or Linux, the install script sets up uv for you and runs the same installer:
+
+```bash
+curl -fsSL https://fastapi-startkit.github.io/install.sh | bash -s -- issue-tracker --app=web --database=sqlite --frontend=vue -n
+```
+:::
 
 The installer prints each file it creates and then installs the Python packages:
 
 ```
-Application: web; database: sqlite; frontend: none
+Application: web; database: sqlite; frontend: vue
   create .env
   create .env.example
   ...
@@ -32,17 +54,22 @@ Application: web; database: sqlite; frontend: none
   ...
   create routes/api.py
   create tests/test_application.py
-Dependency: fastapi-startkit[database,fastapi,sqlite]==0.74.0
+  create vite.config.ts
+Dependency: fastapi-startkit[database,fastapi,inertia,sqlite,vite]==0.75.1
+...
+Your application is ready.
 ```
 
-Choosing a database gave you three extra things:
+Choosing SQLite gave you three things:
 
 - `config/database.py`, which reads its settings from `.env`,
 - `DB_CONNECTION=sqlite` and `DB_DATABASE=databases/database.sqlite` in `.env`,
 - a `databases/` folder for migrations and seeders.
 
-::: tip Want to see how a database is added by hand?
-[Build a Task Manager](/tutorials/task-manager/05-adding-a-database) starts without one and adds it step by step.
+Choosing Vue gave you Vite, Tailwind, Inertia and a first page in `resources/js/Pages/Home.vue`. You'll use them for the issue board in lesson 12.
+
+::: tip Adding a database to an existing app
+If you started without a database, [Database: Getting Started](/docs/database/) shows how to add one by hand.
 :::
 
 ## 2. Start the server
@@ -68,8 +95,8 @@ curl http://127.0.0.1:8000/health
 {"status": "ok"}
 ```
 
-Then open `http://127.0.0.1:8000/docs`. Every route you add in this course shows up here.
+Then open `http://127.0.0.1:8000/docs` in your browser. This is FastAPI's interactive API page. Every route you add in this course shows up here.
 
-::: info Compare your code
-This lesson's code is tagged [`lesson-02`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-02).
+::: info The home page comes later
+The page at `/` is a Vue page. It needs the frontend to be built first, which you'll do in [lesson 12](./12-an-issue-board-with-inertia). Until then, stick to `/health` and `/docs`.
 :::

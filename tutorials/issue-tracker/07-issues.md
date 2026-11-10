@@ -1,5 +1,5 @@
 ---
-lesson: 5
+lesson: 7
 title: Issues
 description: Add issues with per-project keys, a status and priority from enums, and a reporter and assignee.
 duration: 10
@@ -112,18 +112,22 @@ class Issue(Model):
 
 Because `status` and `priority` are annotated with the enums, the model turns the stored text into `IssueStatus` and `IssuePriority` values when it reads a row.
 
-`BelongsTo` is the side of a relationship that holds the foreign key. `reporter` and `assignee` both point at `User`. They use different columns, so `local_key` says which one. The model names are strings, so the files don't have to import each other.
+A relationship tells a model how its rows connect to another table:
 
-Give `Project` the other side in `app/models/project.py`:
+- `BelongsTo` is the side that holds the foreign key. An issue belongs to one project, one reporter and maybe one assignee.
+- `local_key` is the column on this model and `foreign_key` is the column on the other one. `reporter` and `assignee` both point at `User`, so `local_key` is what tells them apart.
+- The model names are strings, like `"Project"`. The `TYPE_CHECKING` imports let your editor know what they are, without the two files importing each other when the app runs.
+
+## 4. Number issues in the project
+
+A project has many issues, and it's also the one that knows what the next number is. Give `Project` the other side of the relationship and an `add_issue()` method in `app/models/project.py`:
 
 ```python
-from typing import TYPE_CHECKING # [!code ++]
-# [!code ++]
 from fastapi_startkit.masoniteorm.models import Model
 from fastapi_startkit.masoniteorm.relationships import HasMany # [!code ++]
 # [!code ++]
-if TYPE_CHECKING: # [!code ++]
-    from app.models.issue import Issue # [!code ++]
+from app.enums import IssueStatus # [!code ++]
+from app.models.issue import Issue # [!code ++]
 
 
 class Project(Model):
@@ -132,10 +136,31 @@ class Project(Model):
     name: str
     description: str
 
-    issues = HasMany["Issue"](local_key="id", foreign_key="project_id") # [!code ++]
+    issues = HasMany[Issue](local_key="id", foreign_key="project_id") # [!code ++]
+# [!code ++]
+    async def add_issue(self, attributes: dict) -> Issue: # [!code ++]
+        number = (await Issue.where("project_id", self.id).max("number") or 0) + 1 # [!code ++]
+        return await Issue.create( # [!code ++]
+            { # [!code ++]
+                **attributes, # [!code ++]
+                "project_id": self.id, # [!code ++]
+                "number": number, # [!code ++]
+                "key": f"{self.key}-{number}", # [!code ++]
+                "status": IssueStatus.TODO, # [!code ++]
+            } # [!code ++]
+        ) # [!code ++]
 ```
 
-## 4. Validate new issues
+Here's what `add_issue()` does:
+
+- `max("number")` finds the highest number in the project. It's `None` when the project has no issues yet, so `or 0` starts the count at 1.
+- The key is the project's key plus that number, so the first issue in `WEB` is `WEB-1`.
+- `create()` sends back only the columns you passed in, not the table's defaults. That's why `status` is set here instead of left to the column default.
+- `Project` uses `Issue` when the app runs, so it imports it normally. `issue.py` only names `"Project"` for your editor, so the two files never load each other.
+
+Keeping this in the model means every place that files an issue numbers it the same way. You'll file issues from a second place in lesson 12.
+
+## 5. Validate new issues
 
 Create `app/http/requests/issue.py`:
 
@@ -157,7 +182,7 @@ class StoreIssueRequest(FormRequest):
 
 `exists("users", "id")` checks that the user is really there. `nullable()` lets `assignee_id` be left out or set to `null`, for an issue nobody has picked up yet. A `priority` outside the enum is refused.
 
-## 5. Shape the output
+## 6. Shape the output
 
 Create `app/http/resources/issue.py`. It nests the reporter and assignee with the `UserResource` you already have:
 
@@ -184,7 +209,7 @@ class IssueResource(BaseModel):
     created_at: datetime
 ```
 
-## 6. Add the controller
+## 7. Add the controller
 
 Create `app/http/controllers/issue_controller.py`:
 
@@ -192,7 +217,6 @@ Create `app/http/controllers/issue_controller.py`:
 from fastapi import Response
 from fastapi_startkit.validation import Validated
 
-from app.enums import IssueStatus
 from app.http.requests.issue import StoreIssueRequest
 from app.http.resources.issue import IssueResource
 from app.models.issue import Issue
@@ -207,16 +231,7 @@ class IssueController:
 
     async def store(self, project: int, request: Validated[StoreIssueRequest], response: Response) -> IssueResource:
         found = await Project.find_or_fail(project)
-        number = (await Issue.where("project_id", found.id).max("number") or 0) + 1
-        issue = await Issue.create(
-            {
-                **request.model_dump(),
-                "project_id": found.id,
-                "number": number,
-                "key": f"{found.key}-{number}",
-                "status": IssueStatus.TODO,
-            }
-        )
+        issue = await found.add_issue(request.model_dump())
         await issue.load("reporter", "assignee")
         response.status_code = 201
         return IssueResource.model_validate(issue)
@@ -227,13 +242,11 @@ class IssueController:
         return IssueResource.model_validate(found)
 ```
 
-Here's what's going on:
+The controller stays small. It finds the project, lets the model add the issue and shapes the result.
 
-- `max("number")` finds the highest number in the project. It's `None` when the project has no issues yet, so `or 0` starts the count at 1.
-- `create()` sends back only the columns you passed in, not the table's defaults. That's why `status` is set here instead of left to the column default.
-- `with_("reporter", "assignee")` loads both users for every issue in two extra queries, instead of two per issue. `load()` does the same for a model you already have.
+`with_("reporter", "assignee")` loads both users for every issue in two extra queries, instead of two per issue. `load()` does the same for a model you already have. You'll see why that matters in lesson 10.
 
-## 7. Add the routes
+## 8. Add the routes
 
 Issues live inside a project, so their routes nest under it. `resource()` builds flat routes, so write these out in `routes/api.py`:
 
@@ -314,7 +327,3 @@ curl -X POST http://127.0.0.1:8000/api/projects/1/issues \
   }
 }
 ```
-
-::: info Compare your code
-This lesson's code is tagged [`lesson-05`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-05). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-04...lesson-05).
-:::

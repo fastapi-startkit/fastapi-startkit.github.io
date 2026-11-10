@@ -1,5 +1,5 @@
 ---
-lesson: 9
+lesson: 11
 title: Filtering and pagination
 description: Filter a project's issues by status, priority and assignee, search their titles, sort them and page through them.
 duration: 10
@@ -82,28 +82,7 @@ uv run python artisan db:migrate:fresh
 uv run python artisan db:seed
 ```
 
-## 2. Make the page size a setting
-
-How many issues fit on a page is a setting, not code. Create `config/issues.py`:
-
-```python
-from dataclasses import dataclass
-
-from fastapi_startkit.environment import env
-
-
-@dataclass
-class IssuesConfig:
-    per_page: int = env("ISSUES_PER_PAGE", 20)
-```
-
-Add the value to `.env`, and to `.env.example` so others know it exists:
-
-```ini
-ISSUES_PER_PAGE=20
-```
-
-## 3. Describe the filters
+## 2. Describe the filters
 
 `Validated` works on `GET` requests too. There it reads the query string, so filters get the same rules and `422` errors as a request body. Add a request to `app/http/requests/issue.py`:
 
@@ -122,7 +101,7 @@ class IssueFilters(FormRequest): # [!code ++]
 - `in_()` limits `sort` to the columns you mean to sort by. A leading `-` means newest first, which is also the default.
 - Every field has a default, so a plain `GET` with no query string still works.
 
-## 4. Build the query
+## 3. Build the query
 
 Paginated results need the total and page numbers along with the issues. Add a page resource to `app/http/resources/issue.py`:
 
@@ -176,7 +155,7 @@ class IssueController:
 
 `when(condition, callback)` adds the callback's conditions only when the condition is truthy. Each filter is one line, and a filter the client didn't send adds nothing to the query.
 
-`paginate()` runs the query for one page and counts the matching rows, so the response can say how many pages there are.
+`paginate()` runs the query for one page and counts the matching rows, so the response can say how many pages there are. The page size is the `ISSUES_PER_PAGE` setting you added in lesson 3, so you can change it without touching code.
 
 ## Check
 
@@ -233,7 +212,3 @@ When a `GET` fails validation, the framework assumes a browser sent it and redir
 :::
 
 To see more than one page, set `ISSUES_PER_PAGE=2` in `.env` and restart the server. `?page=2` then returns `WEB-3` and `WEB-2` with `"total": 5, "current_page": 2, "last_page": 3`. Set it back to `20` when you're done.
-
-::: info Compare your code
-This lesson's code is tagged [`lesson-09`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-09). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-08...lesson-09).
-:::

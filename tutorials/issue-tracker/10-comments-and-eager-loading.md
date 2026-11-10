@@ -1,11 +1,11 @@
 ---
-lesson: 8
-title: Comments
-description: Add comments to issues and load an issue with its comments and their authors in one go.
+lesson: 10
+title: Comments and eager loading
+description: Add comments to issues, and load an issue with its comments and their authors in a fixed number of queries.
 duration: 8
 ---
 
-# Comments
+# Comments and eager loading
 
 **Goal:** discuss an issue in comments, and fetch the issue with the whole thread.
 
@@ -157,7 +157,22 @@ class CommentController:
         return CommentResource.model_validate(comment)
 ```
 
-## 5. Load the thread with the issue
+## 5. Load related rows up front
+
+Relationships aren't loaded until you ask for them. There are two ways to ask:
+
+```python
+comments = await Comment.with_("author").where("issue_id", 1).get()
+
+comment = await Comment.find_or_fail(1)
+await comment.load("author")
+```
+
+`with_()` goes on a query. It loads the authors for every comment it finds in one extra query, whether there are 2 comments or 200. `load()` does the same for a model you already have.
+
+Reading `comment.author` without loading it first raises a `LazyLoadingViolation`. That's on purpose. Loading it quietly would turn a loop over 200 comments into 200 extra queries, and you wouldn't notice until the page got slow.
+
+## 6. Load the thread with the issue
 
 Change `show()` in `IssueController` to return the detail resource:
 
@@ -183,7 +198,7 @@ class IssueController:
 Use `with_()` on the query for nested paths like `comments.author`. `load()` on a model you already have takes plain relationship names, such as `load("reporter", "assignee")`.
 :::
 
-## 6. Add the routes
+## 7. Add the routes
 
 In `routes/api.py`:
 
@@ -261,7 +276,3 @@ An unknown author and an empty body are refused:
   }
 }
 ```
-
-::: info Compare your code
-This lesson's code is tagged [`lesson-08`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-08). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-07...lesson-08).
-:::

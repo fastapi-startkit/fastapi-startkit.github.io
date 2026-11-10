@@ -1,5 +1,5 @@
 ---
-lesson: 6
+lesson: 8
 title: The status workflow
 description: Move issues between statuses, and use a validation hook to refuse moves the workflow doesn't allow.
 duration: 8
@@ -173,7 +173,3 @@ A status that isn't in the enum is caught by the field rule:
 ```json
 {"message": "Input should be 'todo', 'in_progress', 'in_review' or 'done'", "errors": {"status": ["Input should be 'todo', 'in_progress', 'in_review' or 'done'"]}}
 ```
-
-::: info Compare your code
-This lesson's code is tagged [`lesson-06`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-06). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-05...lesson-06).
-:::

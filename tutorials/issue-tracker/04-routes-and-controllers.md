@@ -7,22 +7,22 @@ duration: 6
 
 # Routes and controllers
 
-**Goal:** a `GET /api/tasks` endpoint, served by a controller.
+**Goal:** a `GET /api/projects` endpoint, served by a controller.
 
 ## 1. Write a controller
 
-A controller is a class whose methods handle requests. Create `app/http/controllers/task_controller.py`:
+A controller is a class whose methods handle requests. Create `app/http/controllers/project_controller.py`:
 
 ```python
-class TaskController:
+class ProjectController:
     async def index(self):
         return [
-            {"id": 1, "title": "Draft the homepage copy", "completed": False},
-            {"id": 2, "title": "Pick a color palette", "completed": True},
+            {"id": 1, "key": "WEB", "name": "Website"},
+            {"id": 2, "key": "APP", "name": "Mobile app"},
         ]
 ```
 
-The list is made up for now. You'll read real tasks from the database in lesson 6.
+The list is made up for now. You'll read real projects from the database in lesson 6.
 
 ## 2. Add the routes
 
@@ -30,7 +30,7 @@ Open `routes/api.py`. The installer already made a `router` for `/` and `/health
 
 ```python
 from app.http.controllers.home_controller import HomeController
-from app.http.controllers.task_controller import TaskController # [!code ++]
+from app.http.controllers.project_controller import ProjectController # [!code ++]
 from fastapi_startkit.fastapi import Router
 
 controller = HomeController()
@@ -39,7 +39,7 @@ router.get("/", controller.index, response_model=None)
 router.get("/health", controller.health)
 
 api = Router(prefix="/api") # [!code ++]
-api.resource("tasks", TaskController, only=["index"]) # [!code ++]
+api.resource("projects", ProjectController, only=["index"]) # [!code ++]
 ```
 
 `Router(prefix="/api")` puts every route on this router under `/api`.
@@ -48,13 +48,13 @@ api.resource("tasks", TaskController, only=["index"]) # [!code ++]
 
 | Method | Path | Controller method |
 |---|---|---|
-| GET | `/api/tasks` | `index` |
-| POST | `/api/tasks` | `store` |
-| GET | `/api/tasks/{task}` | `show` |
-| PUT | `/api/tasks/{task}` | `update` |
-| DELETE | `/api/tasks/{task}` | `destroy` |
+| GET | `/api/projects` | `index` |
+| POST | `/api/projects` | `store` |
+| GET | `/api/projects/{project}` | `show` |
+| PUT | `/api/projects/{project}` | `update` |
+| DELETE | `/api/projects/{project}` | `destroy` |
 
-`only=["index"]` keeps just the first one until the other methods exist. You'll remove it in lesson 8.
+`only=["index"]` keeps just the first one until the other methods exist. In lesson 6 you'll add `store` and `show` to the list.
 
 ## 3. Connect the router to FastAPI
 
@@ -79,14 +79,14 @@ class FastapiProvider(FastAPIProvider):
 ## Check
 
 ```bash
-curl http://127.0.0.1:8000/api/tasks
+curl http://127.0.0.1:8000/api/projects
 ```
 
 ```json
 [
-  {"id": 1, "title": "Draft the homepage copy", "completed": false},
-  {"id": 2, "title": "Pick a color palette", "completed": true}
+  {"id": 1, "key": "WEB", "name": "Website"},
+  {"id": 2, "key": "APP", "name": "Mobile app"}
 ]
 ```
 
-`GET /api/tasks` also shows up on the `/docs` page now.
+`GET /api/projects` also shows up on the `/docs` page now.
