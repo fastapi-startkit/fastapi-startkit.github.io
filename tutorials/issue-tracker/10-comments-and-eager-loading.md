@@ -276,3 +276,7 @@ An unknown author and an empty body are refused:
   }
 }
 ```
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-10`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-10). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-09...lesson-10).
+:::

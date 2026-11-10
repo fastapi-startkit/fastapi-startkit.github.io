@@ -327,3 +327,7 @@ curl -X POST http://127.0.0.1:8000/api/projects/1/issues \
   }
 }
 ```
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-07`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-07). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-06...lesson-07).
+:::

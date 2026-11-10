@@ -100,3 +100,7 @@ Then open `http://127.0.0.1:8000/docs` in your browser. This is FastAPI's intera
 ::: info The home page comes later
 The page at `/` is a Vue page. It needs the frontend to be built first, which you'll do in [lesson 12](./12-an-issue-board-with-inertia). Until then, stick to `/health` and `/docs`.
 :::
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-02`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-02).
+:::

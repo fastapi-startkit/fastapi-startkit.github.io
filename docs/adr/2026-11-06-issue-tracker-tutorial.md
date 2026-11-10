@@ -35,7 +35,7 @@ Option 3. `tutorials/issue-tracker/` is "Build an Issue Tracker", `level: Beginn
 
 Issue numbering lives in `Project.add_issue()`, so the API and the board number issues the same way. The update request uses pydantic `StringConstraints(min_length=1)` for `title`, because `Field()` rules skip empty values on fields that aren't `required()`.
 
-The "Compare your code" boxes and "The finished app" section are removed. The `fastapi-startkit/issue-tracker` companion repository still has the old eleven-lesson tags, so linking to it would point readers at code that no longer matches. Rebuilding it with one tag per new lesson is a follow-up.
+The `fastapi-startkit/issue-tracker` companion repository was rebuilt to match. Its `main` starts from the installer output, and each lesson that changes code is one commit, tagged `lesson-02` to `lesson-13`. The old eleven-lesson history is kept on the `archive/11-lesson-course` branch. Every lesson from 2 to 13 ends with a "Compare your code" box that links to its tag and to the diff from the previous tag, and the course index links to the repository under "The finished app". The lesson 11 seeder files issues with `Project.add_issue()`, so seeded issues are numbered the same way as the API numbers them.
 
 ## Implementation
 
@@ -50,4 +50,5 @@ The "Compare your code" boxes and "The finished app" section are removed. The `f
 - The finished code for lessons 6 to 13 was built in a scratch app and every `Check` was run against it: `201`, `200`, `204`, `404` and `422` responses, the workflow refusal, comments, and filters and pagination driven by `ISSUES_PER_PAGE`. The outputs in the lessons are those responses, with timestamps shortened.
 - The board was driven in Chromium: add, the empty-title error, a move to In Progress and delete all worked with no page errors.
 - `uv run pytest` passes 9 tests (1 application, 8 issues).
+- In the companion repository, a clean clone passes `uv sync` and `uv run pytest` at every tag: 1 test from `lesson-02` to `lesson-12` and 9 at `lesson-13`, after `npm run build`. The board test fails without the build, and lesson 13 says so. At `lesson-13` the board was driven in Chromium with no page errors. A script checked every code line in each lesson against the files at its tag.
 - `npm run docs:build` passes with no dead links.

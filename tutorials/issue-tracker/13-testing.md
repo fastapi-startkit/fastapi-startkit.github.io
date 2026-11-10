@@ -134,7 +134,7 @@ The test for the workflow is the most valuable one here. It walks the issue to I
 
 ## Check
 
-Run the suite:
+The board test renders `Issues/Board` with the frontend you built in lesson 12, so it fails if `npm run build` hasn't been run. Run the suite:
 
 ```bash
 uv run pytest
@@ -148,3 +148,7 @@ tests/test_issues.py ........                                            [100%]
 ```
 
 Break the workflow on purpose to see a test catch it. Add `IssueStatus.TODO` to the `IN_REVIEW` list in `WORKFLOW`, run `uv run pytest` again, and `test_it_follows_the_workflow` fails. Undo the change before you move on.
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-13`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-13). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-12...lesson-13).
+:::

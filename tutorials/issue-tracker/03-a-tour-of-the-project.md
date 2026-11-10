@@ -87,3 +87,7 @@ uv run python -c "from bootstrap.application import app; from config.issues impo
 ```
 
 Delete the line from `.env` and run it again. You'll get the default, `20`. Put it back as `ISSUES_PER_PAGE=20` before you move on.
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-03`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-03). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-02...lesson-03).
+:::

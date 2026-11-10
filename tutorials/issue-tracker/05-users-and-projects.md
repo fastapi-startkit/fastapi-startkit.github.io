@@ -199,3 +199,7 @@ sqlite3 databases/database.sqlite "select id, key, name from projects"
 ::: tip Start again any time
 `uv run python artisan db:migrate:fresh` drops every table and runs all migrations again. Follow it with `db:seed` to get the sample data back the way it started.
 :::
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-05`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-05). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-04...lesson-05).
+:::

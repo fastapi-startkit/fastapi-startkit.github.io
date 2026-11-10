@@ -189,3 +189,7 @@ And `curl http://127.0.0.1:8000/api/projects/99` gets a `404`:
 ```json
 {"detail": "Project with primary key 99 not found."}
 ```
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-06`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-06). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-05...lesson-06).
+:::

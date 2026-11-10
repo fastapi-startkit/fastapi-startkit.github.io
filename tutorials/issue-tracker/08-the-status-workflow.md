@@ -173,3 +173,7 @@ A status that isn't in the enum is caught by the field rule:
 ```json
 {"message": "Input should be 'todo', 'in_progress', 'in_review' or 'done'", "errors": {"status": ["Input should be 'todo', 'in_progress', 'in_review' or 'done'"]}}
 ```
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-08`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-08). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-07...lesson-08).
+:::

@@ -233,3 +233,7 @@ Open `http://127.0.0.1:8000/projects/1/board`. The five `WEB` issues sit in thei
 The page never fully reloads. `curl http://127.0.0.1:8000/api/projects/1/issues` shows the same changes, because the board and the API share the same models and rules.
 
 The home page at `/` works now too, since the frontend is built.
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-12`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-12). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-11...lesson-12).
+:::

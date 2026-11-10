@@ -126,3 +126,7 @@ curl -i -X DELETE http://127.0.0.1:8000/api/issues/2
 ```
 
 The delete answers `HTTP/1.1 204 No Content`. Ask for the issue again and you get a `404`.
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-09`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-09). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-08...lesson-09).
+:::

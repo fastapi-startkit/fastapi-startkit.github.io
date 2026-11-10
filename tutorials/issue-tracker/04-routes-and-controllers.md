@@ -90,3 +90,7 @@ curl http://127.0.0.1:8000/api/projects
 ```
 
 `GET /api/projects` also shows up on the `/docs` page now.
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-04`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-04). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-03...lesson-04).
+:::

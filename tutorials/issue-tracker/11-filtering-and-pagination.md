@@ -17,7 +17,7 @@ Filters are easier to try with a board full of issues. Create a seeder:
 uv run python artisan seed Issue
 ```
 
-Fill in `databases/seeders/issue_table_seeder.py`. It numbers issues per project the same way the API does, and adds two comments to `WEB-1`:
+Fill in `databases/seeders/issue_table_seeder.py`. It files each issue with `add_issue()` from lesson 7, so seeded issues are numbered the same way as issues from the API, and adds two comments to `WEB-1`:
 
 ```python
 from fastapi_startkit.masoniteorm.seeders import Seeder
@@ -39,27 +39,19 @@ ISSUES = [
 
 class IssueTableSeeder(Seeder):
     async def run(self) -> None:
-        numbers: dict[str, int] = {}
         for key, title, status, priority, reporter_id, assignee_id in ISSUES:
             project = await Project.where("key", key).first()
-            numbers[key] = numbers.get(key, 0) + 1
-            await Issue.create(
-                {
-                    "project_id": project.id,
-                    "number": numbers[key],
-                    "key": f"{key}-{numbers[key]}",
-                    "title": title,
-                    "status": status,
-                    "priority": priority,
-                    "reporter_id": reporter_id,
-                    "assignee_id": assignee_id,
-                }
+            issue = await project.add_issue(
+                {"title": title, "priority": priority, "reporter_id": reporter_id, "assignee_id": assignee_id}
             )
+            await issue.update({"status": status})
 
         first = await Issue.where("key", "WEB-1").first()
         await Comment.create({"issue_id": first.id, "author_id": 2, "body": "I can reproduce this on Safari."})
         await Comment.create({"issue_id": first.id, "author_id": 1, "body": "Thanks, swapping in a sharper image."})
 ```
+
+`add_issue()` always starts an issue in To Do, so the seeder sets each issue's status afterwards with `update()`.
 
 Call it from `DatabaseSeeder`, after the users and projects it needs:
 
@@ -212,3 +204,7 @@ When a `GET` fails validation, the framework assumes a browser sent it and redir
 :::
 
 To see more than one page, set `ISSUES_PER_PAGE=2` in `.env` and restart the server. `?page=2` then returns `WEB-3` and `WEB-2` with `"total": 5, "current_page": 2, "last_page": 3`. Set it back to `20` when you're done.
+
+::: info Compare your code
+This lesson's code is tagged [`lesson-11`](https://github.com/fastapi-startkit/issue-tracker/tree/lesson-11). See [the changes in this lesson](https://github.com/fastapi-startkit/issue-tracker/compare/lesson-10...lesson-11).
+:::
