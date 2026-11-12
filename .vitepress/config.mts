@@ -174,7 +174,6 @@ export default defineConfig({
                         { text: 'Image', link: '/docs/ai/image' },
                         { text: 'Audio', link: '/docs/ai/audio' },
                         { text: 'Embeddings', link: '/docs/ai/embeddings' },
-                        { text: 'Classification', link: '/docs/ai/classification' },
                         { text: 'MCP', link: '/docs/ai/mcp' },
                         { text: 'Skills', link: '/docs/ai/skills' },
                     ]
