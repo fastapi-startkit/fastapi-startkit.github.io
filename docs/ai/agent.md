@@ -88,24 +88,59 @@ GEMINI_API_KEY=AIza...
 > [!TIP]
 > `AI_DEFAULT_IMAGE_PROVIDER`, `AI_DEFAULT_AUDIO_PROVIDER`, `AI_DEFAULT_TRANSCRIBE_PROVIDER`, and `AI_DEFAULT_EMBEDDINGS_PROVIDER` (each defaulting to `openai`) select the providers used by the [Image](./image), [Audio](./audio) and [Embeddings](./embeddings) helpers. Each feature picks its provider on its own, independently of `AI_PROVIDER`.
 
-### AIConfig overview
+### Config file
 
-`AIProvider` reads these variables into an `AIConfig` dataclass under the `ai` config key:
+The AI settings live in an `AIConfig` dataclass, and every field reads its value from `.env` through `env()`. To change them, keep your own config in `config/ai.py`, as you do for the [database](/docs/database/#configuration). Subclass the framework's `AIConfig` and override only the fields you need:
 
 ```python
-@dataclass
-class AIConfig:
-    default: str            # AI_PROVIDER                    (default "google")
-    default_image: str      # AI_DEFAULT_IMAGE_PROVIDER      (default "openai")
-    default_audio: str      # AI_DEFAULT_AUDIO_PROVIDER      (default "openai")
-    default_transcribe: str # AI_DEFAULT_TRANSCRIBE_PROVIDER (default "openai")
-    default_embeddings: str # AI_DEFAULT_EMBEDDINGS_PROVIDER (default "openai")
-    default_decisions: str  # AI_DEFAULT_DECISIONS_PROVIDER  (default "google")
+# config/ai.py
+from dataclasses import dataclass, field
 
-    providers: dict         # {"google": GoogleConfig(), "openai": OpenAIConfig(),
-                            #  "anthropic": AnthropicConfig(), "elevenlabs": ElevenLabsConfig(),
-                            #  "bedrock": BedrockConfig()}
+from fastapi_startkit.ai import AIConfig as BaseAIConfig
+from fastapi_startkit.ai import AnthropicConfig, BedrockConfig, ElevenLabsConfig, GoogleConfig, OpenAIConfig
+from fastapi_startkit.configuration import Config
+from fastapi_startkit.environment import env
+
+
+@dataclass
+class AIConfig(BaseAIConfig):
+    default: str = env("AI_PROVIDER", "google")
+    default_image: str = env("AI_DEFAULT_IMAGE_PROVIDER", "openai")
+    default_audio: str = env("AI_DEFAULT_AUDIO_PROVIDER", "openai")
+    default_transcribe: str = env("AI_DEFAULT_TRANSCRIBE_PROVIDER", "openai")
+    default_embeddings: str = env("AI_DEFAULT_EMBEDDINGS_PROVIDER", "openai")
+    default_decisions: str = env("AI_DEFAULT_DECISIONS_PROVIDER", "google")
+
+    providers: dict[str, Config] = field(default_factory=lambda: {
+        "google": GoogleConfig(models={
+            "default": "gemini-2.5-flash",
+            "default_image": "imagen-3.0-generate-002",
+            "default_embeddings": "gemini-embedding-001",
+            "default_decisions": "gemini-decision-1",
+        }),
+        "openai": OpenAIConfig(),
+        "anthropic": AnthropicConfig(),
+        "elevenlabs": ElevenLabsConfig(),
+        "bedrock": BedrockConfig(),
+    })
 ```
+
+Each `env(name, default)` field reads the variable when the config is created and uses the default when it is unset. The example keeps the framework defaults, except for Google's chat model, which changes to `gemini-2.5-flash`. Use `env()` only as a dataclass field default: inside a dict such as `models` it is not resolved, so write those values as plain strings. Then pass the class to `AIProvider`:
+
+```python
+# bootstrap/application.py
+from config.ai import AIConfig
+from fastapi_startkit.ai import AIProvider
+
+app: Application = Application(
+    base_path=...,
+    providers=[
+        (AIProvider, AIConfig),
+    ],
+)
+```
+
+`AIProvider` merges your config over the defaults one top-level field at a time. A `providers` map you set replaces the default map as a whole, so list every provider you use.
 
 ### Provider models
 
@@ -117,19 +152,6 @@ Each provider config has a `models` map with the default model for each feature.
 | `default_image` | [Image](./image) | `imagen-3.0-generate-002` | `dall-e-3` | |
 | `default_embeddings` | [Embeddings](./embeddings) | `gemini-embedding-001` | `text-embedding-3-small` | |
 | `default_decisions` | [Classification](#classification) on Google | `gemini-decision-1` | | |
-
-To change a default, pass your own `models` map when you build the provider config:
-
-```python
-from fastapi_startkit.ai import GoogleConfig
-
-GoogleConfig(models={
-    "default": "gemini-2.5-flash",
-    "default_image": "imagen-3.0-generate-002",
-    "default_embeddings": "gemini-embedding-001",
-    "default_decisions": "gemini-decision-1",
-})
-```
 
 You can read any of these values at runtime with the `Config` facade:
 
@@ -497,6 +519,9 @@ Classification picks its provider from `AI_DEFAULT_DECISIONS_PROVIDER` (`AIConfi
 ```ini
 AI_DEFAULT_DECISIONS_PROVIDER=openai
 ```
+
+> [!IMPORTANT]
+> On Google, classification needs `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). If the key is empty, `classify()` raises a `ClassificationError` naming `GEMINI_API_KEY` and `AI_DEFAULT_DECISIONS_PROVIDER` before anything is sent. Set the key, or point `AI_DEFAULT_DECISIONS_PROVIDER` at a provider you have configured. Passing `provider=` to `classify()` and `Decisions.fake()` in tests don't need the Google key.
 
 The API keys come from [Configuration](#configuration). On Google, the model comes from `ai.providers.google.models.default_decisions` (`gemini-decision-1`), and the request only needs `httpx`, which the `ai` extra already installs. The other providers use their chat model and LangChain package, as agents do.
 
