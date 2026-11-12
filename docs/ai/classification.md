@@ -71,6 +71,8 @@ GoogleConfig(models={
 
 Question keys may use letters, digits, `_` and `-`, up to 64 characters. This is the Decisions API's rule, and it applies to every provider so your questions stay portable. You can ask up to 1,000 questions at once.
 
+A key may not name an attribute of the result: `model`, `provider`, `usage`, `state`, `answers`, `answer`, `to_dict`, `get`, `keys`, `items`, `values`, or a dunder name such as `__init__`. These raise `ValueError`, because `result.model` would return the model name instead of your answer. Use a key such as `model_name` instead.
+
 ### Boolean
 
 A yes/no question. The answer is a `bool`. Descriptions for `true` and `false` are optional and help the model decide:
@@ -84,7 +86,7 @@ On Google, the answer is `True` when the API's probability of yes (`noul`) is at
 
 ### Choice
 
-Picks exactly one option. The answer is the option's key. Give a description for each option, or pass a list of keys. You need 2 to 255 options.
+Picks exactly one option. The answer is the option's key. Give a description for each option, or pass a list of keys. You need 2 to 255 options. Each option key must be 1 to 128 characters (at most 512 bytes in UTF-8), with no leading or trailing whitespace and no control characters. These are the Decisions API's rules, and they apply to every provider.
 
 ```python
 Choice("Which team should handle this request?", {
@@ -102,7 +104,9 @@ Places the text on an ordered scale. List 2 to 255 levels from lowest to highest
 Score("How frustrated is the customer?", ["Calm", "Frustrated", "Very angry"])
 ```
 
-The Decisions API returns a probability-weighted average of the level indices, such as `1.72`. It is rounded to the nearest level (`2`), and the exact value stays in `answer.raw["score"]`.
+On Google, the answer is the level with the highest probability, so it always agrees with `answer.confidence`. On a tie, the lower level wins. The API also returns a probability-weighted average of the level indices, such as `1.1`; it stays in `answer.raw["score"]` and is only rounded to a level when the response has no probabilities. The average can point at a level the API rated unlikely: `{0: 0.45, 1: 0.0, 2: 0.55}` averages to `1.1`, but the answer is `2`.
+
+Probabilities keyed by level text (`"Calm"`) are mapped to level indices like those keyed by index (`"0"`). A probability for an unknown level raises `ClassificationError`.
 
 ## Reading the Result
 
@@ -114,7 +118,7 @@ result.department      # "technical"
 result.to_dict()       # {"urgent": True, "department": "technical", "frustration": 2}
 ```
 
-> Use `result["key"]` for keys that are not valid Python names (`first-contact`) or that clash with mapping methods (`keys`, `items`).
+> Use `result["key"]` for keys that are not valid Python names (`first-contact`). Keys that would clash with the result's own attributes (`model`, `provider`, `usage`, `state`, `answers`, `answer`, `to_dict`, `get`, `keys`, `items`, `values`) are rejected when you call `questions()`, so `result.<key>` always returns your answer.
 
 `result.answer(key)` returns the full `Answer`:
 
@@ -148,13 +152,14 @@ On Google, `model` names a Decisions model, not a chat model such as `gemini-2.5
 
 ## Errors
 
-Building a classification raises `ValueError` for empty instructions or input, an empty question map, an invalid key, a value that is not a question, unknown `Boolean` description keys, and fewer than two choices or levels.
+Building a classification raises `ValueError` for empty instructions or input, an empty question map, an invalid or reserved key, a value that is not a question, unknown `Boolean` description keys, an invalid `Choice` option key, and fewer than two choices or levels.
 
 A bad answer raises `ClassificationError` (a `ValueError`) with the question's key in the message:
 
 - an unknown choice, a score outside the scale, or a `Boolean` answer that is not `true`/`false`;
 - a missing answer, or a Decisions answer of the wrong type;
-- a failed Decisions API request, including safety blocks (`failed with 400: safety: ...`).
+- a structured reply that does not match the schema; the message includes the validation error and names the failing question;
+- a failed Decisions API request, including safety blocks (`failed with 400: safety: ...`), network errors and timeouts (`request failed: ConnectError: ...`), and a response that is not a JSON object.
 
 ```python
 from fastapi_startkit.ai.classification import ClassificationError
