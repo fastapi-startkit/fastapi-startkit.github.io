@@ -83,9 +83,10 @@ GEMINI_API_KEY=AIza...
 | `OPENAI_API_KEY` | `""` | API key for OpenAI |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL |
 | `GEMINI_API_KEY` | `""` | API key for Google Gemini (`GOOGLE_API_KEY` is also accepted) |
+| `AI_DEFAULT_DECISIONS_PROVIDER` | `google` | Provider used by [Classification](#classification): `google` (Decisions API), `openai`, `anthropic`, or `bedrock` |
 
 > [!TIP]
-> `AI_DEFAULT_IMAGE_PROVIDER`, `AI_DEFAULT_AUDIO_PROVIDER`, and `AI_DEFAULT_TRANSCRIBE_PROVIDER` (each defaulting to `openai`) select the providers used by the [Image](./image) and [Audio](./audio) helpers.
+> `AI_DEFAULT_IMAGE_PROVIDER`, `AI_DEFAULT_AUDIO_PROVIDER`, `AI_DEFAULT_TRANSCRIBE_PROVIDER`, and `AI_DEFAULT_EMBEDDINGS_PROVIDER` (each defaulting to `openai`) select the providers used by the [Image](./image), [Audio](./audio) and [Embeddings](./embeddings) helpers. Each feature picks its provider on its own, independently of `AI_PROVIDER`.
 
 ### AIConfig overview
 
@@ -99,6 +100,7 @@ class AIConfig:
     default_audio: str      # AI_DEFAULT_AUDIO_PROVIDER      (default "openai")
     default_transcribe: str # AI_DEFAULT_TRANSCRIBE_PROVIDER (default "openai")
     default_embeddings: str # AI_DEFAULT_EMBEDDINGS_PROVIDER (default "openai")
+    default_decisions: str  # AI_DEFAULT_DECISIONS_PROVIDER  (default "google")
 
     providers: dict         # {"google": GoogleConfig(), "openai": OpenAIConfig(),
                             #  "anthropic": AnthropicConfig(), "elevenlabs": ElevenLabsConfig(),
@@ -490,7 +492,13 @@ The Decisions API scores each option instead of generating text, and it bills in
 
 ### Classification Settings
 
-Classification needs no settings of its own. It uses `AI_PROVIDER` and the provider keys from [Configuration](#configuration). On Google, the model comes from `ai.providers.google.models.default_decisions` (`gemini-decision-1`), and the request only needs `httpx`, which the `ai` extra already installs. The other providers use their chat model and LangChain package, as agents do.
+Classification picks its provider from `AI_DEFAULT_DECISIONS_PROVIDER` (`AIConfig.default_decisions`, default `google`), not from `AI_PROVIDER`. That way an app can chat through Anthropic and still classify through the Decisions API. If you have no Google key, point it at your chat provider:
+
+```ini
+AI_DEFAULT_DECISIONS_PROVIDER=openai
+```
+
+The API keys come from [Configuration](#configuration). On Google, the model comes from `ai.providers.google.models.default_decisions` (`gemini-decision-1`), and the request only needs `httpx`, which the `ai` extra already installs. The other providers use their chat model and LangChain package, as agents do.
 
 ### Questions
 
@@ -566,7 +574,7 @@ The result also carries `provider`, `model` and `usage` (`{"input": .., "output"
 
 ### Choosing the Classification Provider
 
-`classify()` takes the same `provider` and `model` overrides as agents:
+`classify()` uses `AI_DEFAULT_DECISIONS_PROVIDER` unless you pass a `provider`. It takes the same `provider` and `model` overrides as agents:
 
 ```python
 await classification.classify(provider="openai", model="gpt-4.1-mini")
