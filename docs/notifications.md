@@ -204,18 +204,20 @@ A new notification has an empty `read_at`. Use these `Notifiable` methods to lis
 |---|---|
 | `await user.unread_notifications()` | Rows whose `read_at` is empty, newest first |
 | `await user.read_notifications()` | Rows whose `read_at` is set, newest first |
-| `await user.mark_notifications_as_read(*ids)` | Sets `read_at` to now on the given ids, or on all of the user's notifications when no id is given |
-| `await user.mark_notifications_as_unread(*ids)` | Clears `read_at` on the given ids, or on all of them |
+| `await user.mark_notifications_as_read(*ids)` | Sets `read_at` to now on the given ids |
+| `await user.mark_notifications_as_unread(*ids)` | Clears `read_at` on the given ids |
+| `await user.mark_all_notifications_as_read()` | Sets `read_at` to now on all of the user's notifications |
+| `await user.mark_all_notifications_as_unread()` | Clears `read_at` on all of the user's notifications |
 
 ```python
 unread = await user.unread_notifications()
 badge_count = len(unread)
 
 await user.mark_notifications_as_read(unread[0]["id"])
-await user.mark_notifications_as_read()
+await user.mark_all_notifications_as_read()
 ```
 
-Both mark methods return the number of updated rows and only touch the user's own notifications. `mark_notifications_as_read()` leaves rows that are already read alone, so `read_at` keeps the time they were first read.
+The mark methods return the number of updated rows and only touch the user's own notifications. Calling `mark_notifications_as_read()` or `mark_notifications_as_unread()` with no ids, such as `mark_notifications_as_read(*selected)` with an empty `selected`, updates nothing and returns `0`; use the `mark_all_` methods to update everything. Marking as read leaves rows that are already read alone, so `read_at` keeps the time they were first read.
 
 ## Broadcast Notifications
 
@@ -234,7 +236,7 @@ The channel adds the notification's `id` and `type` (the class name) to that pay
 
 ### Listening for notifications
 
-By default a model receives broadcasts on the private channel `{notifiable_type}.{id}`, for example `private-User.7`. Authorize it like any other private channel, then listen with Echo's `notification()` helper:
+By default a model receives broadcasts on the private channel `{notifiable_type}.{id}`, for example `private-User.7`. `notifiable_type` is the model's morph name (`User`), not a Laravel-style class path, so the channel is never `App.Models.User.7`; listen on the morph name in Echo, or override `receives_broadcast_notifications_on()` to return another name. Authorize it like any other private channel, then listen with Echo's `notification()` helper:
 
 ```python
 from fastapi_startkit.broadcasting import channel
