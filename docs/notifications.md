@@ -129,7 +129,7 @@ from fastapi_startkit.facades import Notification as Notify
 await Notify.send([ann, bob], InvoicePaid(invoice))
 ```
 
-`Notify.send_now()` does the same thing. FastAPI Startkit has no built-in queue, so notifications are always sent right away; `send_now()` exists so code ported from Laravel keeps working.
+`Notify.send_now()` is an alias of `send()` until a queue exists. FastAPI Startkit has no built-in queue, so notifications are always sent right away; `send_now()` exists so code ported from Laravel keeps working.
 
 The facade has the same name as the `Notification` base class, so import one of them under another name when a module needs both.
 
@@ -255,7 +255,7 @@ The event is named `Illuminate\Notifications\Events\BroadcastNotificationCreated
 
 ### Customizing the channel
 
-Add `route_notification_for_broadcast()` to send to other channels. It can return a channel name, a `Channel` from `fastapi_startkit.broadcasting`, or a list of either. Plain names become private channels:
+Add `route_notification_for_broadcast()` to send to other channels. It can return a channel name, a `Channel` from `fastapi_startkit.broadcasting`, or a list of either. A plain string always gets the `private-` prefix, so `"teams.1"` is sent on `private-teams.1`; return a `Channel` or `PresenceChannel` to send on a public or presence channel:
 
 ```python
 from fastapi_startkit.broadcasting import PresenceChannel
@@ -266,7 +266,7 @@ class User(Model, Notifiable):
         return [f"teams.{self.team_id}", PresenceChannel("dashboard")]
 ```
 
-On-demand recipients broadcast with `Notify.route("broadcast", "orders.9")`. When there's no broadcast route, the channel skips the notification.
+On-demand recipients broadcast with `Notify.route("broadcast", "orders.9")`, which sends on `private-orders.9`. When there's no broadcast route, the channel skips the notification.
 
 ## Custom Channels
 
