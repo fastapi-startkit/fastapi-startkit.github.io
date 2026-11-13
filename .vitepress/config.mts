@@ -202,6 +202,7 @@ export default defineConfig({
                     text: 'Digging Deeper',
                     items: [
                         { text: 'Authentication', link: '/docs/authentication' },
+                        { text: 'Socialite', link: '/docs/socialite' },
                         { text: 'Validation', link: '/docs/validation' },
                         { text: 'Storage', link: '/docs/storage' },
                         { text: 'Cache', link: '/docs/cache' },
