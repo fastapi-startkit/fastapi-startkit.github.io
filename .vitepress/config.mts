@@ -201,8 +201,6 @@ export default defineConfig({
                 {
                     text: 'Digging Deeper',
                     items: [
-                        { text: 'Authentication', link: '/docs/authentication' },
-                        { text: 'Socialite', link: '/docs/socialite' },
                         { text: 'Validation', link: '/docs/validation' },
                         { text: 'Storage', link: '/docs/storage' },
                         { text: 'Cache', link: '/docs/cache' },
@@ -213,6 +211,13 @@ export default defineConfig({
                         { text: 'Mail', link: '/docs/mail' },
                         { text: 'Notifications', link: '/docs/notifications' },
                         { text: 'JSON:API Resources', link: '/docs/jsonapi' },
+                    ]
+                },
+                {
+                    text: 'Packages',
+                    items: [
+                        { text: 'Authentication', link: '/docs/packages/authentication' },
+                        { text: 'Socialite', link: '/docs/packages/socialite' },
                     ]
                 },
                 {
