@@ -183,7 +183,7 @@ print(state.text(result))  # "To reset your password, click …"
 ```
 
 > [!IMPORTANT]
-> `prompt()` is a coroutine and `stream()` is an async generator. `await` the first and iterate the second with `async for`.
+> `prompt()` is a coroutine and `stream()` returns a streamable response. `await` the first and iterate the second with `async for`, or return it from a route through a [stream protocol](#stream-protocols).
 
 ### Overridable methods
 
@@ -276,7 +276,7 @@ print(state.usage(result))  # {"input": 312, "output": 78}
 
 ## stream()
 
-When you want to show the reply as it's generated, use `Agent.stream()`. It's an async generator that yields the same event dicts as LangChain's `astream_events`: `on_chat_model_start`, `on_chat_model_stream`, and `on_chat_model_end` for the model turn, then `on_tool_start` and `on_tool_end` around each tool call. The text arrives in `on_chat_model_stream` events, in `event["data"]["chunk"]`:
+When you want to show the reply as it's generated, use `Agent.stream()`. It returns a `StreamableAgentResponse`; iterating it yields the same event dicts as LangChain's `astream_events`: `on_chat_model_start`, `on_chat_model_stream`, and `on_chat_model_end` for the model turn, then `on_tool_start` and `on_tool_end` around each tool call. The text arrives in `on_chat_model_stream` events, in `event["data"]["chunk"]`:
 
 ```python
 async for event in agent.stream("Write a follow-up email to the lead."):
@@ -287,27 +287,125 @@ async for event in agent.stream("Write a follow-up email to the lead."):
 ### Signature
 
 ```python
-async def stream(
+def stream(
     self,
     message: str,
     *,
     model: str | None = None,
     provider_options: dict | None = None,
-) -> AsyncIterator[dict]
+) -> StreamableAgentResponse
 ```
 
-### Streaming in FastAPI
+### Stream protocols
 
-To send the text to the browser as server-sent events, wrap the generator in a `StreamingResponse`:
+Chat front-ends expect a specific wire format. Instead of translating LangChain events by hand, return the stream through a protocol. Each method returns a Starlette `StreamingResponse`, so a FastAPI route can return it directly.
+
+| Method | Front-end | Format |
+|---|---|---|
+| `using_vercel_data_protocol()` | Vercel AI SDK UI (`useChat`) | [UI message stream](https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol) over SSE |
+| `using_agent_user_interaction_protocol(thread_id=None, run_id=None)` | CopilotKit and other [AG-UI](https://docs.ag-ui.com/) clients | AG-UI events over SSE |
+| `using_protocol(protocol)` | Anything else | Your own `StreamProtocol` |
+
+#### Vercel AI SDK
 
 ```python
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
 
-from app.agents.chat import SupportAgent
+from app.agents.sales_coach import SalesCoach
 from app.requests.chat import ChatRequest
 
 api = APIRouter()
+
+@api.post("/api/chat")
+async def chat(request: ChatRequest):
+    return SalesCoach().stream(request.message).using_vercel_data_protocol()
+```
+
+The response carries the `x-vercel-ai-ui-message-stream: v1` header and streams `start`, `start-step`, `text-*`, `reasoning-*`, `tool-input-start`, `tool-input-delta`, `tool-input-available`, `tool-output-available`, `finish-step` and `finish` parts, ending with `data: [DONE]`. Point `useChat` at the route:
+
+```tsx
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+
+const { messages, sendMessage } = useChat({
+  transport: new DefaultChatTransport({ api: "/api/chat" }),
+});
+```
+
+#### AG-UI and CopilotKit
+
+```python
+@api.post("/api/copilotkit")
+async def copilot(request: ChatRequest):
+    return SalesCoach().stream(request.message).using_agent_user_interaction_protocol()
+```
+
+The stream emits `RUN_STARTED`, `STEP_STARTED`, `TEXT_MESSAGE_START`/`CONTENT`/`END`, `REASONING_*`, `TOOL_CALL_START`/`ARGS`/`END`/`RESULT`, `STEP_FINISHED` and `RUN_FINISHED`. `threadId` defaults to the agent's `conversation_id` and then to the stream's `invocation_id`; `runId` defaults to the `invocation_id`. Pass your own ids to override them:
+
+```python
+SalesCoach().stream(message).using_agent_user_interaction_protocol(thread_id=thread_id, run_id=run_id)
+```
+
+Set `conversation_id` on the agent when it belongs to a stored conversation:
+
+```python
+class SalesCoach(Agent):
+    def __init__(self, conversation_id: str):
+        self.conversation_id = conversation_id
+```
+
+#### Errors
+
+If the agent raises while streaming, the error is logged and the stream ends with a protocol error event: an `error` part followed by `[DONE]` for the Vercel protocol, and `RUN_ERROR` (without `RUN_FINISHED`) for AG-UI. The message sent to the browser is `"An error occurred."` so provider details do not leak. Override `error_text()` on `VercelDataProtocol` or `error_message()` on `AgentUserInteractionProtocol` to change it:
+
+```python
+from fastapi_startkit.ai import VercelDataProtocol
+
+class VerboseVercelProtocol(VercelDataProtocol):
+    def error_text(self, error: Exception) -> str:
+        return str(error)
+
+return SalesCoach().stream(message).using_protocol(VerboseVercelProtocol())
+```
+
+If the client disconnects, the agent stream is closed, so middleware `.then()` callbacks still run once.
+
+#### Custom protocols
+
+Extend `StreamProtocol` and implement `encode()`. `stream.events()` yields protocol-neutral events from `fastapi_startkit.ai.streaming`: `StreamStarted`, `StepStarted`, `TextStarted`, `TextDelta`, `TextEnded`, `ReasoningStarted`, `ReasoningDelta`, `ReasoningEnded`, `ToolInputStarted`, `ToolInputDelta`, `ToolInputAvailable`, `ToolOutputAvailable`, `StepFinished`, `StreamFinished` and `StreamFailed`. Text and reasoning parts are always opened and closed in order, and tool results arrive JSON-decoded when possible.
+
+```python
+from collections.abc import AsyncIterator
+
+from fastapi_startkit.ai import StreamableAgentResponse, StreamProtocol
+from fastapi_startkit.ai.streaming import StreamFailed, TextDelta, ToolOutputAvailable
+
+class PlainTextProtocol(StreamProtocol):
+    media_type = "text/plain"
+
+    async def encode(self, stream: StreamableAgentResponse) -> AsyncIterator[str]:
+        async for event in stream.events():
+            match event:
+                case TextDelta(delta=delta):
+                    yield delta
+                case ToolOutputAvailable(name=name, output=output):
+                    yield f"\n[{name}] {output}\n"
+                case StreamFailed():
+                    yield "\n[error]"
+
+@api.post("/chat/plain")
+async def plain(request: ChatRequest):
+    return SalesCoach().stream(request.message).using_protocol(PlainTextProtocol())
+```
+
+`StreamProtocol` provides `sse(payload)` to format a server-sent event, `headers()` (`cache-control: no-cache` and `x-accel-buffering: no` by default) and `media_type` (`text/event-stream` by default).
+
+### Streaming raw events
+
+You can still iterate the stream and build your own `StreamingResponse`:
+
+```python
+from fastapi.responses import StreamingResponse
 
 @api.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
