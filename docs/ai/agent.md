@@ -334,17 +334,35 @@ const { messages, sendMessage } = useChat({
 
 #### AG-UI and CopilotKit
 
+AG-UI clients such as `HttpAgent` and CopilotKit POST a `RunAgentInput` body that carries the `threadId`, the `runId` and the conversation so far. Accept it and forward the ids, so the events the client receives belong to the run it started:
+
 ```python
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
+
+class AgUiMessage(BaseModel):
+    role: str
+    content: str | None = None
+
+class RunAgentInput(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    thread_id: str = Field(alias="threadId")
+    run_id: str = Field(alias="runId")
+    messages: list[AgUiMessage] = []
+    state: Any = None
+
 @api.post("/api/copilotkit")
-async def copilot(request: ChatRequest):
-    return SalesCoach().stream(request.message).using_agent_user_interaction_protocol()
+async def copilot(run: RunAgentInput):
+    prompt = next(m.content for m in reversed(run.messages) if m.role == "user" and m.content)
+    return SalesCoach().stream(prompt).using_agent_user_interaction_protocol(
+        thread_id=run.thread_id,
+        run_id=run.run_id,
+    )
 ```
 
-The stream emits `RUN_STARTED`, `STEP_STARTED`, `TEXT_MESSAGE_START`/`CONTENT`/`END`, `REASONING_*`, `TOOL_CALL_START`/`ARGS`/`END`/`RESULT`, `STEP_FINISHED` and `RUN_FINISHED`. `threadId` defaults to the agent's `conversation_id` and then to the stream's `invocation_id`; `runId` defaults to the `invocation_id`. Pass your own ids to override them:
-
-```python
-SalesCoach().stream(message).using_agent_user_interaction_protocol(thread_id=thread_id, run_id=run_id)
-```
+The stream emits `RUN_STARTED`, `STEP_STARTED`, `TEXT_MESSAGE_START`/`CONTENT`/`END`, `REASONING_*`, `TOOL_CALL_START`/`ARGS`/`END`/`RESULT`, `STEP_FINISHED` and `RUN_FINISHED`. `TOOL_CALL_START` carries `parentMessageId` when the model wrote text before calling the tool, so the call is attached to that assistant message. Without explicit ids, `threadId` defaults to the agent's `conversation_id` and then to the stream's `invocation_id`, and `runId` defaults to the `invocation_id`.
 
 Set `conversation_id` on the agent when it belongs to a stored conversation:
 
@@ -356,7 +374,7 @@ class SalesCoach(Agent):
 
 #### Errors
 
-If the agent raises while streaming, the error is logged and the stream ends with a protocol error event: an `error` part followed by `[DONE]` for the Vercel protocol, and `RUN_ERROR` (without `RUN_FINISHED`) for AG-UI. The message sent to the browser is `"An error occurred."` so provider details do not leak. Override `error_text()` on `VercelDataProtocol` or `error_message()` on `AgentUserInteractionProtocol` to change it:
+If the agent raises while streaming, the error is logged, any open text or reasoning part is closed, and the stream ends with a protocol error event: an `error` part followed by `[DONE]` for the Vercel protocol, and `RUN_ERROR` (without `RUN_FINISHED`) for AG-UI. The message sent to the browser is `"An error occurred."` so provider details do not leak. Override `error_text()` on `VercelDataProtocol` or `error_message()` on `AgentUserInteractionProtocol` to change it:
 
 ```python
 from fastapi_startkit.ai import VercelDataProtocol
@@ -370,9 +388,11 @@ return SalesCoach().stream(message).using_protocol(VerboseVercelProtocol())
 
 If the client disconnects, the agent stream is closed, so middleware `.then()` callbacks still run once.
 
+A stream can be consumed once. Iterating it a second time, or passing it to a second protocol, raises `RuntimeError` instead of running the agent and its tools again; call `stream()` again for a new run.
+
 #### Custom protocols
 
-Extend `StreamProtocol` and implement `encode()`. `stream.events()` yields protocol-neutral events from `fastapi_startkit.ai.streaming`: `StreamStarted`, `StepStarted`, `TextStarted`, `TextDelta`, `TextEnded`, `ReasoningStarted`, `ReasoningDelta`, `ReasoningEnded`, `ToolInputStarted`, `ToolInputDelta`, `ToolInputAvailable`, `ToolOutputAvailable`, `StepFinished`, `StreamFinished` and `StreamFailed`. Text and reasoning parts are always opened and closed in order, and tool results arrive JSON-decoded when possible.
+Extend `StreamProtocol` and implement `encode()`. `stream.events()` yields protocol-neutral events from `fastapi_startkit.ai.streaming`: `StreamStarted`, `StepStarted`, `TextStarted`, `TextDelta`, `TextEnded`, `ReasoningStarted`, `ReasoningDelta`, `ReasoningEnded`, `ToolInputStarted`, `ToolInputDelta`, `ToolInputAvailable`, `ToolOutputAvailable`, `StepFinished`, `StreamFinished` and `StreamFailed`. Text and reasoning parts are always opened and closed in order. `ToolInputStarted` always has a tool name, `ToolInputAvailable` carries the arguments the model finally parsed, and tool results are matched to their call by id and arrive JSON-decoded when possible.
 
 ```python
 from collections.abc import AsyncIterator
