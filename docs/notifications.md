@@ -1,26 +1,27 @@
 ---
 outline: deep
 title: Notifications
-description: Notify users over mail, the database, or your own channels from a single Notification class in FastAPI Startkit, with a Notifiable model mixin and on-demand routing.
-keywords: notifications, notifiable, mail notifications, database notifications, channels, fastapi, fastapi-startkit
+description: Notify users over mail, the database, real-time broadcasts, or your own channels from a single Notification class in FastAPI Startkit, with a Notifiable model mixin and on-demand routing.
+keywords: notifications, notifiable, mail notifications, database notifications, broadcast notifications, laravel echo, channels, fastapi, fastapi-startkit
 ---
 
 # Notifications
 
 ## Introduction
 
-Some events deserve a heads-up: an invoice was paid, a password was changed, a report is ready. A notification describes that message once, and then delivers it over one or more channels. FastAPI Startkit ships two channels:
+Some events deserve a heads-up: an invoice was paid, a password was changed, a report is ready. A notification describes that message once, and then delivers it over one or more channels. FastAPI Startkit ships three channels:
 
 | Channel | What it does |
 |---|---|
 | `mail` | Sends an email through the [Mail](/docs/mail) system |
 | `database` | Stores the notification in a `notifications` table, so your UI can list it |
+| `broadcast` | Pushes the notification to the browser in real time through [Broadcasting](/docs/broadcasting) |
 
 You can add your own channels, such as SMS or Slack, with [`extend()`](#custom-channels).
 
 ## Configuration
 
-Register `NotificationProvider` in `bootstrap/application.py`. The `mail` channel needs [`MailProvider`](/docs/mail) and the `database` channel needs [`DatabaseProvider`](/docs/database/), so register the ones for the channels you use:
+Register `NotificationProvider` in `bootstrap/application.py`. The `mail` channel needs [`MailProvider`](/docs/mail), the `database` channel needs [`DatabaseProvider`](/docs/database/) and the `broadcast` channel needs [`ReverbProvider`](/docs/broadcasting), so register the ones for the channels you use:
 
 ```python
 # bootstrap/application.py
@@ -59,6 +60,18 @@ uv run python artisan db:migrate
 This writes `config/notifications.py` and `databases/migrations/2026_11_06_000000_create_notifications_table.py`. The table has a string `id`, the notification `type`, `notifiable_type` and `notifiable_id`, a `data` text column holding JSON, a nullable `read_at`, and timestamps.
 
 ## Creating Notifications
+
+### Generating notifications
+
+`NotificationProvider` registers a generator that writes a notification class into `app/notifications`:
+
+```bash
+uv run python artisan make:notification InvoicePaid
+```
+
+This creates `app/notifications/invoice_paid.py` with `via()`, `to_mail()` and `to_array()` methods to fill in. Pass `-d` to write somewhere else, for example `-d src/notifications`. The command refuses to overwrite an existing file.
+
+### Writing notifications
 
 A notification subclasses `Notification`. `via()` returns the channels to deliver on, and each channel calls the matching `to_<channel>()` method:
 
@@ -115,6 +128,8 @@ from fastapi_startkit.facades import Notification as Notify
 
 await Notify.send([ann, bob], InvoicePaid(invoice))
 ```
+
+`Notify.send_now()` is an alias of `send()` until a queue exists. FastAPI Startkit has no built-in queue, so notifications are always sent right away; `send_now()` exists so code ported from Laravel keeps working.
 
 The facade has the same name as the `Notification` base class, so import one of them under another name when a module needs both.
 
@@ -181,6 +196,80 @@ for row in rows:
 
 Each row is a dictionary of the table's columns, and `data` comes back as the stored JSON text.
 
+### Read and unread notifications
+
+A new notification has an empty `read_at`. Use these `Notifiable` methods to list and update read state:
+
+| Method | Description |
+|---|---|
+| `await user.unread_notifications()` | Rows whose `read_at` is empty, newest first |
+| `await user.read_notifications()` | Rows whose `read_at` is set, newest first |
+| `await user.mark_notifications_as_read(*ids)` | Sets `read_at` to now on the given ids |
+| `await user.mark_notifications_as_unread(*ids)` | Clears `read_at` on the given ids |
+| `await user.mark_all_notifications_as_read()` | Sets `read_at` to now on all of the user's notifications |
+| `await user.mark_all_notifications_as_unread()` | Clears `read_at` on all of the user's notifications |
+
+```python
+unread = await user.unread_notifications()
+badge_count = len(unread)
+
+await user.mark_notifications_as_read(unread[0]["id"])
+await user.mark_all_notifications_as_read()
+```
+
+The mark methods return the number of updated rows and only touch the user's own notifications. Calling `mark_notifications_as_read()` or `mark_notifications_as_unread()` with no ids, such as `mark_notifications_as_read(*selected)` with an empty `selected`, updates nothing and returns `0`; use the `mark_all_` methods to update everything. Marking as read leaves rows that are already read alone, so `read_at` keeps the time they were first read.
+
+## Broadcast Notifications
+
+The `broadcast` channel sends the notification over [Broadcasting](/docs/broadcasting), so a page listening with Laravel Echo gets it immediately. It sends `to_broadcast()` when the notification defines it, and `to_array()` otherwise:
+
+```python
+class InvoicePaid(Notification):
+    def via(self, notifiable):
+        return ["database", "broadcast"]
+
+    def to_broadcast(self, notifiable):
+        return {"invoice_id": self.invoice.id, "amount": self.invoice.amount}
+```
+
+The channel adds the notification's `id` and `type` (the class name) to that payload, so the `id` matches the database row when you use both channels.
+
+### Listening for notifications
+
+By default a model receives broadcasts on the private channel `{notifiable_type}.{id}`, for example `private-User.7`. `notifiable_type` is the model's morph name (`User`), not a Laravel-style class path, so the channel is never `App.Models.User.7`; listen on the morph name in Echo, or override `receives_broadcast_notifications_on()` to return another name. Authorize it like any other private channel, then listen with Echo's `notification()` helper:
+
+```python
+from fastapi_startkit.broadcasting import channel
+
+
+@channel("private-User.{user_id}")
+async def user_channel(user, user_id: int):
+    return user is not None and user.id == user_id
+```
+
+```js
+Echo.private(`User.${userId}`).notification((notification) => {
+    console.log(notification.type, notification.invoice_id)
+})
+```
+
+The event is named `Illuminate\Notifications\Events\BroadcastNotificationCreated`, which is the name Echo's `notification()` listens for. Override `broadcast_as()` on the notification to send it under another event name, and `broadcast_type()` to change the `type` field.
+
+### Customizing the channel
+
+Add `route_notification_for_broadcast()` to send to other channels. It can return a channel name, a `Channel` from `fastapi_startkit.broadcasting`, or a list of either. A plain string always gets the `private-` prefix, so `"teams.1"` is sent on `private-teams.1`; return a `Channel` or `PresenceChannel` to send on a public or presence channel:
+
+```python
+from fastapi_startkit.broadcasting import PresenceChannel
+
+
+class User(Model, Notifiable):
+    def route_notification_for_broadcast(self, notification):
+        return [f"teams.{self.team_id}", PresenceChannel("dashboard")]
+```
+
+On-demand recipients broadcast with `Notify.route("broadcast", "orders.9")`, which sends on `private-orders.9`. When there's no broadcast route, the channel skips the notification.
+
 ## Custom Channels
 
 A channel is any class with an async `send(notifiable, notification)` method. Register it with `extend()`, passing a factory that builds the channel:
@@ -203,4 +292,5 @@ Then list `"sms"` in a notification's `via()` and add a `to_sms()` method. For y
 ## See Also
 
 - [Mail](/docs/mail): mailers, mailables and the `array` mailer for tests
+- [Broadcasting](/docs/broadcasting): Reverb, private channels and channel authorization
 - [Migrations](/docs/database/migrations): running the notifications migration
