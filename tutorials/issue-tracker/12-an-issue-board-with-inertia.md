@@ -7,15 +7,15 @@ duration: 12
 
 # An issue board with Inertia
 
-**Goal:** a `/projects/1/board` page with a column for each status, where you add, move and delete issues.
+Inertia lets a controller return a Vue page along with the data it needs. In this lesson you build a `/projects/1/board` page with a column for each status, where you add, move and delete issues.
 
-## How Inertia works
+## How Inertia Works
 
 Inertia lets your controllers render Vue pages directly. You don't write a separate API for the page. A controller returns `Inertia.render("Issues/Board", props)`, and Inertia shows `resources/js/Pages/Issues/Board.vue` with those props. When the page sends a form, the controller saves the change and redirects, and Inertia swaps in the new props without a full reload.
 
 The installer set up Vue, Vite, Tailwind and Inertia when you picked the Vue frontend in lesson 2.
 
-## 1. Add a session
+## 1. Add a Session
 
 When a form fails validation, Inertia sends the errors back to the page through the session. Add the session middleware at the end of `bootstrap/application.py`:
 
@@ -36,7 +36,7 @@ The session cookie is signed with this key, so make it a long random string. Add
 SESSION_SECRET=change-me-to-a-long-random-string
 ```
 
-## 2. Write the board controller
+## 2. Write the Board Controller
 
 The board has its own controller, because it answers with pages and redirects instead of JSON. Create `app/http/controllers/issue_board_controller.py`:
 
@@ -89,7 +89,7 @@ Almost everything here is something you already wrote:
 
 `Inertia.redirect()` sends the browser back to the board after each change. When validation fails, the framework redirects back on its own and puts the errors in the session for the page to show.
 
-## 3. Add the web routes
+## 3. Add the Web Routes
 
 Create `routes/web.py`:
 
@@ -122,7 +122,7 @@ class FastapiProvider(FastAPIProvider):
         self.app.fastapi.include_router(web.router) # [!code ++]
 ```
 
-## 4. Write the page
+## 4. Write the Page
 
 Create `resources/js/Pages/Issues/Board.vue`:
 
@@ -202,7 +202,7 @@ Here's how the page works:
 - `useForm()` keeps track of the form's fields, whether it's sending and any errors from the server.
 - `router.post()` and `router.delete()` send a change. Inertia follows the redirect and reloads the props, and `preserveScroll` keeps your place on the page.
 
-## 5. Build the frontend
+## 5. Build the Frontend
 
 Install the JavaScript packages and build the assets:
 

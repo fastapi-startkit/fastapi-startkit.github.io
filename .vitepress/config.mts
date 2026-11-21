@@ -8,7 +8,7 @@ export default defineConfig({
     description: "FastAPI Startkit is a batteries-included starter kit and boilerplate for building Python applications with FastAPI. Includes SQLAlchemy async ORM, Alembic migrations, reusable components, service providers, CLI console commands, Vite frontend integration, and Inertia.js support.",
     cleanUrls: true,
     lastUpdated: true,
-    srcExclude: ['docs/adr/**'],
+    srcExclude: ['docs/adr/**', 'docs/STYLE.md'],
     sitemap: {
         hostname: 'https://fastapi-startkit.github.io/sitemap.xml'
     },
@@ -160,7 +160,7 @@ export default defineConfig({
                     text: 'Guide',
                     items: [
                         { text: 'Getting Started', link: '/docs/getting-started' },
-                        { text: 'Env Variables', link: '/docs/configuration' },
+                        { text: 'Configuration', link: '/docs/configuration' },
                         { text: 'FastAPI', link: '/docs/fastapi' },
                         { text: 'Exception Handling', link: '/docs/exception-handling' },
                         { text: 'Logging', link: '/docs/logging' },
@@ -210,6 +210,8 @@ export default defineConfig({
                         { text: 'Broadcasting', link: '/docs/broadcasting' },
                         { text: 'Mail', link: '/docs/mail' },
                         { text: 'Notifications', link: '/docs/notifications' },
+                        { text: 'Events', link: '/docs/events' },
+                        { text: 'Rate Limiting', link: '/docs/rate-limiting' },
                         { text: 'JSON:API Resources', link: '/docs/jsonapi' },
                     ]
                 },

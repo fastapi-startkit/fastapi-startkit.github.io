@@ -7,9 +7,9 @@ duration: 8
 
 # The status workflow
 
-**Goal:** move an issue from To Do to Done one step at a time, with every skipped step refused.
+The status workflow decides which moves an issue can make. In this lesson an issue moves from To Do to Done one step at a time, and every skipped step is refused.
 
-## 1. Write the workflow down
+## 1. Write the Workflow Down
 
 The workflow from [lesson 1](./01-what-are-we-building#the-workflow) is a map from each status to the statuses it can move to. Put it next to the enum in `app/enums.py`, and give `IssueStatus` two methods that read it:
 
@@ -40,7 +40,7 @@ WORKFLOW = { # [!code ++]
 
 The rules live in one place. To add a "Blocked" status later, you add it to the enum and to this map.
 
-## 2. Check the move while validating
+## 2. Check the Move While Validating
 
 Field rules check one value at a time. Whether a move is allowed depends on the issue's current status in the database, so it needs an `after()` hook. It runs once the field rules have passed and can add its own errors. Add a request to `app/http/requests/issue.py`:
 
@@ -80,7 +80,7 @@ The validator gives the hook what it needs:
 
 The hook returns early when the issue doesn't exist, so the controller's `find_or_fail()` can answer with a `404`. It also returns early when `status` already failed, such as `"closed"`, so the client sees one clear error.
 
-## 3. Show the next steps
+## 3. Show the Next Steps
 
 Clients need to know which buttons to show. A computed field adds `transitions` to every issue the API returns. In `app/http/resources/issue.py`:
 
@@ -105,7 +105,7 @@ class IssueResource(BaseModel):
         return self.status.transitions() # [!code ++]
 ```
 
-## 4. Add the endpoint
+## 4. Add the Endpoint
 
 A move is an action on an issue, so it gets its own route instead of being a field you can edit. Add a method to `IssueController`:
 

@@ -1,56 +1,71 @@
 ---
 outline: deep
 title: Cache
-description: Cache values in memory, files, a database table or Redis with the async Cache facade — remember, memo, atomic locks and tags.
+description: Cache values in memory, files, a database table or Redis with the async Cache facade, including remember, memoization, atomic locks and tags.
 keywords: cache, caching, remember, memoize, atomic locks, cache tags, redis cache, database cache, fastapi startkit
 ---
 
 # Cache
 
-Some work is slow or expensive: a heavy query, a call to a third-party API, a rendered report. Rather than doing it on every request, you can cache the result so later requests read it back quickly. FastAPI Startkit's cache is modelled on Laravel's. You configure named stores, and the `Cache` facade reads and writes the default one. Every operation is async, so it fits right into your FastAPI endpoints.
+Some work is slow or expensive to repeat on every request: a heavy query, a call to a third-party API, a rendered report. The cache lets you store the result once and read it back quickly on later requests. You configure named stores, and the `Cache` facade reads and writes the default one. Every cache operation is async.
 
 ## Installation
 
-The cache ships with the core package, so there's nothing extra to install for the basic stores. Two of them do need an extra:
+The cache ships with the core package. The `array` and `file` stores need nothing else. The `database` and `redis` stores need an extra:
 
-| Store | Extra |
+| Store | Install |
 |---|---|
-| `array`, `file` | none |
-| `database` | `fastapi-startkit[database]` |
+| `array`, `file` | Nothing extra |
+| `database` | `fastapi-startkit[database]` and a driver extra such as `sqlite` |
 | `redis` | `fastapi-startkit[redis]` |
 
 ```bash
-uv add "fastapi-startkit[database]"
-# or, for the redis store
+uv add "fastapi-startkit[database,sqlite]"
 uv add "fastapi-startkit[redis]"
 ```
 
 ## Registering the Provider
 
-Next, add `CacheProvider` to the providers in `bootstrap/application.py`:
+Add `CacheProvider` to the providers in `bootstrap/application.py`. The `database` store also needs `DatabaseProvider`, and the `redis` store needs `RedisProvider`:
 
 ```python
+# bootstrap/application.py
+from pathlib import Path
+
 from fastapi_startkit import Application
 from fastapi_startkit.cache import CacheProvider
+from fastapi_startkit.masoniteorm.providers import DatabaseProvider
+from fastapi_startkit.redis import RedisProvider
 
 app = Application(
-    base_path=...,
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
+        DatabaseProvider,
+        RedisProvider,
         CacheProvider,
-        # ... other providers
     ],
 )
 ```
 
-The provider binds a `CacheManager` under the `cache` key, which the `Cache` facade resolves. Its settings are merged under the `cache` config key, so `config("cache.default")` works.
-
-The `database` store needs `DatabaseProvider`, and the `redis` store needs `RedisProvider`. If you use either store, register those providers too.
-
 ## Configuration
+
+The default store is `database`. If you're working locally without a database, switch to the `file` store in `.env`:
+
+```ini
+CACHE_CONNECTION=file
+```
+
+| Variable | Default | Sets |
+|---|---|---|
+| `CACHE_CONNECTION` | `database` | `default`, the store the facade uses |
+| `CACHE_PREFIX` | `cache` | `prefix`, added to every key as `<prefix>:<key>` |
+| `CACHE_FILE_PATH` | `storage/framework/cache/data` | `path` of the `file` store, relative to the application base path |
+| `DB_CACHE_CONNECTION` | unset | `connection` of the `database` store; unset uses the default database connection |
+| `DB_CACHE_TABLE` | `caches` | `table` of the `database` store |
 
 ### Publishing the Config
 
-To customise the cache, copy the default config and the cache table migration into your project:
+To change the stores, publish the config file and the cache table migration:
 
 ```bash
 uv run python artisan provider:publish --provider=cache
@@ -104,79 +119,67 @@ class CacheConfig(Config):
     )
 ```
 
-Then pass your config class to the provider:
+Then pass the class to the provider:
 
 ```python
-from fastapi_startkit import Application
-from fastapi_startkit.cache import CacheProvider
+# bootstrap/application.py
 from config.cache import CacheConfig
 
 app = Application(
-    base_path=...,
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
+        DatabaseProvider,
+        RedisProvider,
         (CacheProvider, CacheConfig),
-        # ... other providers
     ],
 )
 ```
 
-Your config is merged over the framework defaults one top-level key at a time. That means if you define `stores`, it replaces the whole default `stores` dict, so be sure to list every store you need.
-
-### Environment Variables
-
-| Variable | Default | Used by |
-|---|---|---|
-| `CACHE_CONNECTION` | `database` | `default`, the store the facade uses |
-| `CACHE_PREFIX` | `cache` | `prefix`, added to every key as `<prefix>:<key>` |
-| `CACHE_FILE_PATH` | `storage/framework/cache/data` | `path` of the `file` store, relative to the application base path |
-| `DB_CACHE_CONNECTION` | — | `connection` of the `database` store; unset means the default database connection |
-| `DB_CACHE_TABLE` | `caches` | `table` of the `database` store |
-
-The default store is `database`. If you're developing locally without a database, switch to the file store:
-
-```ini
-CACHE_CONNECTION=file
-```
+Your config replaces the defaults one top-level key at a time. If you define `stores`, list every store you need, because the default `stores` dict is replaced as a whole.
 
 ## Cache Stores
 
-Each entry in `stores` has a `driver` along with that driver's own options, and several stores can use the same driver. Four drivers are available:
+Each entry in `stores` names a `driver` and that driver's options. Several stores can use the same driver.
 
-| Driver | Where values live | Notes |
-|---|---|---|
-| `array` | A dict in the current process | Lost on restart and not shared between workers. Good for tests. |
-| `file` | One pickled file per key under `path` | Files are sharded by the SHA-1 of the key and written atomically. |
-| `database` | A table on a database connection | Needs the `caches` table. |
-| `redis` | A Redis connection from `config/redis.py` | Uses the `cache` connection by default. |
+| Driver | Where values live |
+|---|---|
+| `array` | A dict in the current process. Values are lost on restart and aren't shared between workers, which makes it a good fit for tests. |
+| `file` | One file per key under `path`. |
+| `database` | A table on a database connection. |
+| `redis` | A Redis connection. |
 
-The `file`, `database` and `redis` stores serialize values with `pickle`, so values must be picklable. For the same reason, only cache data your application produced. The `array` store keeps the object itself, so mutating a value after you cache it changes the cached copy too.
+The `file`, `database` and `redis` stores serialize values with `pickle`, so the values you cache must be picklable. The `array` store keeps the object itself, so changing a value after you cache it changes the cached copy too.
+
+::: warning
+Because values are unpickled when they're read, never point a cache store at data that someone outside your application can write.
+:::
 
 ### Database
 
-The `database` store needs a table with a `key` primary key, a `value` text column and a nullable `expiration` integer. You don't have to write it yourself: the published migration creates it, using the table name from `cache.stores.database.table`:
+The `database` store needs a table with a `key` primary key, a `value` text column and a nullable `expiration` integer. The published migration creates it, using the table name from `DB_CACHE_TABLE`:
 
 ```bash
 uv run python artisan provider:publish --provider=cache
 uv run python artisan db:migrate
 ```
 
-If you'd like to keep the cache on a different connection from your models, set `DB_CACHE_CONNECTION`. Expired rows are deleted when they're next read.
+Set `DB_CACHE_CONNECTION` to keep the cache on a different connection from your models. Expired rows are deleted when they're next read.
 
 ### Redis
 
-The `redis` store sends commands through the named connection in `connection`, `cache` by default. That connection comes from `RedisManager`, so the [Redis](/docs/redis) config controls the host, database (`REDIS_CACHE_DB`) and Redis key prefix. Resolving the store without `RedisProvider` raises `RuntimeError`.
+The `redis` store sends commands through the Redis connection named in its `connection` option, `cache` by default. That connection's host, database and key prefix come from your [Redis](/docs/redis#configuration) config. Using the store without `RedisProvider` registered raises `RuntimeError`.
 
-A key is stored as `<redis prefix><cache prefix>:<key>`. TTLs use `SET ... PX`, so Redis expires entries itself. `flush()` scans for keys under the cache prefix and unlinks them in batches. It never runs `FLUSHDB`, so other data on the same database survives. Because of this, the `redis` store requires a non-empty `CACHE_PREFIX`.
+Keys are stored as `<redis prefix><cache prefix>:<key>`, and Redis expires entries with a TTL on its own. `flush()` deletes only the keys under the cache prefix, so other data in the same Redis database is kept. For that reason the `redis` store needs a non-empty `CACHE_PREFIX`.
 
 ## Cache Usage
 
-Once the provider is registered, import the `Cache` facade:
+Import the `Cache` facade:
 
 ```python
 from fastapi_startkit.facades import Cache
 ```
 
-Calls on the facade go to the default store. Every read and write is a coroutine, so remember to await it.
+Calls on the facade go to the default store. Every read and write is a coroutine, so await it.
 
 ### Storing Items
 
@@ -185,57 +188,56 @@ Calls on the facade go to the default store. Every read and write is a coroutine
 ```python
 from datetime import timedelta
 
-await Cache.put("key", "value", 600)
-await Cache.put("key", "value", timedelta(minutes=10))
+await Cache.put("orders.count", 42, 600)
+await Cache.put("orders.count", 42, timedelta(minutes=10))
 ```
 
-A TTL of `None` keeps the value until it's removed. `forever()` says the same thing more clearly:
+Leave out the TTL, or call `forever()`, to keep the value until you remove it:
 
 ```python
-await Cache.put("key", "value")
-await Cache.forever("key", "value")
+await Cache.put("countries", countries)
+await Cache.forever("countries", countries)
 ```
 
-A TTL of zero or less removes the key and returns `False`. `put` returns `True` when the value is stored.
+`put()` returns `True` when the value is stored. A TTL of zero or less removes the key and returns `False`.
 
 ### Retrieving Items
 
-`get` returns the cached value, or `None` when the key is missing or expired:
+`get()` returns the cached value, or `None` when the key is missing or expired:
 
 ```python
-value = await Cache.get("key")
+count = await Cache.get("orders.count")
 ```
 
-You can also pass a default to use on a miss. If the default is callable it's called, and if it returns an awaitable that's awaited, so the default can be a plain value, a function, or a coroutine function:
+Pass a second argument to use as the default on a miss. The default can be a value, a function or a coroutine function:
 
 ```python
-value = await Cache.get("key", "default")
-value = await Cache.get("key", lambda: compute())
-value = await Cache.get("key", load_from_api)   # async def load_from_api()
+count = await Cache.get("orders.count", 0)
+count = await Cache.get("orders.count", lambda: count_orders())
+settings = await Cache.get("settings", load_settings)  # async def load_settings()
 ```
 
-The default isn't stored. If you want that, use [`remember`](#remember).
+The default isn't stored. Use [`remember()`](#remember) when you want it stored.
 
 ### Checking for Items
 
-`has` tells you whether a key is present and not expired:
+`has()` tells you whether a key is present and not expired:
 
 ```python
-if await Cache.has("key"):
+if await Cache.has("orders.count"):
     ...
 ```
 
-Note that a cached `None` counts as present. Stores report misses with a `MISSING` sentinel, so `None`, `0`, `False` and `""` are all values you can cache.
+A cached `None` counts as present, so `None`, `0`, `False` and `""` are all values you can cache.
 
 ### Remember
 
-This is the method you'll probably reach for most. `remember(key, ttl, factory)` returns the cached value when there is one. On a miss, it calls the factory, caches the result for `ttl`, and returns it. The factory can be sync or async:
+`remember(key, ttl, factory)` returns the cached value when there is one. On a miss, it calls the factory, caches the result for `ttl`, and returns it. The factory can be sync or async:
 
 ```python
-users = await Cache.remember("users", 600, lambda: User.all())
-
 async def load_settings():
     return await Setting.where("active", True).get()
+
 
 settings = await Cache.remember("settings", timedelta(hours=1), load_settings)
 ```
@@ -248,23 +250,25 @@ countries = await Cache.remember("countries", None, load_countries)
 
 #### As a Decorator
 
-When you call `remember` without a factory, it returns a decorator instead. The decorated function becomes async. Each call is cached under the key plus a hash of its arguments, so different arguments get different entries:
+Called without a factory, `remember()` returns a decorator. The decorated function becomes async, and each call is cached under the key plus a hash of its arguments, so different arguments get different entries:
 
 ```python
+# app/services/profiles.py
 from fastapi_startkit.facades import Cache
 
 
 @Cache.remember("users.profile", 300)
 async def profile(user_id: int):
     return await User.find(user_id)
-
-
-await profile(1)    # runs the query, caches under "users.profile:<hash of (1,)>"
-await profile(1)    # served from the cache
-await profile(2)    # a different entry
 ```
 
-If you pass `None` as the key, the function's module and qualified name are used:
+```python
+await profile(1)    # runs the query and caches the result
+await profile(1)    # served from the cache
+await profile(2)    # a separate entry
+```
+
+Pass `None` as the key to use the function's module and qualified name, such as `app.services.rates.exchange_rates`:
 
 ```python
 @Cache.remember(None, 60)
@@ -272,59 +276,50 @@ def exchange_rates():
     return fetch_rates()
 ```
 
-The facade resolves the cache manager when the decorated function is called, not when it's decorated, so you can decorate module-level functions before the application boots.
-
-Arguments are hashed from their pickled form, or from `repr()` when they can't be pickled. A call with no arguments uses the key as is.
+The decorator looks up the cache each time the function is called, so you can decorate module-level functions before the application boots.
 
 ### Removing Items
 
-To remove a single key, use `forget()`. To empty the store, use `flush()`:
+`forget()` removes one key and returns `True` if it existed. `flush()` empties the store:
 
 ```python
-await Cache.forget("key")    # True if the key existed
-await Cache.flush()          # empty the whole store
+await Cache.forget("orders.count")
+await Cache.flush()
 ```
 
-`flush()` clears every key in the store, not just the keys under your prefix, except on the `redis` store (see [Redis](#redis)). Use it with care on a store that other applications share.
+On the `array`, `file` and `database` stores, `flush()` removes every entry in the store, whatever its prefix. Only the `redis` store limits it to the cache prefix.
 
 ### Using Multiple Stores
 
-The facade isn't limited to the default store. `Cache.store(name)` returns the repository for a named store. Each store is created on first use and reused after that:
+`Cache.store(name)` returns a named store with the same methods as the facade:
 
 ```python
-await Cache.store("file").put("report", data, 3600)
-value = await Cache.store("redis").get("report")
+await Cache.store("file").put("report", report, 3600)
+report = await Cache.store("file").get("report")
 ```
 
-An unknown name raises `ValueError("Cache store [name] is not defined.")`, and a store whose driver isn't registered raises `ValueError("Cache driver [driver] is not supported.")`.
+Asking for a store that isn't in `stores` raises `ValueError`.
 
 ## Cache Memoization
 
-Sometimes you read the same key several times while handling one request. `Cache.memo()` saves you those trips by wrapping a store with an in-memory layer. The first `get` of a key reads the store, and later `get`s of the same key return the remembered value without another round trip:
+When you read the same key several times while handling one request, `Cache.memo()` saves the repeat trips to the store. The first `get()` of a key reads the store, and later reads of that key return the remembered value:
 
 ```python
 settings = await Cache.memo().get("settings")
-settings = await Cache.memo().get("settings")   # no store hit
+settings = await Cache.memo().get("settings")   # not read from the store again
 
-await Cache.memo("redis").get("feature-flags")
+flags = await Cache.memo("redis").get("feature-flags")
 ```
 
-Memoized values live for the current asyncio task. Each FastAPI request runs in its own task, so requests never see each other's memo, and the memo goes away when the task ends. Writing through the memo with `put`, `forget` or `flush` drops the memoized copy and then writes to the store.
+Memoized values belong to the current asyncio task. Each FastAPI request runs in its own task, so requests never share a memo, and the memo is dropped when the task ends. Calling `put()`, `forget()` or `flush()` through the memo clears the remembered value and then writes to the store.
 
-Keep in mind that writes made through `Cache` directly, or by another process, aren't seen by a memo that already read the key. Memoization works best for values that stay the same for the length of a request.
+A memo doesn't see writes made through `Cache` directly, or by another process, after it has read a key. Use it for values that stay the same for the length of a request.
 
 ## Atomic Locks
 
-Some code should only run in one place at a time. A lock makes sure only one owner runs a piece of code at a time, even across processes or servers when the store is shared. All four stores support locks:
+A lock makes sure only one owner runs a piece of code at a time. With the `file`, `database` or `redis` store, the lock holds across processes that share the store. With the `array` store, it only holds within one process.
 
-| Store | How the lock is held |
-|---|---|
-| `array` | A dict in the process, so only within one process |
-| `file` | A lock file guarded by `fcntl.flock` |
-| `database` | A `lock:<name>` row, inserted once; expired rows can be taken over |
-| `redis` | `SET NX PX`, released by a Lua script that checks the owner |
-
-To create a lock, call `Cache.lock(name, seconds)`. `seconds` is how long the lock lasts before it expires on its own. `0`, the default, means it never expires:
+`Cache.lock(name, seconds)` creates a lock. `seconds` is how long the lock lasts before it expires on its own, and `0`, the default, means it never expires:
 
 ```python
 lock = Cache.lock("reports.generate", 10)
@@ -336,15 +331,15 @@ if await lock.get():
         await lock.release()
 ```
 
-`get()` returns `True` when it acquires the lock and `False` when someone else holds it. If you pass a callback, `get()` runs it, releases the lock, and returns the callback's result. The callback can be sync or async:
+`get()` returns `True` when it acquires the lock and `False` when another owner holds it. Pass a callback, sync or async, and `get()` runs it, releases the lock, and returns the callback's result:
 
 ```python
-result = await Cache.lock("reports.generate", 10).get(generate_report)
+report = await Cache.lock("reports.generate", 10).get(generate_report)
 ```
 
 ### Context Manager
 
-You can also use a lock with `async with`. It acquires the lock, or raises `LockTimeoutError` when it's held, and releases it on exit:
+You can also hold a lock with `async with`. It acquires the lock, or raises `LockTimeoutError` when another owner holds it, and releases it on exit:
 
 ```python
 from fastapi_startkit.cache import LockTimeoutError
@@ -358,75 +353,79 @@ except LockTimeoutError:
 
 ### Blocking Until Available
 
-When you'd rather wait than give up, use `block(seconds)`. It keeps trying for up to `seconds`, polling every 250 ms, and raises `LockTimeoutError` if it still can't get the lock:
+`block(seconds)` waits for the lock instead of giving up. It retries every 250 ms for up to `seconds`, then raises `LockTimeoutError`:
 
 ```python
 lock = Cache.lock("reports.generate", 10)
 
-await lock.block(5)                         # wait up to 5 seconds
+await lock.block(5)
 try:
     await generate_report()
 finally:
     await lock.release()
+```
 
-await lock.block(5, generate_report)        # wait, run, release
+Pass a callback to wait, run it, and release the lock in one call:
+
+```python
+await Cache.lock("reports.generate", 10).block(5, generate_report)
 ```
 
 ### Owners and Releasing
 
-Each lock has an owner token, random by default. `release()` only releases the lock if this owner holds it, and returns `False` otherwise. To release a lock from another process, such as a queued job, pass the owner token along:
+Each lock has an owner token, which is random unless you pass one. `release()` only releases the lock when this owner holds it, and returns `False` otherwise. To release a lock from somewhere else, such as a queued job, pass the token along and create the lock with it:
 
 ```python
-lock = Cache.lock("processing", 120)
+lock = Cache.lock("orders.process", 120)
 
 if await lock.get():
-    await queue_job(owner=lock.owner)
-
-# later, in the job that received the owner token
-await Cache.lock("processing", 120, owner).release()
+    await dispatch_processing(order_id, owner=lock.owner)
 ```
-
-If you need to clear a lock no matter who holds it, `force_release()` removes it:
 
 ```python
-await Cache.lock("processing").force_release()
+# in the job that received the owner token
+await Cache.lock("orders.process", 120, owner).release()
 ```
 
-Locks are not re-entrant. A second `get()` by the same owner while the lock is held returns `False`. A lock created through `Cache.memo()` or `Cache.tags()` raises `TypeError`, because those wrappers don't support locks; take the lock from `Cache` or `Cache.store(name)`.
+`force_release()` removes a lock whoever holds it:
+
+```python
+await Cache.lock("orders.process").force_release()
+```
+
+Locks aren't re-entrant, so a second `get()` by the same owner while the lock is held returns `False`. Take locks from `Cache` or `Cache.store(name)`; calling `lock()` on `Cache.memo()` or `Cache.tags()` raises `TypeError`.
 
 ## Cache Tags
 
-Tags let you group related entries so you can flush them together. `Cache.tags(names)` returns a repository whose keys belong to those tags:
+Tags group related entries so you can flush them together. `Cache.tags(names)` returns a store whose entries belong to those tags:
 
 ```python
 await Cache.tags(["people", "artists"]).put("John", john, 600)
 await Cache.tags(["people", "authors"]).put("Anne", anne, 600)
-
-john = await Cache.tags(["people", "artists"]).get("John")
 ```
 
-To read an entry, use the same set of tags you stored it with. The order and duplicates don't matter, so `["artists", "people"]` finds the same entry. A single tag can be a string:
+To read an entry, use the same tags you stored it with. Order and duplicates don't matter, and a single tag can be a string:
 
 ```python
-await Cache.tags("settings").remember("theme", None, load_theme)
+john = await Cache.tags(["artists", "people"]).get("John")
+theme = await Cache.tags("settings").remember("theme", None, load_theme)
 ```
 
-When you flush a tag set, every entry stored with any of those tags is invalidated:
+Flushing a tag invalidates every entry stored with that tag:
 
 ```python
-await Cache.tags("people").flush()       # removes John and Anne
-await Cache.tags("authors").flush()      # removes Anne only
+await Cache.tags("authors").flush()   # removes Anne
+await Cache.tags("people").flush()    # removes John too
 ```
 
-Under the hood, tags follow Laravel's namespaced keys. Each tag has a random id stored at `<prefix>:tag:<name>:key`, and an entry is stored under a hash of its tags' ids. Flushing gives the tags new ids, so old entries can no longer be found. They aren't deleted right away; they expire with their TTL, or stay until the store is flushed if they had none.
-
-`Cache.tags([])` raises `ValueError`. Tags work with every store, including `Cache.store("redis").tags(...)`.
+Flushed entries can't be read any more, but they stay in the store until their TTL runs out or the store is flushed. Tags work with every built-in store. `Cache.tags([])` raises `ValueError`.
 
 ## Custom Stores
 
-If none of the built-in stores fit, you can write your own. A store is any object with four async methods, where `get` returns `MISSING` on a miss:
+A store is any object with four async methods, where `get()` returns `MISSING` on a miss:
 
 ```python
+# app/cache/null_store.py
 from typing import Any
 
 from fastapi_startkit.cache import MISSING
@@ -446,25 +445,37 @@ class NullStore:
         return True
 ```
 
-Next, register a factory for a driver name with `Cache.extend()`, for example in a provider's `boot()`. The factory receives the store's config dict:
+Register a factory for a driver name with `Cache.extend()` in a provider's `boot()` method. The factory receives the store's config as a dict:
 
 ```python
+# providers/null_cache_provider.py
 from fastapi_startkit.facades import Cache
+from fastapi_startkit.support import Provider
 
-Cache.extend("null", lambda config: NullStore())
+from app.cache.null_store import NullStore
+
+
+class NullCacheProvider(Provider):
+    def boot(self):
+        Cache.extend("null", lambda config: NullStore())
 ```
 
-Then add a store that uses the driver:
+Then add a store that uses the driver. A store can be a config class or a plain dict:
 
 ```python
+# config/cache.py
 @dataclass
 class CacheConfig(Config):
+    default: str = env("CACHE_CONNECTION", "file")
     stores: dict[str, Config | dict] = field(
         default_factory=lambda: {
             "array": ArrayStoreConfig(),
+            "file": FileStoreConfig(),
             "null": {"driver": "null"},
         }
     )
 ```
 
-If you want your store to support locks, give it a `lock(name, seconds, owner)` method that returns a subclass of `fastapi_startkit.cache.Lock` implementing `acquire`, `release` and `force_release`.
+To support locks, give the store a `lock(name, seconds, owner)` method that returns a subclass of `fastapi_startkit.cache.Lock` implementing `acquire()`, `release()` and `force_release()`.
+
+See [Rate Limiting](/docs/rate-limiting) for counting attempts in a cache store.

@@ -1,390 +1,304 @@
 ---
 outline: deep
 title: Process
-description: Run shell commands, pipelines, and process pools with the Process facade, and fake them in tests.
+description: Run shell commands, pipelines and concurrent processes with the Process class, and fake them in tests.
 keywords: process, subprocess, shell, commands, async, pipes, pools, testing, fastapi startkit
 ---
 
 # Process
 
-Sooner or later, most applications need to shell out to another program, whether that's running a build step, calling `git`, or kicking off a backup script. FastAPI Startkit's `Process` facade wraps Python's `subprocess` module in a small, expressive API built around those everyday needs. You can run shell commands with `await`, stream output from a background process, build pipelines, and run several commands at once. Best of all, you can fake it in your tests.
+The `Process` class runs shell commands from your application: a build step, a `git` command or a backup script. You can `await` a command inside a route, run one synchronously from a script, stream the output of a long-running process, build pipelines and run several commands at once. In tests, you can fake every command so nothing actually runs.
 
-## Basic Usage
+## Running Processes
 
-To run a command, pass it to `run()`. You'll get back a `ProcessResult`:
+To run a command, pass it to `Process.run()` and `await` the result. The command runs through the shell, so pipes, redirects and environment variables work as they do in a terminal:
 
 ```python
 from fastapi_startkit.process import Process
 
-result = await Process.run('ls -la')
+result = await Process.run("git rev-parse --short HEAD")
 
-print(result.output())      # stdout as a string
-print(result.exit_code())   # integer exit code
+print(result.output())     # "3f2a1c9\n"
+print(result.exit_code())  # 0
 ```
 
-### Handling Success and Failure
-
-The result tells you whether the command succeeded, so you can branch on it:
+`run()` returns a `ProcessResult`. Use `successful()` and `failed()` to branch on the exit code:
 
 ```python
-result = await Process.run('git status')
+result = await Process.run("git status")
 
 if result.successful():
-    print("Command succeeded")
+    print(result.output())
 
 if result.failed():
-    print("Command failed:", result.error_output())
+    print(result.error_output())
 ```
 
-## ProcessResult API
+### Inspecting the Result
+
+A `ProcessResult` gives you the following methods:
 
 | Method | Description |
 |---|---|
 | `output()` | Captured stdout |
 | `error_output()` | Captured stderr |
-| `error()` | Alias for `error_output()` |
-| `output_json()` | stdout parsed as JSON; raises `json.JSONDecodeError` if it isn't valid JSON |
+| `error()` | Same as `error_output()` |
+| `output_json()` | stdout parsed as JSON |
 | `exit_code()` | The exit code |
-| `successful()` | `True` if the exit code is `0` |
-| `failed()` | `True` if the exit code is not `0` |
-| `throw()` | Raises `ProcessFailedException` if the process failed, otherwise returns `self` |
-| `throw_if(condition)` | Same as `throw()`, but only when `condition` is truthy |
-| `command()` | The command string |
+| `successful()` | `True` when the exit code is `0` |
+| `failed()` | `True` when the exit code is not `0` |
+| `throw()` | Raises `ProcessFailedException` when the process failed, otherwise returns the result |
+| `throw_if(condition)` | Calls `throw()` only when `condition` is truthy |
+| `command()` | The command that ran |
 
-If you'd rather have a failed command stop everything, call `throw()`:
-
-```python
-result = await Process.run('python migrate.py')
-result.throw()
-```
-
-### output_json()
-
-When a command prints JSON, `output_json()` parses stdout for you:
+When a command prints JSON, `output_json()` parses stdout for you. It raises `json.JSONDecodeError` when stdout isn't valid JSON:
 
 ```python
-from fastapi_startkit.process import Process
+result = await Process.run("cat package.json")
 
-result = await Process.run('cat data.json')
-data = result.output_json()
-print(data['name'])
+package = result.output_json()
+print(package["name"])
 ```
 
-If the output might not be JSON, catch `json.JSONDecodeError`:
+## Process Options
 
-```python
-import json
-
-from fastapi_startkit.process import Process
-
-result = await Process.run('some_command')
-
-try:
-    data = result.output_json()
-except json.JSONDecodeError:
-    print("Could not parse output:", result.output())
-```
-
-## Fluent Builder Options
-
-Most commands run fine with the defaults, but you can adjust how a process runs before you start it. Each of the option methods below returns a `PendingProcess`; chain the ones you need, then call `run()`:
-
-### `timeout(seconds)`
-
-Kills the process and raises `ProcessTimedOutException` after this many seconds. The default is 60.
-
-```python
-result = await Process.timeout(10).run('bash slow_script.sh')
-```
-
-### `forever()`
-
-Disables the timeout entirely.
-
-```python
-result = await Process.forever().run('bash long_import.sh')
-```
-
-### `quietly()`
-
-Discards stdout and stderr. This is handy when all you care about is the exit code.
-
-```python
-result = await Process.quietly().run('npm install')
-```
-
-### `tty()`
-
-Connects stdin, stdout, and stderr to the terminal. Output is not captured.
-
-```python
-await Process.tty().run('vim file.txt')
-```
-
-### `env(variables)`
-
-Adds environment variables for the process.
-
-```python
-result = await Process.env({'APP_ENV': 'production', 'DEBUG': '0'}).run('python app.py')
-```
-
-### `path(directory)`
-
-Sets the working directory for the process.
-
-```python
-result = await Process.path('/var/www/app').run('git pull origin main')
-```
-
-### `input(data)`
-
-Writes a string to the process's stdin.
-
-```python
-result = await Process.input('yes\n').run('apt-get install -y some-package')
-```
-
-### Combining Options
-
-Since each option returns the same `PendingProcess`, you can chain as many as you like:
+Before you run a command, you may chain options onto `Process`. Each option returns a `PendingProcess`, so you can chain as many as you need and finish with `run()`:
 
 ```python
 result = await (
     Process
     .timeout(30)
-    .path('/var/www/app')
-    .env({'APP_ENV': 'staging'})
-    .quietly()
-    .run('bash deploy.sh')
+    .path("/var/www/app")
+    .env({"APP_ENV": "staging"})
+    .run("bash deploy.sh")
 )
 ```
 
-## Piping
+| Option | Description |
+|---|---|
+| `timeout(seconds)` | Kills the process and raises `ProcessTimedOutException` after this many seconds. The default is 60. |
+| `forever()` | Removes the timeout. |
+| `quietly()` | Discards stdout and stderr. `output()` and `error_output()` return empty strings. |
+| `tty(enabled=True)` | Connects the process to your terminal. Output is not captured. |
+| `env(variables)` | Adds environment variables on top of the current environment. |
+| `path(directory)` | Sets the working directory. |
+| `input(data)` | Writes a string to the process's stdin. |
 
-When you need to feed one command's output into another, `Process.pipe()` builds a shell pipeline for you. Its callback receives a `Pipe` builder, and you call `.command()` once for each stage:
-
-```python
-result = await Process.pipe(lambda p: (
-    p.command('cat access.log'),
-    p.command('grep "ERROR"'),
-    p.command('wc -l'),
-))
-
-print(result.output())  # count of ERROR lines
-```
-
-The stages are joined with `|` and run as a single shell command. Any builder options you chain before `pipe()` apply to it:
+For example, `input()` sends text to a command that reads from stdin:
 
 ```python
-result = await Process.path('/var/www/app').timeout(15).pipe(lambda p: (
-    p.command('find . -name "*.py"'),
-    p.command('xargs wc -l'),
+result = await Process.input("taylor@example.com\n").run("wc -l")
+
+print(result.output().strip())  # "1"
+```
+
+## Running Processes Synchronously
+
+Outside an event loop, such as in a plain script or a synchronous console command, use `run_sync()`. It accepts the same options and returns the same `ProcessResult`:
+
+```python
+from fastapi_startkit.process import Process
+
+result = Process.timeout(10).run_sync("python --version")
+
+print(result.output())  # "Python 3.12.8\n", for example
+```
+
+To stream output while a synchronous command runs, pass a callback. It receives the stream name (`"stdout"` or `"stderr"`) and each line:
+
+```python
+def on_output(kind, line):
+    print(f"[{kind}] {line}", end="")
+
+result = Process.run_sync("npm run build", callback=on_output)
+```
+
+## Piping Processes
+
+To feed one command's output into the next, use `Process.pipe()`. The callback receives a `Pipe` builder; call `command()` once for each stage. The stages are joined with `|` and run as a single shell command:
+
+```python
+result = await Process.pipe(lambda pipe: (
+    pipe.command("cat storage/logs/app.log"),
+    pipe.command('grep "ERROR"'),
+    pipe.command("wc -l"),
+))
+
+print(result.output().strip())  # number of ERROR lines
+```
+
+Options chained before `pipe()` apply to the whole pipeline, and `pipe_sync()` runs a pipeline without an event loop:
+
+```python
+result = Process.path("/var/www/app").pipe_sync(lambda pipe: (
+    pipe.command('find . -name "*.py"'),
+    pipe.command("wc -l"),
 ))
 ```
 
-## Background Execution
+## Running Processes in the Background
 
-Some commands take a while, and you don't always want to wait for them. `Process.start()` launches a process without blocking and returns an `InvokedProcess`. The callback receives each output line as it arrives:
+`Process.start()` launches a command without waiting for it and returns an `InvokedProcess`. The optional callback receives each line of output as it arrives:
 
 ```python
 import time
 
+from fastapi_startkit.process import Process
+
+
 def on_output(kind, line):
-    # kind is 'stdout' or 'stderr'
-    print(f"[{kind}] {line}", end='')
+    print(f"[{kind}] {line}", end="")
 
-invoked = Process.start('bash build.sh', callback=on_output)
 
-while invoked.running():
-    invoked.ensure_not_timed_out()
+process = Process.timeout(300).start("bash build.sh", callback=on_output)
+
+while process.running():
+    process.ensure_not_timed_out()
     time.sleep(0.5)
 
-result = invoked.wait()
-print("Exit code:", result.exit_code())
+result = process.wait()
+print(result.exit_code())
 ```
 
-::: info Background execution uses threads
-`Process.start()` uses `subprocess.Popen` and reads output on background threads, not asyncio. Use it to stream output from long-running tasks. Inside FastAPI handlers, use `await Process.run()`.
-:::
+`start()` reads output on background threads and `wait()` blocks the calling thread, so use it in scripts and console commands. Inside a route, use `await Process.run()`.
 
-### `InvokedProcess` API
+An `InvokedProcess` gives you the following methods:
 
 | Method | Description |
 |---|---|
-| `running()` | Returns `True` while the process is still executing |
-| `pid()` | Returns the process ID |
+| `running()` | `True` while the process is still executing |
+| `pid()` | The process ID |
 | `wait()` | Blocks until the process finishes and returns a `ProcessResult` |
 | `kill()` | Kills the process immediately |
-| `signal(sig)` | Sends a signal (e.g. `signal.SIGTERM`) to the process |
-| `ensure_not_timed_out()` | Raises `ProcessTimedOutException` if the configured timeout has elapsed |
+| `signal(sig)` | Sends a signal, such as `signal.SIGTERM` |
+| `ensure_not_timed_out()` | Kills the process and raises `ProcessTimedOutException` once the timeout has elapsed |
 
-## Pools (Concurrent Processes)
+## Running Processes Concurrently
 
-When you have several independent commands to run, there's no need to run them one after another. `Process.pool()` runs them at once on background threads. Add the commands in the callback, call `.start()` to launch them, then `.wait()` for the results:
+To run several independent commands at once, use `Process.pool()`. Add the commands in the callback, call `start()` to launch them all, then call `wait()` to collect the results in the order you added them:
 
 ```python
-pool = Process.pool(lambda p: (
-    p.command('bash job1.sh'),
-    p.command('bash job2.sh'),
-    p.command('bash job3.sh'),
-)).start()
+results = Process.pool(lambda pool: (
+    pool.command("bash export-users.sh"),
+    pool.command("bash export-orders.sh"),
+    pool.command("bash export-invoices.sh"),
+)).start().wait()
 
-results = pool.wait()
-
-for i, result in enumerate(results):
-    print(f"Job {i}: exit {result.exit_code()}")
+for result in results:
+    print(result.command(), result.exit_code())
 
 if results.successful():
-    print("All jobs completed successfully")
+    print("All exports finished")
 ```
 
-`PoolResults` supports indexing, iteration, `len()`, `successful()`, and `failed()`.
+The returned `PoolResults` supports indexing, iteration, `len()`, `successful()` and `failed()`. Options chained before `pool()`, such as `timeout()` and `env()`, apply to every command in the pool.
 
-### Streaming Pool Output
+To give a command its own working directory, call `path()` before `command()`:
 
-To receive output as it arrives, pass a callback to `start()`. It is called with `(kind, line, index)`, where `index` is the position of the command in the pool:
+```python
+results = Process.pool(lambda pool: (
+    pool.path("/srv/billing").command("npm test"),
+    pool.path("/srv/storefront").command("npm test"),
+)).start().wait()
+```
+
+To stream output, pass a callback to `start()`. It receives the stream name, the line and the command's position in the pool:
 
 ```python
 def on_output(kind, line, index):
-    print(f"[job {index}] {line}", end='')
+    print(f"[{index}] {line}", end="")
 
-pool = Process.pool(lambda p: (
-    p.command('bash job1.sh'),
-    p.command('bash job2.sh'),
-)).start(callback=on_output)
-
-results = pool.wait()
+results = Process.pool(lambda pool: (
+    pool.command("bash export-users.sh"),
+    pool.command("bash export-orders.sh"),
+)).start(callback=on_output).wait()
 ```
 
-### Pool Working Directories
+## Handling Errors
 
-Each command in a pool can have its own working directory. Set it with `.path()` inside the pool callback:
-
-```python
-pool = Process.pool(lambda p: (
-    p.path('/srv/service-a').command('npm test'),
-    p.path('/srv/service-b').command('npm test'),
-)).start()
-
-results = pool.wait()
-```
-
-## Testing with Fakes
-
-Tests that start real processes are slow and depend on whatever happens to be installed on the machine. To avoid that, call `Process.fake()` at the start of an `async def` test. From then on, `run()` and `pipe()` return fake results instead of starting subprocesses. Only those two are faked: `start()` raises `NotImplementedError`, and pools still run real processes.
+A failed command doesn't raise on its own. To stop when a command fails, call `throw()` on the result. It raises `ProcessFailedException`, which holds the result on `.result`:
 
 ```python
 from fastapi_startkit.process import Process
-
-async def test_deploy_script():
-    fake = Process.fake()
-
-    # ... call code that internally runs Process.run('bash deploy.sh')
-
-    fake.assert_ran('bash deploy.sh')
-
-    Process.reset_fake()
-```
-
-Remember to call `Process.reset_fake()` in teardown, or later tests stay faked.
-
-### Defining Fake Output
-
-To control what each fake command returns, map command strings to descriptions built with `Process.describe()`:
-
-```python
-fake = Process.fake({
-    'bash deploy.sh': Process.describe().output('Deployed successfully').exit_code(0),
-    'bash rollback.sh': Process.describe().error_output('Rollback failed').exit_code(1),
-})
-
-result = await Process.run('bash deploy.sh')
-assert result.output() == 'Deployed successfully'
-assert result.successful()
-
-result = await Process.run('bash rollback.sh')
-assert result.failed()
-```
-
-Use `'*'` to match any command that isn't listed:
-
-```python
-fake = Process.fake({'*': Process.describe().exit_code(0)})
-```
-
-### `FakeProcessDescription` API
-
-| Method | Description |
-|---|---|
-| `output(text)` | Adds a stdout line to the fake result |
-| `error_output(text)` | Adds a stderr line to the fake result |
-| `exit_code(code)` | Sets the exit code (default `0`) |
-
-### Assertions
-
-`Process.fake()` returns a `ProcessFake`, which you can use to assert which commands ran:
-
-```python
-fake.assert_ran('bash deploy.sh')
-fake.assert_not_ran('bash rollback.sh')
-fake.assert_ran_times('bash deploy.sh', 2)
-fake.assert_nothing_ran()
-```
-
-For more control, `assert_ran()` also accepts a callable:
-
-```python
-fake.assert_ran(lambda pending, result: result.exit_code() == 0)
-```
-
-### Using a Fixture
-
-If you fake processes in many tests, a pytest fixture can handle the teardown for you:
-
-```python
-import pytest
-from fastapi_startkit.process import Process
-
-@pytest.fixture(autouse=True)
-def fake_process():
-    fake = Process.fake()
-    yield fake
-    Process.reset_fake()
-
-async def test_my_command(fake_process):
-    await Process.run('echo hello')
-    fake_process.assert_ran('echo hello')
-```
-
-## Exception Handling
-
-These are the exceptions you're most likely to run into.
-
-### `ProcessFailedException`
-
-`result.throw()` raises this when the exit code is not `0`. You'll find the result on `.result`:
-
-```python
 from fastapi_startkit.process.exception import ProcessFailedException
 
 try:
-    result = await Process.run('bash risky.sh')
-    result.throw()
+    (await Process.run("bash migrate.sh")).throw()
 except ProcessFailedException as e:
+    print(e.result.exit_code())
     print(e.result.error_output())
-    print("Exit code:", e.result.exit_code())
 ```
 
-### `ProcessTimedOutException`
-
-Raised when a process runs past its timeout. You'll find the command on `.command`:
+When a command runs past its timeout, the process is killed and `ProcessTimedOutException` is raised. The command is available on `.command`:
 
 ```python
 from fastapi_startkit.process.exception import ProcessTimedOutException
 
 try:
-    result = await Process.timeout(5).run('sleep 60')
+    await Process.timeout(5).run("sleep 60")
 except ProcessTimedOutException as e:
-    print("Timed out:", e.command)
+    print(f"Timed out: {e.command}")
+```
+
+## Testing
+
+Call `Process.fake()` to stop commands from running in your tests. While the fake is active, `run()`, `run_sync()`, `pipe()` and `pipe_sync()` record each command and return a successful, empty result. `start()` raises `NotImplementedError`, and pools still start real processes.
+
+The fake stays active until you call `Process.reset_fake()`, so reset it in a fixture:
+
+```python
+# tests/test_deploy.py
+import pytest
+
+from fastapi_startkit.process import Process
+
+
+@pytest.fixture
+def process():
+    fake = Process.fake()
+    yield fake
+    Process.reset_fake()
+
+
+async def test_deploy_runs_the_script(process):
+    await Process.run("bash deploy.sh")
+
+    process.assert_ran("bash deploy.sh")
+```
+
+### Faking Output
+
+To control what a command returns, pass a dictionary of commands to `Process.fake()`. Describe each result with `Process.describe()`, and use `"*"` for any command you didn't list:
+
+```python
+fake = Process.fake({
+    "bash deploy.sh": Process.describe().output("Deployed").exit_code(0),
+    "bash rollback.sh": Process.describe().error_output("Nothing to roll back").exit_code(1),
+    "*": Process.describe().exit_code(0),
+})
+
+result = await Process.run("bash deploy.sh")
+assert result.output() == "Deployed"
+
+result = await Process.run("bash rollback.sh")
+assert result.failed()
+```
+
+`output()` and `error_output()` may be called more than once; each call adds a line. `exit_code()` defaults to `0`.
+
+### Assertions
+
+`Process.fake()` returns a `ProcessFake` with the following assertions:
+
+```python
+fake.assert_ran("bash deploy.sh")
+fake.assert_not_ran("bash rollback.sh")
+fake.assert_ran_times("bash deploy.sh", 1)
+fake.assert_nothing_ran()
+```
+
+`assert_ran()` also accepts a callable. It receives the `PendingProcess` and the fake `ProcessResult` of each recorded command and passes when any call returns `True`:
+
+```python
+fake.assert_ran(lambda process, result: result.command().startswith("bash"))
 ```

@@ -7,10 +7,15 @@ keywords: browser testing, playwright, end-to-end, inertia, pytest, truncation
 
 # Browser Testing
 
-`HttpTestCase` sends requests straight to your ASGI app, so it never runs your frontend, follows a client-side Inertia visit, or fills in a form. Browser tests do. FastAPI Startkit starts your application on a live server, opens it in Chromium, Firefox or WebKit through [Playwright](https://playwright.dev/python/), and gives you a fluent chain that reads like a user's script:
+Browser tests open your application in a real browser and use it the way a person does: they fill in forms, click buttons and follow client-side Inertia visits. FastAPI Startkit serves your application on a live server, drives Chromium, Firefox or WebKit through [Playwright](https://playwright.dev/python/), and gives you a chain of steps that reads like a user's script:
 
 ```python
+# tests/browser/test_login.py
+from fastapi_startkit.masoniteorm.testing import DatabaseTruncation
 from fastapi_startkit.playwright import visit
+
+from databases.factories.user_factory import UserFactory
+from .test_case import TestCase
 
 
 class TestLogin(TestCase, DatabaseTruncation):
@@ -26,11 +31,11 @@ class TestLogin(TestCase, DatabaseTruncation):
         )
 ```
 
-The test, the live server, Playwright and your database connections all share one event loop, so you can `await` the ORM and factories directly before and after a chain.
+The test, the live server, Playwright and your database connections share one event loop, so you can `await` the ORM and factories before and after a chain.
 
 ## Installation
 
-Install the `playwright` extra as a dev dependency. It brings in `playwright` and `pytest-asyncio` on top of the `fastapi` extra. Then download the browsers you plan to use:
+Install the `playwright` extra as a dev dependency, then download the browsers you plan to use:
 
 ```bash
 uv add --dev "fastapi-startkit[playwright]"
@@ -38,8 +43,6 @@ uv run playwright install chromium
 ```
 
 Run `uv run playwright install` with no argument to fetch Chromium, Firefox and WebKit together.
-
-The pytest plugin registers itself through an entry point. It only loads when both `playwright` and `pytest-asyncio` are installed, so projects without the extra see no new options or hooks.
 
 Set up pytest the same way as for other async tests. Setting the default fixture loop scope to `session` lets your own async fixtures run on the loop the browser tests use:
 
@@ -56,7 +59,7 @@ If you'd rather keep a different default, declare each async fixture that browse
 
 ## Writing Browser Tests
 
-### `BrowserTestCase`
+### The Base Test Case
 
 Browser tests extend `BrowserTestCase` and return your application from `get_application()`. A small base class keeps that in one place:
 
@@ -72,15 +75,16 @@ class TestCase(BrowserTestCase):
         return app
 ```
 
-Before each test, `BrowserTestCase` serves that application with uvicorn on a free port on `127.0.0.1`. The server is reused for the rest of the session and restarts only if a test returns a different application. Every page gets its own browser context with `base_url` pointing at the server, so you pass paths such as `"/login"` rather than full URLs.
+Before each test, `BrowserTestCase` serves that application with uvicorn on a free port on `127.0.0.1`. The server is reused for the rest of the session and restarts only if a test returns a different application or the server has stopped. Every page gets its own browser context with `base_url` pointing at the server, so you pass paths such as `"/login"` rather than full URLs.
 
-Test methods must be `async def`. A sync test method fails with a message asking you to declare it with `async def`, because browser tests run on the session event loop.
+Test methods must be `async def`. A sync test method fails with a message asking you to declare it with `async def`.
 
 ### Page Chains
 
 `visit(path)` returns a page without opening anything. Each interaction or assertion you chain records a step and returns the page. When you `await` the page, it opens the browser, navigates to the path, and runs the steps in order:
 
 ```python
+# tests/browser/test_home.py
 from fastapi_startkit.playwright import visit
 
 from .test_case import TestCase
@@ -129,7 +133,7 @@ await visit("/").on().tablet().webkit().assert_see("Welcome")
 | `.with_locale("fr-FR")` | Set the context's locale |
 | `.with_user_agent("...")` | Set the user agent |
 
-Timezone, locale and user agent are applied over the device descriptor, so an explicit user agent wins. Firefox doesn't support `is_mobile`, so for Firefox that flag is dropped while the device's viewport, user agent and touch support are kept. An unknown browser or device name raises `ValueError`.
+Timezone, locale and user agent are applied over the device descriptor, so an explicit user agent wins. Firefox doesn't support `is_mobile`, so for Firefox that flag is dropped while the device's viewport, user agent and touch support are kept. An unknown browser name raises `ValueError` when you choose it. An unknown device name raises `ValueError` when the page is awaited.
 
 Pages use the `browser_default` ini option when a test doesn't choose a browser. See [Configuration](#configuration).
 
@@ -139,7 +143,7 @@ You target elements by what a user sees, not by CSS selectors. Each method looks
 
 | What | Found by | Used by |
 |---|---|---|
-| Buttons and links | accessible name, `id`, `name` or `type` | `click`, `press`, `press_and_wait_for`, `assert_button_enabled`, `assert_button_disabled` |
+| Buttons and links | accessible name, or the `id`, `name` or `type` of any element | `click`, `press`, `press_and_wait_for`, `assert_button_enabled`, `assert_button_disabled` |
 | Form controls | label, `name`, `id` or placeholder | `fill`, `type`, `check`, `select`, `attach`, `value`, `assert_value`, and the other form methods |
 | Elements | a CSS or XPath selector; `@name` is shorthand for `[data-testid="name"]` | element assertions, `hover`, `drag`, `text`, `attribute`, `within_frame` |
 | Radios | group name and value | `radio`, `assert_radio_selected`, `assert_radio_not_selected` |
@@ -223,7 +227,7 @@ await (
 |---|---|
 | `wait(seconds)` | Pause for a fixed time |
 | `wait_for_text(text)` | Wait until the text appears on the page |
-| `wait_for_key()` | Wait until you press a key in the browser, handy in a headed run |
+| `wait_for_key()` | Wait until you press a key in the browser, for use in a headed run |
 
 You rarely need these. Every action waits for its element, and every assertion retries until the timeout.
 
@@ -344,6 +348,7 @@ Firefox also reports browser warnings as console messages, such as the quirks-mo
 `RefreshDatabase` rolls back a transaction after each test, but the live server writes through its own connections, so that rollback can't undo what happens during a browser test. Use `DatabaseTruncation` instead:
 
 ```python
+# tests/browser/test_registration.py
 from fastapi_startkit.masoniteorm.testing import DatabaseTruncation
 from fastapi_startkit.playwright import visit
 
@@ -366,7 +371,7 @@ class TestRegistration(TestCase, DatabaseTruncation):
         assert user is not None
 ```
 
-The first test in the process runs `migrate:fresh` once for each connection and migration directory. Before every later test, it empties every table except `migrations` and SQLite's internal `sqlite_*` tables. On Postgres this is a single `TRUNCATE ... RESTART IDENTITY CASCADE`; MySQL, SQLite and SQL Server use each platform's foreign-key-safe truncate. After the reset it runs your `DatabaseSeeder`.
+The first test in the process drops every table and runs your migrations, once for each connection and migration directory. Before every later test, it empties every table except `migrations` and SQLite's internal `sqlite_*` tables. On Postgres this is a single `TRUNCATE ... RESTART IDENTITY CASCADE`; MySQL, SQLite and SQL Server use each platform's foreign-key-safe truncate. After the reset it runs your `DatabaseSeeder`. Seeding raises `ValueError` if `databases/seeders/database_seeder.py` has no `DatabaseSeeder` class, so set `seed = False` in a project without one.
 
 You can tune it with class attributes:
 
@@ -375,7 +380,7 @@ You can tune it with class attributes:
 | `connection` | `None` (the default connection) | Connection to migrate and truncate |
 | `migration_directory` | `"databases/migrations"` | Migrations to run, relative to the application's base path |
 | `except_tables` | `[]` | Extra tables to keep |
-| `tables_to_truncate` | `None` | Empty only these tables instead of every table |
+| `tables_to_truncate` | `None` | Empty only these tables instead of every table. `except_tables` doesn't apply |
 | `seed` | `True` | Set to `False` to skip seeding. Ignored when `seeder` is set |
 | `seeder` | `None` | Class name of the seeder to run instead of `DatabaseSeeder`, as a string such as `"ReportSeeder"` |
 | `seed_directory` | `"databases/seeders"` | Where seeders are loaded from |
@@ -411,7 +416,7 @@ Add `.debug()` to a chain to pause there in the Playwright inspector:
 await visit("/login").fill("email", "ada@example.com").debug().click("submit")
 ```
 
-When any `BrowserTestCase` test calls `.debug()`, pytest runs only those tests, headed. Calls named `debug()` outside browser test classes, such as `logger.debug()`, don't affect test selection.
+When the source of any `BrowserTestCase` test method contains a `.debug()` call with no arguments, pytest runs only those tests, headed. Calls outside browser test classes don't affect test selection.
 
 `.screenshot(full_page=False, filename=None)` saves a screenshot at any point in a chain. It is named after the test unless you pass a filename.
 
@@ -430,6 +435,7 @@ Set these ini options in `pyproject.toml`:
 | `browser_screenshot_dir` | `tests/browser/screenshots` | Where screenshots are saved, relative to the pytest rootdir |
 
 ```toml
+# pyproject.toml
 [tool.pytest.ini_options]
 browser_default = "firefox"
 browser_timeout = "10000"
@@ -437,7 +443,7 @@ browser_timeout = "10000"
 
 ## Example Application
 
-The framework repository includes [`example/browser-testing`](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/v0.75.0/example/browser-testing), an Inertia and Vue app with register, login, logout and a guarded dashboard. Its tests under `tests/browser/` use `UserFactory`, `DatabaseTruncation` and direct ORM queries alongside page chains, and they're a good template for your own:
+The framework repository includes [`example/browser-testing`](https://github.com/fastapi-startkit/fastapi-startkit-framework/tree/main/example/browser-testing), an Inertia and Vue app with register, login, logout and a guarded dashboard. Its tests under `tests/browser/` use `UserFactory`, `DatabaseTruncation` and ORM queries alongside page chains. To run them:
 
 ```bash
 cd example/browser-testing
@@ -446,7 +452,3 @@ uv sync
 uv run playwright install chromium firefox
 uv run pytest
 ```
-
-## Not Yet Available
-
-Accessibility checks and screenshot comparison assertions aren't available yet. An `assert_authenticated` assertion is planned for the auth package.

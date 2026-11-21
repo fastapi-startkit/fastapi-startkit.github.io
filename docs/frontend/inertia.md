@@ -7,117 +7,129 @@ keywords: inertia, spa, frontend, fastapi, monolithic
 
 # Inertia
 
-[Inertia.js](https://inertiajs.com) lets you build a single-page app with server-side routing and controllers, without writing a separate API. Your controllers return a component name and props, and a React, Vue, or Svelte component renders the page. You get the snappy feel of an SPA while keeping routing, authorization, and data loading on the server, where they're easy to reason about.
+[Inertia.js](https://inertiajs.com) lets you build a single-page app with server-side routing and controllers, without writing a separate API. Your controllers return a component name and props, and a React, Vue or Svelte component renders the page. Routing, authorization and data loading stay on the server.
 
-FastAPI Startkit's Inertia support lives in `InertiaProvider`. It binds the `Inertia` renderer to the container, registers `InertiaMiddleware`, and injects the <code v-pre>{{ inertia(page) }}</code> Jinja2 helper into your templates.
+`InertiaProvider` adds Inertia to your application. It registers `InertiaMiddleware` and adds the <code v-pre>{{ inertia(page) }}</code> and <code v-pre>{{ inertia_head(page) }}</code> helpers to your Jinja2 templates.
 
 ## Setup
 
+When you create a project with `uvx fastapi-startkit@latest init` and pick React or Vue, the installer does this setup for you. See [Getting Started](/docs/getting-started#creating-a-project). To add Inertia to an existing project, follow the steps below.
+
 ### Server-Side Setup
-To get started, register `InertiaProvider` after `ViteProvider`, since Vite provides the Jinja2 templates Inertia renders into:
+
+Inertia renders its first page through a Jinja2 template and loads your assets with Vite, so set up [Vite](/docs/frontend/vite) first. Then install the `inertia` extra:
+
+```bash
+pip install "fastapi-startkit[fastapi,vite,inertia]"
+# or
+uv add "fastapi-startkit[fastapi,vite,inertia]"
+```
+
+Register `InertiaProvider` next to `ViteProvider`, and add a session middleware. Inertia keeps [flash data](#flash-data) and [validation errors](#validation-errors) in the session until the next page reads them:
 
 ```python
 # bootstrap/application.py
+from pathlib import Path
+
+from starlette.middleware.sessions import SessionMiddleware
+
+from fastapi_startkit.application import Application
+from fastapi_startkit.environment import env
+from fastapi_startkit.fastapi import FastAPIProvider
 from fastapi_startkit.inertia import InertiaProvider
 from fastapi_startkit.vite import ViteProvider
 
 app = Application(
-    base_path=...,
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
+        FastAPIProvider,
         ViteProvider,
         InertiaProvider,
-        ...
     ],
 )
+
+app.add_middleware(SessionMiddleware, secret_key=env("SESSION_SECRET"))
 ```
 
-With the provider in place, your controllers can return `Inertia.render()`:
+The session cookie is signed with `SESSION_SECRET`, so set it to a long random string in `.env`.
+
+Your controllers can now return `Inertia.render()`:
+
 ```python
+# app/http/controllers/dashboard_controller.py
 from fastapi_startkit.inertia import Inertia
+
 
 async def index():
     return Inertia.render("Dashboard/Index")
 ```
 
 ### Client-Side Setup
-Inertia relies on Vite for asset bundling, so if you haven't set it up yet, follow the [Vite docs](/docs/frontend/vite) first.
 
-This guide uses React. Start by installing the Inertia React adapter, React, and its Vite plugin:
-
-```bash
-npm install @inertiajs/react react react-dom @vitejs/plugin-react
-```
-
-Then install the React type definitions:
+This guide uses React. Install the Inertia React adapter, React and the React plugin for Vite:
 
 ```bash
-npm i --save-dev @types/react-dom @types/react
+npm install @inertiajs/react react react-dom
+npm install --save-dev @vitejs/plugin-react @types/react @types/react-dom
 ```
 
-Next, add the React plugin and the new entry point to `vite.config.ts`:
+In `vite.config.ts`, change the entry point to `resources/js/app.tsx` and add the React plugin:
 
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react' // [!code ++]
 import fastapi from 'fastapi-vite-plugin'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
     plugins: [
         fastapi({
-            input: 'resources/js/app.tsx',  // [!code ++]
+            input: 'resources/js/app.ts', // [!code --]
+            input: 'resources/js/app.tsx', // [!code ++]
             refresh: true,
         }),
         react(), // [!code ++]
-        // ...
+        tailwindcss(),
     ],
 })
 ```
 
-#### Entry point (`resources/js/app.tsx`)
+Rename `resources/js/app.ts` to `resources/js/app.tsx` and start the Inertia app in it:
 
 ```tsx
+// resources/js/app.tsx
 import '../css/app.css'
-import { createInertiaApp } from "@inertiajs/react"
-import { createRoot } from "react-dom/client"
+import { createInertiaApp } from '@inertiajs/react'
+import type { ComponentType } from 'react'
+import { createRoot } from 'react-dom/client'
 
-// @ts-ignore
-const appName = import.meta.env.VITE_APP_NAME || "My App"
-
-await createInertiaApp({
-    title: title => `${title} - ${appName}`,
+createInertiaApp({
     resolve: name => {
-        // @ts-ignore
-        const pages = import.meta.glob('./Pages/**/*.tsx', { eager: true })
+        const pages = import.meta.glob<ComponentType>('./Pages/**/*.tsx', { eager: true, import: 'default' })
         return pages[`./Pages/${name}.tsx`]
     },
     setup({ el, App, props }) {
         createRoot(el).render(<App {...props} />)
     },
-    progress: {
-        color: "#F87415",
-    },
 })
 ```
 
-Finally, add a page component under `resources/js/Pages`:
+Then add a page component under `resources/js/Pages`. The component name you pass to `Inertia.render()` is its path inside that directory:
 
 ```tsx
 // resources/js/Pages/Dashboard/Index.tsx
 export default function Dashboard() {
-    return (
-        <div>
-            <p>Hello from Fastapi Startkit</p>
-        </div>
-    )
+    return <h1>Dashboard</h1>
 }
 ```
 
 ### Root Template
 
-Every first visit is rendered through a root template, so create `resources/templates/index.html`. The <code v-pre>{{ inertia(page) }}</code> helper renders the bootstrap `<script>` tag and the `<div id="app">` mount point:
+The first visit to a page is rendered through a root template. Create `resources/templates/index.html`. The <code v-pre>{{ inertia(page) }}</code> helper outputs the page data and the `<div id="app">` element that the client mounts into, and <code v-pre>{{ inertia_head(page) }}</code> outputs the head tags from [server-side rendering](#server-side-rendering):
 
 ```html
+<!-- resources/templates/index.html -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -125,6 +137,7 @@ Every first visit is rendered through a root template, so create `resources/temp
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     {{ vite_react_refresh() }}
     {{ vite('resources/js/app.tsx') }}
+    {{ inertia_head(page) }}
 </head>
 <body>
     {{ inertia(page) }}
@@ -132,12 +145,15 @@ Every first visit is rendered through a root template, so create `resources/temp
 </html>
 ```
 
+To use a different id than `app`, call `Inertia.root_id("root")` in a provider's `boot()` method.
+
 ## Passing Props
 
-`Inertia.render()` takes the component name and an optional props dict. Notice that you don't pass the request; `InertiaMiddleware` keeps the current request in a context variable for you.
+`Inertia.render()` takes the component name and an optional dict of props. You don't pass the request; `InertiaMiddleware` keeps track of it for you:
 
 ```python
 from fastapi_startkit.inertia import Inertia
+
 
 async def index():
     return Inertia.render("Dashboard/Index", {
@@ -145,24 +161,17 @@ async def index():
     })
 ```
 
-When there are no props, you can leave out the second argument:
-
-```python
-async def index():
-    return Inertia.render("Dashboard/Index")
-```
-
-You can also add props to an existing response with `with_()`, which takes either a key and value or a dict:
+You may also add props to a response with `with_()`, which takes a key and value or a dict:
 
 ```python
 return Inertia.render("Dashboard/Index").with_("user", user).with_({"stats": stats})
 ```
 
-On the first page load, the response is HTML rendered from the root template. On Inertia requests (those with the `X-Inertia: true` header), it's JSON with the component name, props, and URL.
+On the first visit, the response is the HTML of the root template. On later visits, the client sends an `X-Inertia: true` header and receives JSON with the component name, props and URL.
 
 ### Nested Props
 
-Props can be nested dicts, and each level is resolved recursively, so a callable or a [prop type](#prop-types) works at any depth:
+Props can be nested dicts. Every level is resolved, so a callable or a [prop type](#prop-types) works at any depth:
 
 ```python
 return Inertia.render("Dashboard/Index", {
@@ -173,7 +182,7 @@ return Inertia.render("Dashboard/Index", {
 })
 ```
 
-A key containing a dot is expanded into the nested structure. This lets you add one value under a shared prop without replacing the whole thing:
+A key that contains a dot is expanded into the nested structure. Use it to add one value under a shared prop without replacing the whole prop:
 
 ```python
 Inertia.share("auth", {"user": "taylor"})
@@ -183,62 +192,48 @@ return Inertia.render("Settings/Index", {
 })
 ```
 
-Using a dot key under a value that isn't a dict raises a `TypeError`.
+A dot key under a value that isn't a dict raises a `TypeError`.
 
 ## Shared Data
 
-Some data, like the current user or the app name, belongs on every page. Shared data is sent as props to every page, and you register it by calling `share()` in a provider's `boot()` method:
+Shared data is sent as props to every page. Use it for values like the current user or the application name. Register it with `Inertia.share()` in a provider's `boot()` method:
 
 ```python
-# providers/fastapi_provider.py
-from fastapi_startkit.fastapi import FastAPIProvider as BaseFastAPIProvider
+# providers/app_provider.py
 from fastapi_startkit.inertia import Inertia
+from fastapi_startkit.support import Provider
 
-class FastAPIProvider(BaseFastAPIProvider):
+
+class AppProvider(Provider):
     def boot(self) -> None:
-        super().boot()
-
-        # Static value
         Inertia.share("app_name", "PingCRM")
 
-        # Callable resolved per-request (receives the request object)
         Inertia.share("auth", lambda request: {
             "user": getattr(request.state, "user", None),
         })
 ```
 
-If you have several values to share, `share()` also accepts a dict:
+A callable is called for each request. If it takes an argument, it receives the request. To share several values at once, pass a dict:
 
 ```python
 Inertia.share({"app_name": "PingCRM", "locale": "en"})
 ```
 
-If you prefer working with the container, its `inertia` binding resolves to the same API:
-
-```python
-inertia = self.app.make("inertia")
-inertia.share("app_name", "PingCRM")
-```
-
-Shared data is merged with per-render props, and when the two collide, the per-render props win.
+Shared data is merged with the props you pass to `render()`. When a key is in both, the prop you pass to `render()` wins.
 
 ### Sharing During a Request
 
-When you call `Inertia.share()` while a request is being handled, such as in a controller or a dependency, it only affects that request and won't leak into later ones:
+When you call `Inertia.share()` while a request is being handled, for example in a controller or a dependency, the value is shared with that response only:
 
 ```python
-from fastapi import Request
-
-async def edit(request: Request):
-    Inertia.share("only_here", True)  # visible on this response only
+async def edit():
+    Inertia.share("can_delete", True)
     return Inertia.render("Users/Edit")
 ```
 
-Shares made in `boot()`, by contrast, reach every page.
-
 ### Shared Prop Keys
 
-The page object lists the top-level keys of shared data in `sharedProps`, so the client can tell shared props from page props. If you don't need this, you can turn it off:
+The page lists the top-level keys of shared data in `sharedProps`, so the client can tell shared props from page props. To leave the list out:
 
 ```python
 Inertia.expose_shared_prop_keys(False)
@@ -246,120 +241,120 @@ Inertia.expose_shared_prop_keys(False)
 
 ## Partial Reloads
 
-Wrap a prop in a callable and it's resolved lazily, so a partial reload only evaluates the keys it asks for. Since a `lambda` can't be async, use a named `async def` for async props:
+Wrap a prop in a callable so it's only resolved when the response includes it. On a partial reload, the client asks for some props, and the others aren't resolved at all. A `lambda` can't be async, so use an `async def` for async work:
 
 ```python
 from fastapi_startkit.inertia import Inertia
-from app.models import User, Organization
+
+
+async def load_users():
+    return [{"id": 1, "name": "Alice"}]
+
+
+async def load_organizations():
+    return [{"id": 1, "name": "Acme"}]
+
 
 async def index():
-    async def get_users():
-        return await User.all()
-
-    async def get_organizations():
-        return await Organization.get()
-
-    return Inertia.render('Users/Index', {
-        'users': get_users,
-        'companies': get_organizations,
+    return Inertia.render("Users/Index", {
+        "users": load_users,
+        "organizations": load_organizations,
     })
 ```
 
-If your callable takes one argument, it receives the current request:
+If the callable takes one argument, it receives the current request:
 
 ```python
-return Inertia.render("Page", {
+return Inertia.render("Users/Index", {
     "path": lambda request: request.url.path,
 })
 ```
 
-Callables are resolved one at a time, in order, which means async ORM calls never share a database session concurrently.
+Callables run one at a time, in the order of the props.
 
-On the client, you can request only some props with `only`, or everything except some props with `except`:
-
-```tsx
-import { router } from "@inertiajs/react"
-
-router.reload({ only: ["users"] })
-router.reload({ except: ["companies"] })
-```
-
-These map to the `X-Inertia-Partial-Data` and `X-Inertia-Partial-Except` headers. When both are sent, `except` wins. Both match dot paths, so you can reload a single nested prop:
+On the client, ask for some props with `only`, or for everything except some props with `except`:
 
 ```tsx
-router.reload({ only: ["auth.user"] })            // props.auth == { user: ... }
-router.reload({ except: ["auth.token"] })         // everything except auth.token
+import { router } from '@inertiajs/react'
+
+router.reload({ only: ['users'] })
+router.reload({ except: ['organizations'] })
 ```
 
-Requesting a parent (`only: ["auth"]`) returns all of its children. Keep in mind that a partial reload only applies to the component that sent it; if the client is on a different component, the server renders a full visit.
+When a request sends both, `except` wins. Both accept dot paths, so you can reload one nested prop:
+
+```tsx
+router.reload({ only: ['auth.user'] })    // props.auth == { user: ... }
+router.reload({ except: ['auth.token'] }) // everything except auth.token
+```
+
+Asking for a parent, such as `only: ['auth']`, returns all of its children. A partial reload only applies when the client is still on the same component. Otherwise, the server sends every prop.
 
 ## Prop Types
 
-Not every prop needs to be sent the same way. Wrap a value with one of the `Inertia` helpers to change how and when it's sent. Each helper returns a `Prop`, and you can chain its options:
+Wrap a value with one of the `Inertia` helpers to change when it's sent and how the client uses it. Each helper returns a `Prop`, and you can chain its methods:
 
 | Helper | Behaviour |
 |---|---|
-| `Inertia.optional(callback)` | Skipped on full visits; sent only on a partial reload that includes it |
-| `Inertia.always(value)` | Always sent, even when a partial reload excludes it |
-| `Inertia.defer(callback, group="default")` | Skipped on the first render, loaded right after by the client |
-| `Inertia.merge(value)` | Appended to the existing client-side value instead of replacing it |
-| `Inertia.deep_merge(value)` | Deep-merged into the existing client-side value |
-| `Inertia.once(callback)` | Resolved once and remembered by the client |
-| `Inertia.scroll(page)` | Paginated data for infinite scrolling |
+| `Inertia.optional(callback)` | Left out of full visits. Sent only on a partial reload that includes it. |
+| `Inertia.always(value)` | Always sent, even when a partial reload leaves it out. |
+| `Inertia.defer(callback, group="default")` | Left out of the first render. The client loads it right after. |
+| `Inertia.merge(value)` | Appended to the value the client already has. |
+| `Inertia.deep_merge(value)` | Deep-merged into the value the client already has. |
+| `Inertia.once(callback)` | Resolved once and remembered by the client. |
+| `Inertia.scroll(page)` | A paginated result for infinite scrolling. |
 
-`Prop` is exported as well, so you can build any combination yourself:
+`Prop` is exported too, so you can combine options yourself:
 
 ```python
 from fastapi_startkit.inertia import Prop
 
-"stats": Prop(load_stats).defer("sidebar").rescue()
+return Inertia.render("Dashboard/Index", {
+    "stats": Prop(load_stats).defer("sidebar").rescue(),
+})
 ```
 
 ### Optional Props
 
-Use `Inertia.optional()` to leave a prop out of full visits. It's only sent on a partial reload that includes it, either by naming it in `only` or by an `except`-only reload that doesn't exclude it:
+`Inertia.optional()` leaves a prop out of full visits. It's sent only on a partial reload that names it in `only`, or on an `except` reload that doesn't exclude it:
 
 ```python
-async def index():
-    async def get_users():
-        return await User.all()
-
-    return Inertia.render('Users/Index', {
-        'users': Inertia.optional(get_users),
-    })
+return Inertia.render("Users/Index", {
+    "users": Inertia.optional(load_users),
+})
 ```
 
 ### Always Props
 
-`Inertia.always()` props are included on every response, even when a partial reload's `only` or `except` would exclude them. When the value is a dict, all of its children are included too:
+`Inertia.always()` props are sent on every response, even when a partial reload's `only` or `except` would leave them out. When the value is a dict, all of its children are sent too:
 
 ```python
 return Inertia.render("Users/Index", {
-    "users": get_users,
+    "users": load_users,
     "auth": Inertia.always({"user": user, "team": team}),
 })
 ```
 
-The built-in `errors` prop is an always prop; see [Validation Errors](#validation-errors) for details.
+The `errors` prop is an always prop. See [Validation Errors](#validation-errors).
 
 ### Deferred Props
 
-Deferred props are a nice way to get a page on screen quickly and fill in slower data afterwards. They're left out of the first render; the page lists them in `deferredProps`, and the client fetches them in a follow-up partial reload. Props in the same group are fetched together, and each group is a separate request:
+Deferred props let a page appear quickly and fill in slow data afterwards. They're left out of the first render and listed in `deferredProps`, and the client loads them with a partial reload. Props in the same group are loaded together, one request per group:
 
 ```python
 return Inertia.render("Dashboard/Index", {
     "user": user,
-    "stats": Inertia.defer(get_stats),
-    "chart": Inertia.defer(get_chart, group="sidebar"),
-    "feed": Inertia.defer(get_feed, group="sidebar"),
+    "stats": Inertia.defer(load_stats),
+    "chart": Inertia.defer(load_chart, group="sidebar"),
+    "feed": Inertia.defer(load_feed, group="sidebar"),
 })
 # deferredProps == {"default": ["stats"], "sidebar": ["chart", "feed"]}
 ```
 
-On the client, use the `Deferred` component to render a placeholder until they arrive:
+On the client, the `Deferred` component shows a fallback until the props arrive:
 
 ```tsx
-import { Deferred } from "@inertiajs/react"
+import { Deferred } from '@inertiajs/react'
 
 <Deferred data="stats" fallback={<div>Loading...</div>}>
     <Stats />
@@ -368,56 +363,66 @@ import { Deferred } from "@inertiajs/react"
 
 ### Merge Props
 
-By default, a reload replaces a prop. A merge prop, on the other hand, is combined with the value the client already has, which makes it a good fit for "load more" lists:
+A reload normally replaces a prop. A merge prop is combined with the value the client already has instead, which suits "load more" lists:
 
 ```python
 return Inertia.render("Posts/Index", {
-    "posts": Inertia.merge(posts),                    # append to the existing list
-    "notifications": Inertia.merge(items).prepend(),  # add to the front
+    "posts": Inertia.merge(posts),                    # appended to the list
+    "notifications": Inertia.merge(items).prepend(),  # added to the front
 })
 ```
 
-For a dict, you can choose which nested lists to merge with `append_at()` and `prepend_at()`:
+For a dict, choose which nested lists to merge with `append_at()` and `prepend_at()`:
 
 ```python
-"feed": Inertia.merge({"data": items, "meta": meta}).append_at("data").prepend_at("meta.items")
+return Inertia.render("Feed/Index", {
+    "feed": Inertia.merge({"data": items, "meta": meta}).append_at("data").prepend_at("meta.items"),
+})
 ```
 
-`match_on()` tells the client which key identifies an item, so items that are already present are updated instead of duplicated:
+`match_on()` names the key that identifies an item, so the client updates items it already has instead of adding them twice:
 
 ```python
-"posts": Inertia.merge(posts).match_on("id")
+return Inertia.render("Posts/Index", {
+    "posts": Inertia.merge(posts).match_on("id"),
+})
 ```
 
-To recursively merge a nested structure, use `deep_merge()`:
+To merge a nested structure recursively, use `deep_merge()`:
 
 ```python
-"settings": Inertia.deep_merge({"notifications": {"email": True}}).match_on("items.id")
+return Inertia.render("Settings/Edit", {
+    "settings": Inertia.deep_merge({"notifications": {"email": True}}).match_on("items.id"),
+})
 ```
 
-Merging can be combined with deferral, for example `Inertia.defer(load_posts).merge()`. When the client asks to reset a prop (`router.reload({ reset: ["posts"] })`), the server sends it without merge metadata so the client replaces it.
+You can combine merging with deferral, as in `Inertia.defer(load_posts).merge()`. When the client resets a prop with `router.reload({ reset: ['posts'] })`, the server sends it without merge metadata, so the client replaces it.
 
 ### Once Props
 
-Some data rarely changes, like a list of plans or countries. A once prop is resolved on the first visit and remembered by the client. On later visits, the client sends the keys it already has, and the server skips them:
+A once prop is resolved on the first visit and remembered by the client. Use it for data that rarely changes, such as plans or countries. On later visits, the client sends the keys it already has, and the server skips them:
 
 ```python
 from datetime import timedelta
 
 return Inertia.render("Billing/Index", {
-    "plans": Inertia.once(get_plans),
-    "countries": Inertia.once(get_countries).once_as("geo").until(60),
-    "rates": Inertia.once(get_rates).until(timedelta(minutes=5)).fresh(),
+    "plans": Inertia.once(load_plans),
+    "countries": Inertia.once(load_countries).once_as("geo").until(60),
+    "rates": Inertia.once(load_rates).until(timedelta(minutes=5)).fresh(),
 })
 ```
 
-There are three modifiers you can chain. `once_as(key)` stores the prop under a custom key, so pages that use the same key share the value. `until(ttl)` sets an expiry, in seconds or as a `timedelta`, after which the client refetches the prop. And `fresh()` always resolves the prop, while still telling the client to remember it.
+You can chain three methods:
 
-Once props can be deferred too, as in `Inertia.defer(get_plans).once()`. A full page load (the first HTML response) resolves non-deferred once props again, even if the client already has them. Deferred once props are not resolved on a full page load; they are listed in `deferredProps` and fetched afterwards like any deferred prop.
+- `once_as(key)` stores the prop under your own key, so pages that use the same key share the value.
+- `until(ttl)` sets an expiry, in seconds or as a `timedelta`. After it, the client loads the prop again.
+- `fresh()` always resolves the prop, and still tells the client to remember it.
+
+Once props can be deferred, as in `Inertia.defer(load_plans).once()`. A full page load resolves non-deferred once props again, even if the client already has them. Deferred once props are listed in `deferredProps` and loaded afterwards like any deferred prop.
 
 ### Scroll Props
 
-For infinite scrolling, `Inertia.scroll()` sends a paginated result. It serializes the page and adds `scrollProps` with the previous, next and current page, so the client can load more and merge the new items:
+For infinite scrolling, wrap a paginated result in `Inertia.scroll()`. The prop is serialized and listed in `scrollProps` with its previous, next and current page, so the client can load more and merge the new items. This example needs a database:
 
 ```python
 async def index(page: int = 1):
@@ -427,62 +432,69 @@ async def index(page: int = 1):
     })
 ```
 
-Any object with `current_page`, `previous_page` and `next_page` attributes works, including the ORM's paginators. The items are merged at `users.data`, and when the client scrolls upwards, they're prepended instead. If the items live under a different key, use `wrapper()`.
+Any object with `current_page`, `previous_page` and `next_page` attributes works, including the ORM's paginators. New items are merged at `users.data`, or prepended when the client scrolls up. If the items are under a different key, call `wrapper("items")`.
 
 When the value doesn't carry its own pagination details, pass a `ScrollMetadata`:
 
 ```python
 from fastapi_startkit.inertia import ScrollMetadata
 
-"logs": Inertia.scroll(logs, ScrollMetadata.pages("logs", current_page=1, last_page=4)),
-"feed": Inertia.scroll(feed, ScrollMetadata.cursors("cursor", previous=None, next=next_cursor)),
+
+async def index(page: int = 1):
+    async def load_logs():
+        return {"data": await fetch_logs(page)}
+
+    return Inertia.render("Logs/Index", {
+        "logs": Inertia.scroll(load_logs, ScrollMetadata.pages("page", current_page=page, last_page=4)),
+    })
 ```
 
-If you'd like to resolve the page lazily, use `Inertia.scroll_with(callback)`. An object can also provide its own details through a `scroll_metadata()` method that returns a `ScrollMetadata`.
+For cursor pagination, use `ScrollMetadata.cursors("cursor", previous=None, next=next_cursor)`. An object can also provide its own details with a `scroll_metadata()` method that returns a `ScrollMetadata`, and `Inertia.scroll_with(callback)` wraps a callable that returns a paginated result.
 
 ### Rescuing Failed Props
 
-Normally, if a prop raises an exception, the whole response fails. Mark a prop with `rescue()` and it's dropped instead: the error is logged and the prop's path is listed in `rescuedProps`, so the rest of the page still renders:
+When a prop raises an exception, the whole response fails. Mark a prop with `rescue()` to drop it instead. The error is logged and the prop's path is listed in `rescuedProps`, so the rest of the page still renders:
 
 ```python
 from fastapi_startkit.inertia import Inertia, Prop
 
 return Inertia.render("Dashboard/Index", {
     "user": user,
-    "stats": Inertia.defer(get_stats).rescue(),
-    "chart": Prop(get_chart).rescue(),
+    "stats": Inertia.defer(load_stats).rescue(),
+    "chart": Prop(load_chart).rescue(),
 })
 ```
 
 ## Redirects
 
-To send the user somewhere else, return `Inertia.redirect()`. Its status defaults to `302`:
+To send the user to another page, return `Inertia.redirect()`. The status defaults to `302`:
 
 ```python
 from fastapi_startkit.inertia import Inertia
 
-async def store():
-    user = await User.create(...)
-    return Inertia.redirect(f"/users/{user.id}")
+
+async def update(user_id: int):
+    return Inertia.redirect(f"/users/{user_id}")
 ```
 
-When you just want to send the user back where they came from, `Inertia.back()` redirects to the previous page using the `Referer` header. Only same-origin referers are followed; anything else falls back to `/`:
+To send the user back to the previous page, return `Inertia.back()`. It follows the `Referer` header when it's on the same origin, and falls back to `/`:
 
 ```python
 async def update():
-    ...
     return Inertia.back()
 ```
 
-Both methods return an `InertiaRedirect`, which can carry [flash data](#flash-data), [errors](#validation-errors) and [history flags](#history-encryption) for the next page:
+Both return an `InertiaRedirect`, which can carry [flash data](#flash-data), [errors](#validation-errors) and [history flags](#history-encryption) to the next page:
 
 ```python
 return Inertia.redirect("/users").flash("success", "User created")
 ```
 
+For Inertia `PUT`, `PATCH` and `DELETE` requests, the middleware turns a `302` into a `303`, so the browser follows it with a `GET`.
+
 ### External Redirects
 
-To leave the Inertia app entirely, for example to go to a payment provider, use `Inertia.location()`. For Inertia requests it sends `409` with an `X-Inertia-Location` header, which makes the client do a full browser visit. For normal requests it sends a `302`:
+To leave the Inertia app, for example to go to a payment page, return `Inertia.location()`. For Inertia requests, it sends a `409` with an `X-Inertia-Location` header, and the client does a full browser visit. For other requests, it sends a `302`:
 
 ```python
 async def checkout():
@@ -491,7 +503,7 @@ async def checkout():
 
 ## Flash Data
 
-Flash data is perfect for one-off messages like "User created". It's shown once on the next page and then discarded, and it's sent as the page's `flash` key rather than as a prop:
+Flash data is shown once on the next page and then discarded, which suits messages like "User created". It's sent in the page's `flash` key, not as a prop:
 
 ```python
 async def store():
@@ -499,7 +511,7 @@ async def store():
     return Inertia.redirect("/users")
 ```
 
-`flash()` accepts either a key and value or a dict. It's also available on `InertiaRedirect` and on an Inertia response:
+`flash()` takes a key and value or a dict. You may also call it on a redirect or on a response:
 
 ```python
 return Inertia.redirect("/users").flash({"success": "User created"})
@@ -507,20 +519,19 @@ return Inertia.redirect("/users").flash({"success": "User created"})
 return Inertia.render("Users/Index").flash("toast", "Saved")
 ```
 
-Flash data survives redirects, including the ones the middleware converts, as well as asset version reloads.
+Flash data survives redirects, including the ones the middleware changes, and asset version reloads.
 
 ## Validation Errors
 
-When a form submission fails validation, you'll usually want to send the user back with the errors. Errors are flashed to the session and shared as the `errors` prop on the next page, with each field showing its first message:
+When a form fails validation, send the user back with the errors. The errors are kept in the session and sent as the `errors` prop on the next page, with the first message for each field:
 
 ```python
 async def update():
-    ...
     return Inertia.back_with_errors({"email": "The email is required."})
 # next page: props.errors == {"email": "The email is required."}
 ```
 
-You can also flash errors with `Inertia.with_errors()`, or attach them to any redirect:
+You may also queue errors with `Inertia.with_errors()`, or add them to any redirect:
 
 ```python
 Inertia.with_errors({"email": "The email is required."})
@@ -528,37 +539,40 @@ Inertia.with_errors({"email": "The email is required."})
 return Inertia.redirect("/users/create").with_errors({"name": ["Taken", "Too short"]})
 ```
 
-You can supply errors as a dict of strings or lists, a `ValidationErrors` object, a pydantic `ValidationError`, or FastAPI's `RequestValidationError`. For a `RequestValidationError`, the first segment of each error location (such as `body` or `query`) is dropped, so `("body", "user", "email")` becomes `user.email`:
+Errors can be a dict of strings or lists, a `ValidationErrors` object, a Pydantic `ValidationError` or FastAPI's `RequestValidationError`. For a `RequestValidationError`, the first part of each error location, such as `body` or `query`, is dropped, so `("body", "user", "email")` becomes `user.email`:
 
 ```python
 from fastapi import Request
 from pydantic import ValidationError
 
+
 async def store(request: Request):
     try:
-        data = UserForm.model_validate(dict(await request.form()))
+        form = UserForm.model_validate(dict(await request.form()))
     except ValidationError as e:
         return Inertia.back_with_errors(e)
-    ...
+    return Inertia.redirect("/users")
 ```
 
-If you need to build errors yourself, `ValidationErrors` is a small helper for doing just that:
+When you register `FastAPIProvider`, you don't need to catch request validation errors yourself. If a route's request model fails validation on an Inertia request, the response is a `303` back to the previous page with the errors queued. A request that sends or accepts JSON gets a `422` JSON response. Any other request, such as a plain browser form post, gets a `303` back to the previous page, with the errors stored in the session under `errors`. See [Validation](/docs/validation) for the rules.
+
+To build errors yourself, use `ValidationErrors`:
 
 ```python
 from fastapi_startkit.inertia import ValidationErrors
 
 errors = ValidationErrors({"email": "Required"}).add("email", "Invalid").merge({"name": ["Taken"]})
 
-errors.has("email")   # True
-errors.first("email") # "Required"
-errors.get("email")   # ["Required", "Invalid"]
-errors.all()          # {"email": ["Required", "Invalid"], "name": ["Taken"]}
-errors.firsts()       # {"email": "Required", "name": "Taken"}
+errors.has("email")    # True
+errors.first("email")  # "Required"
+errors.get("email")    # ["Required", "Invalid"]
+errors.all()           # {"email": ["Required", "Invalid"], "name": ["Taken"]}
+errors.firsts()        # {"email": "Required", "name": "Taken"}
 ```
 
 ### Error Bags
 
-When a page has several forms, you can put each form's errors in a named bag so they don't mix:
+When a page has several forms, put each form's errors in a named bag:
 
 ```python
 return Inertia.back_with_errors({"email": "Required"}, bag="login")
@@ -569,31 +583,31 @@ return Inertia.redirect("/").with_errors_in("register", {"name": "Taken"})
 # props.errors == {"login": {...}, "register": {...}}
 ```
 
-The client can choose the bag too. When a request sends `errorBag: "login"` (the `X-Inertia-Error-Bag` header), default-bag errors are nested under that name, for example `{"login": {"email": "Required"}}`.
+The client can choose the bag too. When the request that renders the page sends `errorBag: 'login'` (the `X-Inertia-Error-Bag` header), errors in the default bag are nested under that name, as in `{"login": {"email": "Required"}}`.
 
 ### Errors on Partial Reloads
 
-Because `errors` is an always prop, it's included on partial reloads too. It only contains errors flashed since the last render, so a partial reload with no new errors gets `{}` and old errors don't stick to the page. Errors are delivered on the next Inertia render, whichever component that happens to be.
+`errors` is an always prop, so it's sent on partial reloads too. It only holds errors queued since the last render, so a partial reload with no new errors gets `{}`. Errors go to the next Inertia render, whichever component it renders.
 
 ## History Encryption
 
-Inertia can encrypt the page data stored in the browser's history, so it can't be read after the user logs out. To turn it on for every page, call `encrypt_history()` in a provider:
+Inertia can encrypt the page data it stores in the browser's history, so it can't be read after the user logs out. To turn it on for every page, call `Inertia.encrypt_history()` in a provider's `boot()` method:
 
 ```python
-class FastAPIProvider(BaseFastAPIProvider):
+# providers/app_provider.py
+class AppProvider(Provider):
     def boot(self) -> None:
-        super().boot()
         Inertia.encrypt_history()
 ```
 
-You can also enable it per response, which lets a single page opt out as well:
+You may also turn it on or off for one response:
 
 ```python
 return Inertia.render("Billing/Index").encrypt_history()
 return Inertia.render("Public/Index").encrypt_history(False)
 ```
 
-As with sharing, calling `Inertia.encrypt_history()` during a request only affects that request.
+Calling `Inertia.encrypt_history()` during a request affects that request only.
 
 To clear the encrypted history, for example when a user logs out, call `clear_history()`. It applies to the next page:
 
@@ -608,7 +622,7 @@ return Inertia.redirect("/login").clear_history()
 
 ### Preserving the URL Fragment
 
-By default, a redirect drops the `#fragment` of the current URL. If you want to keep it on the next page, call `preserve_fragment()`:
+A redirect drops the `#fragment` of the current URL. To keep it on the next page, call `preserve_fragment()`:
 
 ```python
 return Inertia.redirect("/users/1").preserve_fragment()
@@ -616,62 +630,78 @@ return Inertia.redirect("/users/1").preserve_fragment()
 
 ## Asset Versioning
 
-When you deploy new assets, Inertia needs a way to tell clients their bundle is out of date. If `ViteProvider` is registered, `InertiaMiddleware` uses the Vite manifest hash as the asset version, so this works without any extra setup.
+When you deploy new assets, Inertia tells clients that their bundle is out of date. With `ViteProvider` registered, the asset version is a hash of the Vite manifest, so this works without setup.
 
-If you'd rather set the version yourself, call `Inertia.version()` in a provider's `boot()` method. It takes a string or a callable, which is evaluated once per request:
+To set the version yourself, call `Inertia.version()` in a provider's `boot()` method. It takes a string, or a callable that's called once per request:
 
 ```python
-from fastapi_startkit.inertia import Inertia
-
-class FastAPIProvider(BaseFastAPIProvider):
+# providers/app_provider.py
+class AppProvider(Provider):
     def boot(self) -> None:
-        super().boot()
         Inertia.version("1.0.0")
 ```
 
-Once a version is configured, it's used instead of the Vite manifest hash.
+A version you set is used instead of the Vite manifest hash.
 
-When the client's `X-Inertia-Version` header doesn't match the server version on a `GET` request, the middleware returns `409 Conflict` with `X-Inertia-Location` and `X-Inertia-Version` headers before the controller runs, and the client performs a full hard reload. Flash data and errors are kept for the reloaded page.
+When the client's `X-Inertia-Version` header doesn't match on a `GET` request, the middleware returns `409 Conflict` with `X-Inertia-Location` and `X-Inertia-Version` headers before your controller runs, and the client does a full reload. Flash data and errors are kept for the reloaded page.
 
 ## Root View
 
-The root template defaults to `index.html`. To use a different name, change it in a provider's `boot()` method:
+The root template defaults to `index.html`. To use another template, call `Inertia.set_root_view()` in a provider's `boot()` method:
 
 ```python
-from fastapi_startkit.inertia import Inertia
-
 Inertia.set_root_view("app.html")
 ```
 
-The configured root view is used for every first visit, though a single response can still use its own template:
+A single response can use its own template, and pass extra values to it with `with_view_data()`:
 
 ```python
-return Inertia.render("Reports/Print").with_root_view("print.html")
+return Inertia.render("Reports/Print").with_root_view("print.html").with_view_data("title", "Report")
 ```
+
+## Server-Side Rendering
+
+With server-side rendering (SSR), the first visit's HTML includes the rendered page, so it shows before your JavaScript loads. You run the Inertia SSR server from your JavaScript build, and the framework sends each first visit to it. See the [Inertia SSR guide](https://inertiajs.com/server-side-rendering) for the client side.
+
+Turn it on in a provider's `boot()` method. The URL defaults to `http://127.0.0.1:13714`:
+
+```python
+# providers/app_provider.py
+class AppProvider(Provider):
+    def boot(self) -> None:
+        Inertia.ssr("http://127.0.0.1:13714", except_paths=["/admin/*"])
+```
+
+The rendered body goes inside the <code v-pre>{{ inertia(page) }}</code> element, and the head tags are output by <code v-pre>{{ inertia_head(page) }}</code>. If the SSR server fails or doesn't respond within the `timeout` (1 second by default), the page is rendered on the client instead. Inertia requests from the client are never sent to the SSR server.
+
+During development, `Inertia.ssr_hot("public/hot")` sends pages to the Vite dev server named in the hot file instead. The dev server renders them when your Vite config uses the `@inertiajs/vite` plugin. To render one response on the client, call `without_ssr()` on it. To check that the SSR server is up, `await Inertia.ssr_healthy()` returns `True` or `False`.
 
 ## Middleware
 
-`InertiaProvider` registers `InertiaMiddleware` for you. It takes care of the following:
+`InertiaProvider` registers `InertiaMiddleware`. For Inertia requests, it does the following:
 
-1. Version check: returns `409` on version mismatch (triggers hard reload).
-2. Redirect conversion: converts `302` redirects to `303` for Inertia `PUT`/`PATCH`/`DELETE` requests, so the browser performs a `GET` on the redirect target.
-3. Empty responses: an empty `200` response to an Inertia request becomes a redirect back to the previous page.
-4. Fragment redirects: a redirect to a URL with a `#fragment` becomes a `409` with an `X-Inertia-Redirect` header, so the client keeps the fragment. Prefetch requests are left alone.
-5. Errors: shares the `errors` prop on every page.
-6. Vary header: adds `X-Inertia` to the `Vary` header of every response, keeping any existing values.
+1. Returns a `409` when the asset version doesn't match, so the client does a full reload.
+2. Turns a `302` into a `303` for `PUT`, `PATCH` and `DELETE` requests.
+3. Turns an empty `200` response into a redirect back to the previous page.
+4. Turns a redirect to a URL with a `#fragment` into a `409` with an `X-Inertia-Redirect` header, so the client keeps the fragment. Prefetch requests are left alone.
 
-Shared props, the per-request version and root view, and the history encryption flag all live in request-scoped state, so concurrent requests never see each other's data.
+On every request, it shares the `errors` prop and adds `X-Inertia` to the `Vary` header.
+
+Shared props, the version, the root view and the history flags set during a request belong to that request only, so concurrent requests don't see each other's values.
 
 ## Testing
 
-Flash data, errors and history flags are stored in the session. Without a session middleware, they're kept for the current request only and a warning is logged. In your tests, add `FakeSessionMiddleware` to get an in-memory session that persists between requests:
+Flash data, errors and history flags are kept in the session. In your tests, add `FakeSessionMiddleware` to get an in-memory session that lasts between requests, and use `assert_inertia()` to check the page:
 
 ```python
+# tests/test_users.py
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from fastapi_startkit.inertia import Inertia, InertiaMiddleware
-from fastapi_startkit.inertia.testing import FakeSessionMiddleware
+from fastapi_startkit.inertia.testing import FakeSessionMiddleware, assert_inertia
+
 
 @pytest.fixture
 def inertia_version():
@@ -679,25 +709,43 @@ def inertia_version():
     yield
     Inertia.version(None)
 
+
 def test_flash_appears_on_the_next_page(inertia_version):
-    session = {}
     app = FastAPI()
     app.add_middleware(InertiaMiddleware)
-    app.add_middleware(FakeSessionMiddleware, session=session)
+    app.add_middleware(FakeSessionMiddleware)
 
-    @app.post("/save")
-    async def save():
-        return Inertia.redirect("/page").flash("success", "Saved")
+    @app.post("/users")
+    async def store():
+        return Inertia.redirect("/users").flash("success", "User created")
 
-    @app.get("/page")
-    async def page():
-        return Inertia.render("Page")
+    @app.get("/users")
+    async def index():
+        return Inertia.render("Users/Index", {
+            "users": [{"name": "Alice"}],
+            "stats": Inertia.defer(lambda: {"total": 1}),
+        })
 
     client = TestClient(app)
-    client.post("/save", follow_redirects=False)
+    client.post("/users", follow_redirects=False)
+    response = client.get("/users", headers={"X-Inertia": "true", "X-Inertia-Version": "test"})
 
-    page = client.get("/page", headers={"X-Inertia": "true", "X-Inertia-Version": "test"}).json()
-    assert page["flash"] == {"success": "Saved"}
+    (
+        assert_inertia(response)
+        .component("Users/Index")
+        .has_count("users", 1)
+        .equals("users.0.name", "Alice")
+        .deferred("default", ["stats"])
+        .flash("success", "User created")
+    )
 ```
 
-The `inertia_version` fixture sets a fixed version, so this bare FastAPI app runs without a booted application (which would otherwise provide the Vite manifest hash), and it resets the version afterwards so it doesn't leak into other tests. You can pass your own dict as `session` to inspect or seed it. Remember that `FakeSessionMiddleware` is for tests only; use a real session middleware in your application.
+The `inertia_version` fixture sets a fixed asset version, because this FastAPI app runs without a booted application to provide the Vite manifest hash. It resets the version afterwards so it doesn't leak into other tests. To seed or inspect the session, pass your own dict as `session=`.
+
+`assert_inertia()` also provides `url()`, `version()`, `has()` and `missing()`. Paths use dots, and numbers index into lists.
+
+::: warning
+`FakeSessionMiddleware` is for tests only. Use a real session middleware, such as Starlette's `SessionMiddleware`, in your application.
+:::
+
+Related pages: [Vite](/docs/frontend/vite), [Validation](/docs/validation).

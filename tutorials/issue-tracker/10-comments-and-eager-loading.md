@@ -7,9 +7,9 @@ duration: 8
 
 # Comments and eager loading
 
-**Goal:** discuss an issue in comments, and fetch the issue with the whole thread.
+Comments let people discuss an issue. In this lesson you add them, then fetch an issue together with its whole thread.
 
-## 1. Create the table
+## 1. Create the Table
 
 ```bash
 uv run python artisan db:make:migration create_comments_table --create comments
@@ -38,7 +38,7 @@ class CreateCommentsTable(Migration):
 uv run python artisan db:migrate
 ```
 
-## 2. Add the model
+## 2. Add the Model
 
 Create `app/models/comment.py`:
 
@@ -81,7 +81,7 @@ class Issue(Model):
     comments = HasMany["Comment"](local_key="id", foreign_key="issue_id") # [!code ++]
 ```
 
-## 3. Validate and shape comments
+## 3. Validate and Shape Comments
 
 Create `app/http/requests/comment.py`:
 
@@ -129,7 +129,7 @@ class IssueDetailResource(IssueResource): # [!code ++]
     comments: list[CommentResource] # [!code ++]
 ```
 
-## 4. Add the controller
+## 4. Add the Controller
 
 Create `app/http/controllers/comment_controller.py`:
 
@@ -157,7 +157,7 @@ class CommentController:
         return CommentResource.model_validate(comment)
 ```
 
-## 5. Load related rows up front
+## 5. Load Related Rows Up Front
 
 Relationships aren't loaded until you ask for them. There are two ways to ask:
 
@@ -170,9 +170,9 @@ await comment.load("author")
 
 `with_()` goes on a query. It loads the authors for every comment it finds in one extra query, whether there are 2 comments or 200. `load()` does the same for a model you already have.
 
-Reading `comment.author` without loading it first raises a `LazyLoadingViolation`. That's on purpose. Loading it quietly would turn a loop over 200 comments into 200 extra queries, and you wouldn't notice until the page got slow.
+Reading `comment.author` without loading it first raises a `LazyLoadingViolation`. Loading it quietly would turn a loop over 200 comments into 200 extra queries, and you wouldn't notice until the page got slow.
 
-## 6. Load the thread with the issue
+## 6. Load the Thread with the Issue
 
 Change `show()` in `IssueController` to return the detail resource:
 
@@ -198,7 +198,7 @@ class IssueController:
 Use `with_()` on the query for nested paths like `comments.author`. `load()` on a model you already have takes plain relationship names, such as `load("reporter", "assignee")`.
 :::
 
-## 7. Add the routes
+## 7. Add the Routes
 
 In `routes/api.py`:
 

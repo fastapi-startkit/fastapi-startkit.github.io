@@ -7,9 +7,9 @@ duration: 5
 
 # Creating the project
 
-**Goal:** a new app with a database, running on your machine.
+The installer creates a new app with a SQLite database and a Vue frontend. By the end of this lesson the app runs on your machine.
 
-## 1. Run the installer
+## 1. Run the Installer
 
 The installer creates a project for you. Run it without any options and it asks a few questions:
 
@@ -55,10 +55,12 @@ Application: web; database: sqlite; frontend: vue
   create routes/api.py
   create tests/test_application.py
   create vite.config.ts
-Dependency: fastapi-startkit[database,fastapi,inertia,sqlite,vite]==0.75.1
+Dependency: fastapi-startkit[database,fastapi,inertia,sqlite,vite]==X.Y.Z
 ...
 Your application is ready.
 ```
+
+`X.Y.Z` is the latest release when you run the installer.
 
 Choosing SQLite gave you three things:
 
@@ -72,7 +74,7 @@ Choosing Vue gave you Vite, Tailwind, Inertia and a first page in `resources/js/
 If you started without a database, [Database: Getting Started](/docs/database/) shows how to add one by hand.
 :::
 
-## 2. Start the server
+## 2. Start the Server
 
 Move into the new folder and start the server:
 

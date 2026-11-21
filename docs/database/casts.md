@@ -7,204 +7,196 @@ keywords: casts, serialization, model attributes, pydantic, json, orm
 
 # Casts
 
-Databases store a fairly small set of types, but your application usually wants richer ones: booleans instead of `1` and `0`, dicts instead of JSON strings, dates instead of text. Casts bridge that gap. A cast converts a column value when you read it from the database and again when you write it back. The type annotation on a model field picks the cast, so most of the time you don't have to do anything beyond writing the annotation. You can also declare a field explicitly with `Field[T]()`.
+## Introduction
 
-## Built-in Casts
+Casts convert a model attribute when you read it from the database and again when you write it back, so you work with booleans, dicts, and dates instead of `1`, JSON strings, and text. The type annotation on a model field picks the cast, so most of the time the annotation is all you write.
 
-| Type annotation | Cast | Example DB value → Python                     |
-|---|---|-----------------------------------------------|
-| `int` | Integer | `"1"` → `1`                                   |
-| `str` | String | `1` → `"1"`                                   |
-| `float` | Float | `"3.14"` → `3.14`                             |
-| `bool` | Boolean | `1` → `True`, `0` → `False`                   |
-| `dict` | JSON | `'{"key":"val"}'` → `{"key": "val"}`          |
-| `list` | JSON | `'["a","b"]'` → `["a", "b"]`                  |
-| `datetime` | DateTime | `"2024-01-01 08:00:00"` → `datetime.datetime` |
-| `date` | DateTime | `"2024-01-01"` → `datetime.date`              |
-| `Carbon` | DateTime | `"2024-01-01 00:00:00"` → `Carbon`            |
-| `time` | Time | `"09:00:00"` → `datetime.time`                |
-| `timedelta` | TimeDelta | `3600.0` → `datetime.timedelta(seconds=3600)` |
+## Using Built-in Casts
 
-To use them, annotate the model fields. No other configuration is needed:
+Annotate the model's fields with Python types:
 
 ```python
+# app/models/User.py
 from fastapi_startkit.masoniteorm import Model
 
+
 class User(Model):
-    id: int
     name: str
-    is_admin: bool
+    is_active: bool
     score: float
-    preferences: dict   # stored as JSON text
-    tags: list          # stored as JSON text
+    preferences: dict
+    tags: list[str]
 ```
 
-When you read a model, the values come back as the annotated type:
+When you read a model, each value comes back as the annotated type:
 
 ```python
 user = await User.first()
 
-isinstance(user.id, int)          # True
-isinstance(user.is_admin, bool)   # True
-isinstance(user.preferences, dict) # True
+user.is_active    # True, stored as 1
+user.preferences  # {"theme": "dark"}, stored as JSON text
 ```
 
-Writing works the same way in reverse. Pass plain Python values, and there's no need for `json.dumps`:
+Writing works the other way round. Pass plain Python values, without `json.dumps`:
 
 ```python
 await User.create({
     "name": "Joe",
-    "is_admin": True,
+    "is_active": True,
+    "score": 3.14,
     "preferences": {"theme": "dark", "language": "en"},
     "tags": ["admin", "editor"],
 })
 ```
 
-## Date & Time Casts
+The annotation decides the cast:
 
-### `datetime` and `date`
+| Annotation | Read as | Stored as |
+|---|---|---|
+| `int` | `int` | integer |
+| `str` | `str` | text |
+| `float` | `float` | float |
+| `bool` | `bool` | boolean |
+| `dict`, `list`, `dict[...]`, `list[...]` | `dict` or `list` | JSON text |
+| `datetime`, `date`, `Carbon` | `Carbon` | UTC datetime |
+| `time` | `datetime.time` | `"HH:MM:SS"` text |
+| `timedelta` | `datetime.timedelta` | total seconds |
+| An `Enum` subclass | the enum member | the value you write |
+| A Pydantic model | the Pydantic model | JSON text |
 
-A field annotated with `datetime` or `date` comes back as a pendulum `DateTime`, which is a `datetime` subclass. If you want the field typed as `Carbon`, along with its helpers, annotate it with `Carbon` instead.
+::: warning
+Other annotations, including `Decimal`, aren't converted, so values are written as you pass them. A `Decimal` field reads back as a `str`, and on SQLite writing a `Decimal` raises `ProgrammingError`. Pass a `str` or a number instead.
+:::
+
+An enum field is read back as a member, but it's written as you pass it. Use a `StrEnum` or `IntEnum`, or pass the member's `.value`:
 
 ```python
-from datetime import datetime, date
+from enum import StrEnum
+
+
+class Status(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+
+class Post(Model):
+    title: str
+    status: Status
+```
+
+## Casting Dates and Times
+
+A field annotated with `datetime`, `date`, or `Carbon` comes back as a `Carbon` instance. `Carbon` is pendulum's `DateTime`, which is a `datetime` subclass, so a `date` field also comes back as a datetime at midnight:
+
+```python
+from datetime import date, datetime
+
+from fastapi_startkit.carbon import Carbon
 from fastapi_startkit.masoniteorm import Model
 
+
 class User(Model):
-    email_verified_at: datetime   # stored as "YYYY-MM-DD HH:MM:SS"
+    email_verified_at: datetime
     date_of_birth: date
+    last_seen_at: Carbon
 ```
 
-When writing, you can pass either a string or a native `datetime` / `date`:
+When writing, pass a string, a `datetime`, or a `date`. The value is stored in UTC:
 
 ```python
-import datetime
-
 await User.create({
     "email_verified_at": "2024-06-15 12:30:00",
-    "date_of_birth": datetime.date(1990, 6, 1),
+    "date_of_birth": date(1990, 6, 1),
 })
-```
 
-```python
 user = await User.first()
-
-user.email_verified_at.year    # 2024
-user.date_of_birth.month       # 6
+user.email_verified_at.year  # 2024
+user.date_of_birth.month     # 6
 ```
 
-### `Carbon`
+A value that can't be parsed as a datetime raises `ValueError`.
+
+### Times and Durations
+
+A `time` field is stored as an `"HH:MM:SS"` string and read as `datetime.time`. A `timedelta` field is stored as a number of seconds and read as `datetime.timedelta`:
 
 ```python
-from fastapi_startkit.carbon import Carbon
+from datetime import time, timedelta
 
-class Article(Model):
-    published_at: Carbon
+
+class Shift(Model):
+    starts_at: time
+    length: timedelta
 ```
 
-### `time`
+```python
+shift = await Shift.first()
 
-A `time` field is stored as an `"HH:MM:SS"` string and returned as `datetime.time`:
+shift.starts_at.hour            # 9
+shift.length.total_seconds()    # 3600.0
+```
+
+## Handling Null Values
+
+To allow `NULL`, add `| None` to the annotation. The attribute then reads as `None`:
 
 ```python
-from datetime import time
-
 class User(Model):
-    punch_in_time: time
+    nickname: str | None
+    login_count: int | None
+    is_banned: bool | None
 ```
 
-```python
-user = await User.first()
-isinstance(user.punch_in_time, time)   # True
-user.punch_in_time.hour                # 9
-```
+Without `| None`, a `NULL` goes through the cast: an `int` or `float` field raises `TypeError`, and a `bool` field reads as `False`.
 
-### `timedelta`
-
-A `timedelta` field is stored as a float of total seconds and returned as `datetime.timedelta`:
-
-```python
-from datetime import timedelta
-
-class Session(Model):
-    duration: timedelta
-```
-
-```python
-session = await Session.first()
-isinstance(session.duration, timedelta)       # True
-session.duration.total_seconds()              # 3600.0
-```
-
-### Default values
-
-If you'd rather not deal with `NULL`, use `Field(default=...)` or `Field(default_factory=...)` to set the value returned when the column is `NULL`:
+To read a `NULL` as a default value instead, use `Field(default=...)` or `Field(default_factory=...)`:
 
 ```python
 from datetime import time
-from fastapi_startkit.masoniteorm.models.fields import Field
+
+from fastapi_startkit.masoniteorm import Field, Model
+
 
 class User(Model):
     punch_in_time: time = Field(default=time(9, 0, 0))
 ```
 
-A `NULL` in the database now reads as `time(9, 0, 0)`.
+A `NULL` in `punch_in_time` now reads as `time(9, 0, 0)`.
 
-## Nested Pydantic Models
+## Storing Pydantic Models
 
-Sometimes a group of values belongs together, like the parts of an address. To store a value object like that in one column, define it as a Pydantic `BaseModel` and use it as the field type. It's serialized to JSON on write and rebuilt as the Pydantic model on read.
-
-### Defining a custom cast
+To store a group of values in one column, such as the parts of an address, define a Pydantic model and use it as the field type. It's written as JSON and read back as the Pydantic model:
 
 ```python
-from typing import Optional
+# app/models/User.py
 from pydantic import BaseModel
 
-class Address(BaseModel):
-    street: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = None
-```
-
-### Wiring it to a model
-
-```python
 from fastapi_startkit.masoniteorm import Model
-from app.casts import Address
+
+
+class Address(BaseModel):
+    street: str | None = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+
 
 class User(Model):
-    id: int
     name: str
-    address: Address
+    address: Address | None
 ```
 
-The older form `address: Address = ModelField()` still works. `ModelField` is importable from `fastapi_startkit.masoniteorm`, but it emits a `DeprecationWarning` and will be removed in 2.x, so switch to `address: Address`, or to `address = Field[Address]()` if you prefer an explicit field.
-
-In your migration, store the value in a `text` or `json` column:
+Store the value in a `text` or `json` column:
 
 ```python
-async def up(self):
-    async with await self.schema.create("users") as table:
-        table.id()
-        table.string("name")
-        table.text("address").nullable()
-        table.timestamps()
+async with await self.schema.create("users") as table:
+    table.id()
+    table.string("name")
+    table.text("address").nullable()
+    table.timestamps()
 ```
 
-### Reading
-
-```python
-user = await User.where("email", "admin@example.com").first()
-
-isinstance(user.address, Address)   # True
-user.address.city                   # "Sydney"
-user.address.country                # "Australia"
-```
-
-### Inserting
-
-When creating a record, you can pass an `Address`, a plain dict, or nothing at all:
+When you create a record, pass an `Address`, a dict, or nothing:
 
 ```python
 await User.create({
@@ -219,3 +211,37 @@ await User.create({
 
 await User.create({"name": "Guest"})
 ```
+
+```python
+user = await User.where("name", "Joe").first()
+
+user.address.city  # "Sydney"
+```
+
+You can also declare the field explicitly with `address = Field[Address]()`. The older `address: Address = ModelField()` form still works, but it emits a `DeprecationWarning` and will be removed in 2.x. Replace it with `address: Address` or `Field[Address]()`.
+
+## Writing Custom Casts
+
+When no built-in cast fits, write your own. Extend `BaseCast` and implement `get`, which converts the database value for your code, and `set`, which converts your value for the database. Then attach it to the field with `Annotated`:
+
+```python
+# app/models/Order.py
+from typing import Annotated
+
+from fastapi_startkit.masoniteorm import Model
+from fastapi_startkit.masoniteorm.models.caster import BaseCast
+
+
+class Cents(BaseCast):
+    def get(self, value):
+        return value / 100
+
+    def set(self, value):
+        return round(value * 100)
+
+
+class Order(Model):
+    total: Annotated[float, Cents]
+```
+
+`order.total` reads `1250` from the database as `12.5`, and writing `12.5` stores `1250`. You can pass the class or an instance, such as `Annotated[float, Cents()]`. A cast declared this way replaces the cast the type would otherwise get, including for `created_at` and `updated_at`.
