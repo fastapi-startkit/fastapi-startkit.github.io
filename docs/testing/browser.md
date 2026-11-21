@@ -33,15 +33,6 @@ class TestLogin(TestCase, DatabaseTruncation):
 
 The test, the live server, Playwright and your database connections share one event loop, so you can `await` the ORM and factories before and after a chain.
 
-- [Installation](#installation)
-- [Writing Browser Tests](#writing-browser-tests)
-- [Finding Elements](#finding-elements)
-- [Interacting with the Page](#interacting-with-the-page)
-- [Available Assertions](#available-assertions)
-- [Resetting the Database](#resetting-the-database)
-- [Running Browser Tests](#running-browser-tests)
-- [Example Application](#example-application)
-
 ## Installation
 
 Install the `playwright` extra as a dev dependency, then download the browsers you plan to use:

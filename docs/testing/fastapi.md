@@ -9,15 +9,6 @@ keywords: testing, fastapi, integration tests, pytest
 
 `HttpTestCase` sends HTTP requests to your application from your tests, without starting a server. Requests go through the same routes, middleware and providers as they do in production, and each response comes back with assertions for status codes, JSON bodies and streamed output.
 
-- [Installation](#installation)
-- [Writing Tests](#writing-tests)
-- [Making Requests](#making-requests)
-- [Status Assertions](#status-assertions)
-- [Fluent JSON Assertions](#fluent-json-assertions)
-- [Asserting JSON Structure](#asserting-json-structure)
-- [Asserting Response Content](#asserting-response-content)
-- [Testing Streamed Responses](#testing-streamed-responses)
-
 ## Installation
 
 The testing helpers ship with the `fastapi` extra. Add pytest and pytest-asyncio as dev dependencies:

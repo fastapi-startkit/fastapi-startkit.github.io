@@ -9,12 +9,6 @@ keywords: database testing, migrations, transactions, orm, pytest
 
 Tests that write to the database need a clean state, or a row created in one test shows up in the next. The `RefreshDatabase` and `DatabaseTransaction` mixins wrap each test in a transaction and roll it back when the test ends, so every test starts from the same data.
 
-- [Installation](#installation)
-- [Using a Test Database](#using-a-test-database)
-- [Resetting the Database](#resetting-the-database)
-- [Testing Against an Existing Schema](#testing-against-an-existing-schema)
-- [Checking the Database](#checking-the-database)
-
 ## Installation
 
 Install the `database` extra with a driver extra, such as `sqlite`, and add pytest and pytest-asyncio as dev dependencies:
