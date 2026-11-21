@@ -61,7 +61,7 @@ filename = await audio.store()
 `generate()` returns an `AudioResponse` that holds the audio bytes. See [Storing Audio](#the-audioresponse-object) for the ways to save it.
 
 ::: warning
-OpenAI has deprecated every speech model the builder can use (`tts-1`, `tts-1-hd` and `gpt-4o-mini-tts`), and shuts them down on January 6, 2027.
+OpenAI has deprecated every model its speech endpoint serves, `gpt-4o-mini-tts` included, and shuts them down on January 6, 2027.
 :::
 
 ### Voices
@@ -92,9 +92,11 @@ audio = await (
 
 | Method | Default | Values |
 |---|---|---|
-| `model(name)` | `tts-1` | `tts-1`, `tts-1-hd` or `gpt-4o-mini-tts` |
+| `model(name)` | an older built-in model | `gpt-4o-mini-tts` |
 | `speed(value)` | `1.0` | `0.25` to `4.0` |
 | `format(fmt)` | `mp3` | `mp3`, `opus`, `aac` or `flac` |
+
+`Audio` doesn't read `config/ai.py`, so call `model("gpt-4o-mini-tts")` on each request to use the current model.
 
 ## Storing Audio {#the-audioresponse-object}
 

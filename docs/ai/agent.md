@@ -21,12 +21,14 @@ Then install the integration package for each provider you use:
 
 | Provider | `@provider` name | Default text model | Install |
 |---|---|---|---|
-| Anthropic | `"anthropic"` | `claude-sonnet-4-6` | `uv add langchain-anthropic` |
-| OpenAI | `"openai"` | `gpt-4o` | `uv add langchain-openai` |
-| Google Gemini | `"google"` | `gemini-2.5-flash-lite` | `uv add langchain-google-genai` |
-| Amazon Bedrock | `"bedrock"` | `AWS_BEDROCK_MODEL`, or `us.anthropic.claude-sonnet-4-6` | `uv add "fastapi-startkit[bedrock]"` |
+| Anthropic | `"anthropic"` | `claude-sonnet-5-5` | `uv add langchain-anthropic` |
+| OpenAI | `"openai"` | `gpt-6.2-astra` | `uv add langchain-openai` |
+| Google Gemini | `"google"` | `gemini-3.8-flash` | `uv add langchain-google-genai` |
+| Amazon Bedrock | `"bedrock"` | `AWS_BEDROCK_MODEL`, or `anthropic.claude-sonnet-5-5` | `uv add "fastapi-startkit[bedrock]"` |
 | Ollama | `"ollama"` | `llama3.1` | `uv add "fastapi-startkit[ollama]"` |
 | Any OpenAI-compatible server | your own name | your own | `uv add langchain-openai` |
+
+Set these models explicitly in `config/ai.py`, as shown in [Config File](#config-file).
 
 ### Registering the Provider {#registering-the-provider}
 
@@ -70,7 +72,7 @@ GEMINI_API_KEY=AIza...
 | `OPENAI_API_KEY` | `""` | API key for OpenAI |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL, used for chat, images and audio |
 | `GEMINI_API_KEY` | `""` | API key for Google Gemini. `GOOGLE_API_KEY` is also accepted |
-| `AWS_BEDROCK_MODEL` | `us.anthropic.claude-sonnet-4-6` | Bedrock text model |
+| `AWS_BEDROCK_MODEL` | `anthropic.claude-sonnet-5-5` | Bedrock text model |
 | `AWS_REGION` | `""` | Bedrock region. `AWS_DEFAULT_REGION` is also accepted |
 | `AWS_BEARER_TOKEN_BEDROCK` | `""` | Bedrock API key. You may use `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` or `AWS_PROFILE` instead |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
@@ -83,6 +85,7 @@ The settings live in an `AIConfig` dataclass. To change them, subclass it in `co
 
 ```python
 # config/ai.py
+import os
 from dataclasses import dataclass, field
 
 from fastapi_startkit.ai import AIConfig as BaseAIConfig
@@ -102,14 +105,20 @@ class AIConfig(BaseAIConfig):
             "default_embeddings": "gemini-embedding-2",
             "default_decisions": "gemini-decision-1",
         }),
-        "openai": OpenAIConfig(),
-        "anthropic": AnthropicConfig(),
+        "openai": OpenAIConfig(models={
+            "default": "gpt-6.2-astra",
+            "default_embeddings": "text-embedding-3-small",
+        }),
+        "anthropic": AnthropicConfig(models={"default": "claude-sonnet-5-5"}),
         "elevenlabs": ElevenLabsConfig(),
-        "bedrock": BedrockConfig(),
+        "bedrock": BedrockConfig(models={
+            "default": os.getenv("AWS_BEDROCK_MODEL") or "anthropic.claude-sonnet-5-5",
+            "default_embeddings": "amazon.titan-embed-text-v2:0",
+        }),
     })
 ```
 
-This example keeps the framework defaults for the other providers and sets Google's chat and embeddings models to `gemini-3.8-flash` and `gemini-embedding-2`. Use `env()` only as a dataclass field default. Inside a dict such as `models`, write plain strings or call `os.getenv`. Then pass the class to `AIProvider`:
+This example sets every provider's models explicitly. Framework releases can ship older default models than the ones in these docs, so set the models you rely on here. A `models` map replaces the provider's whole default map, so list every key you use. Use `env()` only as a dataclass field default. Inside a dict such as `models`, write plain strings or call `os.getenv`. Then pass the class to `AIProvider`:
 
 ```python
 # bootstrap/application.py
@@ -159,8 +168,11 @@ class AIConfig(BaseAIConfig):
     default: str = env("AI_PROVIDER", "ollama")
 
     providers: dict[str, Config] = field(default_factory=lambda: {
-        "openai": OpenAIConfig(),
-        "anthropic": AnthropicConfig(),
+        "openai": OpenAIConfig(models={
+            "default": "gpt-6.2-astra",
+            "default_embeddings": "text-embedding-3-small",
+        }),
+        "anthropic": AnthropicConfig(models={"default": "claude-sonnet-5-5"}),
         "local": OpenAICompatibleConfig(
             url=os.getenv("LOCAL_AI_URL", "http://localhost:1234/v1"),
             key=os.getenv("LOCAL_AI_API_KEY", ""),
@@ -198,17 +210,19 @@ Each provider config has a `models` map with the default model for each feature.
 
 | Key | Used by | `google` | `openai` | `anthropic` |
 |---|---|---|---|---|
-| `default` | Agents, and classification on non-Google providers | `gemini-2.5-flash-lite` | `gpt-4o` | `claude-sonnet-4-6` |
-| `default_embeddings` | [Embeddings](./embeddings) | `gemini-embedding-001` | `text-embedding-3-small` | |
+| `default` | Agents, and classification on non-Google providers | `gemini-3.8-flash` | `gpt-6.2-astra` | `claude-sonnet-5-5` |
+| `default_embeddings` | [Embeddings](./embeddings) | `gemini-embedding-2` | `text-embedding-3-small` | |
 | `default_decisions` | [Classification](#classification) on Google | `gemini-decision-1` | | |
 
-You can read any of these values with the `Config` facade:
+Set these models explicitly in `config/ai.py`, as shown in [Config File](#config-file).
+
+With the config file above, you can read any of these values with the `Config` facade:
 
 ```python
 from fastapi_startkit.facades import Config
 
 Config.get("ai.default")                                    # "google"
-Config.get("ai.providers.google.models.default")            # "gemini-2.5-flash-lite"
+Config.get("ai.providers.google.models.default")            # "gemini-3.8-flash"
 Config.get("ai.providers.google.models.default_decisions")  # "gemini-decision-1"
 ```
 
@@ -222,7 +236,7 @@ from fastapi_startkit.ai import Agent, max_tokens, model, provider
 
 
 @provider("anthropic")
-@model("claude-opus-5-5")
+@model("claude-sonnet-5-5")
 @max_tokens(2048)
 class SupportAgent(Agent):
     def instructions(self) -> str:
@@ -870,7 +884,7 @@ from fastapi_startkit.ai import Agent, model, provider
 
 
 @provider("anthropic")
-@model("claude-opus-5-5")
+@model("claude-sonnet-5-5")
 class ThinkingAgent(Agent):
     def provider_options(self):
         return {

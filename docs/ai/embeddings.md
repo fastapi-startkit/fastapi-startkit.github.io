@@ -72,12 +72,12 @@ OPENAI_API_KEY=sk-...
 # OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-Each provider has a default embeddings model, which you can override per call:
+Each provider has a default embeddings model, which you can override per call. Set these models explicitly in `config/ai.py`, as shown in [Config File](./agent#config-file):
 
 | Provider | Default model | Credentials |
 |---|---|---|
 | `openai` | `text-embedding-3-small` | `OPENAI_API_KEY` |
-| `google` | `gemini-embedding-001` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` |
+| `google` | `gemini-embedding-2` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` |
 | `bedrock` | `amazon.titan-embed-text-v2:0` | `AWS_REGION` or `AWS_DEFAULT_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_PROFILE` |
 | `ollama` | `nomic-embed-text` | `OLLAMA_BASE_URL` (default `http://localhost:11434`) |
 
