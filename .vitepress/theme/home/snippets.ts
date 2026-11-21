@@ -168,7 +168,7 @@ class AddTool(Tool):
                 code: `from fastapi_startkit.ai import Agent, provider, model
 
 @provider("openai")
-@model("gpt-4o")
+@model("gpt-6.2-astra")
 class RouterAgent(Agent):
     def instructions(self) -> str:
         return "Greet the user and suggest relevant jobs."
@@ -189,7 +189,7 @@ class TestRouterAgent(IsolatedAsyncioTestCase):
             agent.assert_text_response()
             agent.assert_tool_not_called(["job_search_tool"])
             await agent.assert_response_judged(
-                model="gpt-4o-mini",
+                model="gpt-6-luna",
                 expectation="The llm should respond with greetings",
             )
 
