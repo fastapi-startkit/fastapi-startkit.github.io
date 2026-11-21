@@ -210,6 +210,8 @@ export default defineConfig({
                         { text: 'Broadcasting', link: '/docs/broadcasting' },
                         { text: 'Mail', link: '/docs/mail' },
                         { text: 'Notifications', link: '/docs/notifications' },
+                        { text: 'Events', link: '/docs/events' },
+                        { text: 'Rate Limiting', link: '/docs/rate-limiting' },
                         { text: 'JSON:API Resources', link: '/docs/jsonapi' },
                     ]
                 },
