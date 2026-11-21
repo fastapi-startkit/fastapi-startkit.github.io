@@ -39,7 +39,7 @@ Values in these files overwrite variables that are already set in the process en
 Creating the application fails when it can't find an environment name:
 
 - With no `APP_ENV` in the process environment and no `.env` file, it raises `ValueError: Unable to determine environment.`
-- With a `.env` file that doesn't set `APP_ENV`, it raises `ValueError: APP_ENV not set after loading .env`.
+- With no `APP_ENV` in the process environment and a `.env` file that doesn't set it, it raises `ValueError: APP_ENV not set after loading .env`.
 
 Under pytest the environment is always `testing`.
 

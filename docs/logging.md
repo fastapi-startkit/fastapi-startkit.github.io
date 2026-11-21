@@ -298,7 +298,7 @@ logging.getLogger("billing").warning("Invoice 1042 is overdue")
 Forwarded records always show `fastapi_startkit/logging/handler.py:11` as their source, not the line that logged them.
 
 ::: warning
-Forwarding only works when `default` is `terminal`. With `stack`, `daily` or `single` as the default, including the published config, the first forwarded record is written to the log file twice, and records logged after your first `Log` call are no longer forwarded: they skip the other channels and go straight to the log file, labelled with the level of your last `Log` call.
+With `stack`, `daily` or `single` as the default, including the published config, the first forwarded record is written to the log file twice, records logged after your first `Log` call skip the other channels, and only records at or above the level of your last `Log` call reach the log file, labelled with that level.
 :::
 
 A forwarded record passes two level checks. The top-level `level` key, set with `LOG_LEVEL`, sets the level of Python's root logger, and records below it are never forwarded. The record then goes through the default channel's own `level`. To forward `debug` records, set both to `debug`:

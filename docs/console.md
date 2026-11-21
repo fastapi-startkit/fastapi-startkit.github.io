@@ -257,7 +257,7 @@ The file contains an async method for each model event, such as `creating`, `upd
 
 Two database commands aren't registered by `DatabaseProvider`:
 
-- `shell` opens your database's own command-line client (`sqlite3`, `psql`, `mysql` or `sqlcmd`) using the connection settings from your config. `--connection` picks a connection other than the default, and `--show=1` prints the client command, with the password hidden, before running it. `--show` needs a value. The client must be installed and on your `PATH`.
+- `shell` opens your database's own command-line client (`sqlite3`, `psql`, `mysql` or `sqlcmd`) using the connection settings from your config. `--connection` picks a connection other than the default, and `--show=1` prints the client command before running it, with a password made of letters, digits and underscores hidden. `--show` needs a value. The client must be installed and on your `PATH`.
 - `db:migrate:reset` rolls back every migration without running them again.
 
 To use them, import them from `fastapi_startkit.masoniteorm.commands` and register them in your own provider:
