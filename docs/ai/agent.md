@@ -18,6 +18,8 @@ Because the provider is just configuration, you can move between Anthropic, Open
 | Anthropic | `"anthropic"` | `claude-sonnet-4-6` | `langchain-anthropic` |
 | OpenAI | `"openai"` | `gpt-4o` | `langchain-openai` |
 | Google Gemini | `"google"` | `gemini-2.5-flash-lite` | `langchain-google-genai` |
+| Ollama | `"ollama"` | `llama3.1` | `langchain-ollama` |
+| Any OpenAI-compatible server | your own name | your own | `langchain-openai` |
 
 > [!NOTE]
 > The agent module is built on LangChain (`langchain` and `langchain-core`) with a small custom runner instead of a LangGraph graph. Models are created with `langchain.chat_models.init_chat_model`, so any provider LangChain supports can be wired in.
@@ -77,11 +79,12 @@ GEMINI_API_KEY=AIza...
 
 | Variable | Default | Description |
 |---|---|---|
-| `AI_PROVIDER` | `google` | Active text provider: `anthropic`, `openai`, or `google` |
+| `AI_PROVIDER` | `google` | Active text provider: any name under `providers`, such as `anthropic`, `openai`, `google`, `ollama`, or a [custom provider](#custom-and-local-providers) |
 | `ANTHROPIC_API_KEY` | `""` | API key for Anthropic |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic API base URL |
 | `OPENAI_API_KEY` | `""` | API key for OpenAI |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL, used for chat, images and audio |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL for the `ollama` provider |
 | `GEMINI_API_KEY` | `""` | API key for Google Gemini (`GOOGLE_API_KEY` is also accepted) |
 | `AI_DEFAULT_DECISIONS_PROVIDER` | `google` | Provider used by [Classification](#classification): `google` (Decisions API), `openai`, `anthropic`, or `bedrock` |
 
@@ -141,6 +144,76 @@ app: Application = Application(
 ```
 
 `AIProvider` merges your config over the defaults one top-level field at a time. A `providers` map you set replaces the default map as a whole, so list every provider you use.
+
+### Custom and local providers
+
+The key under `providers` is the provider's name, and its `driver` field picks the integration. You can give a provider any name and select it with `AI_PROVIDER=<name>` or `@provider("<name>")`. Built-in names keep working as before.
+
+| Driver | Integration | Settings passed to the model |
+|---|---|---|
+| `anthropic`, `google`, `bedrock` | Native LangChain integration | `key`, plus AWS options for Bedrock |
+| `openai` | `ChatOpenAI` | `key` as `api_key`, `url` as `base_url` |
+| `openai-compatible` | `ChatOpenAI` against any OpenAI-compatible server (LM Studio, vLLM, llama.cpp, Ollama's `/v1`) | `url` as `base_url`, `key` as `api_key` (a placeholder key is sent when it is empty) |
+| `ollama` | Native `ChatOllama` from `langchain-ollama` | `url` as `base_url` |
+
+Use `OpenAICompatibleConfig` for a self-hosted server and `OllamaConfig` for Ollama:
+
+```python
+# config/ai.py
+import os
+from dataclasses import dataclass, field
+
+from fastapi_startkit.ai import AIConfig as BaseAIConfig
+from fastapi_startkit.ai import AnthropicConfig, OllamaConfig, OpenAICompatibleConfig, OpenAIConfig
+from fastapi_startkit.configuration import Config
+from fastapi_startkit.environment import env
+
+
+@dataclass
+class AIConfig(BaseAIConfig):
+    default: str = env("AI_PROVIDER", "ollama")
+
+    providers: dict[str, Config] = field(default_factory=lambda: {
+        "openai": OpenAIConfig(),
+        "anthropic": AnthropicConfig(),
+        "local": OpenAICompatibleConfig(
+            url=os.getenv("LOCAL_AI_URL", "http://localhost:1234/v1"),
+            key=os.getenv("LOCAL_AI_API_KEY", ""),
+            models={"default": "qwen2.5-7b-instruct", "default_embeddings": "nomic-embed-text"},
+        ),
+        "ollama": OllamaConfig(models={"default": "llama3.1", "default_embeddings": "nomic-embed-text"}),
+    })
+```
+
+Inside the `providers` factory, read variables with `os.getenv`: `env()` only works as a dataclass field default.
+
+```ini
+# .env
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+LOCAL_AI_URL=http://localhost:1234/v1
+```
+
+Install the integration for the driver you use:
+
+```bash
+uv add "fastapi-startkit[ollama]"   # ollama driver (langchain-ollama)
+uv add langchain-openai             # openai-compatible driver
+```
+
+Then point an agent at the provider by name:
+
+```python
+from fastapi_startkit.ai import Agent, provider
+
+
+@provider("local")
+class SupportAgent(Agent):
+    def instructions(self) -> str:
+        return "You answer support questions."
+```
+
+The default `AIConfig` already registers `ollama` (`OLLAMA_BASE_URL`, default `http://localhost:11434`), so `AI_PROVIDER=ollama` works without a config file once Ollama is running and `ollama pull llama3.1` is done. Both drivers also work with [Embeddings](./embeddings); Ollama embeddings do not accept `dimensions()`. A provider whose `driver` is unknown raises `ValueError` naming the provider and the driver. Image and audio helpers still support only their built-in providers.
 
 ### Provider models
 
