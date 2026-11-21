@@ -1,193 +1,190 @@
 ---
 outline: deep
 title: Image Generation
-description: Generate and edit images in FastAPI Startkit with a fluent API that works across providers, including OpenAI DALL-E and Google Imagen 3, with attachment-based editing and one-line storage to any disk.
-keywords: image generation, text-to-image, DALL-E, Imagen, OpenAI, Google Gemini, image editing, inpainting, FastAPI, fastapi-startkit
+description: Generate and edit images in FastAPI Startkit with the Image builder, which calls OpenAI's image models and saves the result to any storage disk.
+keywords: image generation, text-to-image, DALL-E, OpenAI, image editing, FastAPI, fastapi-startkit
 ---
 
 # Image Generation
 
 ## Introduction
 
-Need a hero image for a blog post or a fresh avatar for a new user? FastAPI Startkit's `Image` builder generates an image from a text prompt, or edits an existing one when you attach a [`Document`](#editing-images). The backend comes from the `AI_DEFAULT_IMAGE_PROVIDER` environment variable, so you can switch between OpenAI DALL-E and Google Imagen without changing your code.
+The `Image` builder turns a text prompt into an image, or edits an image you already have. You describe the picture, chain a few options such as the size, and await `generate()`. The result holds the image bytes and can save itself to one of your [storage disks](/docs/storage), so a hero image for a post or an avatar for a new user takes a few lines.
 
-| Provider | Generation model | Editing | SDK |
-|---|---|---|---|
-| `openai` | DALL-E 3 (DALL-E 2 for edits) | Yes | `openai` |
-| `google` | Imagen 3 (`imagen-3.0-generate-002`) | Not yet | `google-genai` |
-| `stability` | — | — | _stub, not yet implemented_ |
-
-`openai` is the default provider. The builder sends `dall-e-3` unless you call [`.model()`](#model-and-quality), so remember to set an Imagen model yourself when you use Google.
+Image requests are sent to OpenAI: DALL-E 3 for new images and DALL-E 2 for edits.
 
 ## Installation
 
-To get started, install the `ai` extra along with the OpenAI SDK, since the extra doesn't include it:
+Install the `ai` extra together with the OpenAI SDK:
 
 ```bash
 uv add "fastapi-startkit[ai]" openai
 ```
 
-> The `fastapi-startkit[ai]` extra cannot be installed on Python 3.15 or newer yet, because its `langgraph` dependency requires `ormsgpack`, which does not support 3.15. Use Python 3.14 or older for the `ai` extra.
-
-If you're using Google Imagen 3, install the Google GenAI SDK instead:
-
-```bash
-uv add google-genai
-```
-
 ## Configuration
 
-Next, set the provider and its API key in your `.env` file:
+Add your OpenAI key to the `.env` file:
 
 ```ini
 # .env
-AI_DEFAULT_IMAGE_PROVIDER=openai
-
 OPENAI_API_KEY=sk-...
-# For Google Imagen:
-# AI_DEFAULT_IMAGE_PROVIDER=google
-# GEMINI_API_KEY=AIza...        # GOOGLE_API_KEY is also accepted
 ```
 
-### Environment variables
+The OpenAI SDK reads `OPENAI_API_KEY` from the environment. To send requests through a proxy or another OpenAI-compatible endpoint, set `OPENAI_BASE_URL` as well.
 
-| Variable | Default | Description |
-|---|---|---|
-| `AI_DEFAULT_IMAGE_PROVIDER` | `openai` | Active image backend: `openai`, `google`, or `stability` |
-| `OPENAI_API_KEY` | — | API key for OpenAI / DALL-E |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI base URL (override for proxies / Azure) |
-| `GEMINI_API_KEY` | — | API key for Google Imagen (`GOOGLE_API_KEY` is also accepted) |
+::: warning
+`AI_DEFAULT_IMAGE_PROVIDER` doesn't switch the image backend yet. Whatever you set it to, `Image` sends the request to OpenAI, so keep `OPENAI_API_KEY` set.
+:::
 
-These values are loaded into the `AIConfig` dataclass, where `default_image` selects the backend and the API key and base URL come from the matching entry in `providers`.
+See [AI Agents](/docs/ai/agent) for the full AI configuration and `AIProvider`.
 
 ## Generating an Image
 
-To generate an image, pass a prompt to `Image.of()` and await `generate()`, which returns an [`ImageResponse`](#the-imageresponse-object):
+To generate an image, pass a prompt to `Image.of()` and await `generate()`:
 
 ```python
 from fastapi_startkit.ai import Image
 
 image = await Image.of("A donut on a marble counter, studio lighting").generate()
 
-path = await image.store()   # save to the default disk
+filename = await image.store()
+# "6b831c16-1735-4929-b711-342bedec73d7.png"
 ```
+
+`generate()` returns an `ImageResponse` that holds the PNG bytes. See [Storing Images](#the-imageresponse-object) for the ways to save it.
+
+::: warning
+OpenAI shut down `dall-e-2` and `dall-e-3` on May 12, 2026, and the builder can't yet call the GPT Image models that replace them: it always sends `response_format`, which those models reject. Until the builder supports GPT Image models, image requests to OpenAI fail.
+:::
 
 ### Sizes
 
-DALL-E 3 supports three sizes, and each one has its own method:
+Images are square by default. Call `landscape()` or `portrait()` for a wide or a tall image:
 
 ```python
-await Image.of("A mountain range at dawn").landscape().generate()  # 1792×1024
-await Image.of("A portrait of a fox").portrait().generate()        # 1024×1792
-await Image.of("A logo mark").square().generate()                  # 1024×1024 (default)
+await Image.of("A mountain range at dawn").landscape().generate()  # 1792x1024
+await Image.of("A portrait of a fox").portrait().generate()        # 1024x1792
+await Image.of("A logo mark").square().generate()                  # 1024x1024
 ```
 
-| Method | Size | Notes |
-|---|---|---|
-| `.landscape()` | `1792×1024` | DALL-E 3 only |
-| `.portrait()` | `1024×1792` | DALL-E 3 only |
-| `.square()` | `1024×1024` | Default |
+The landscape and portrait sizes are DALL-E 3 sizes. If you switch to `dall-e-2`, keep the default square size.
 
-With Google Imagen, these sizes map to the nearest aspect ratio: `1:1`, `16:9`, or `9:16`.
+### Model and Quality
 
-### Model and quality
-
-You can also choose the model, or ask DALL-E 3 for higher quality:
+The builder uses `dall-e-3` with `standard` quality. Call `quality("hd")` for finer detail, or `model()` to pick another OpenAI image model:
 
 ```python
 image = await (
     Image.of("A neon city skyline")
-    .model("dall-e-3")     # default
-    .quality("hd")         # 'standard' (default) or 'hd'
+    .model("dall-e-3")
+    .quality("hd")
     .landscape()
     .generate()
 )
 ```
 
-When you use Google Imagen, always pass an Imagen model name to `.model()`:
-
-```python
-image = await Image.of("A sunset over the sea").model("imagen-3.0-fast-generate-001").generate()
-```
+The quality setting is sent only when the model is `dall-e-3`.
 
 ## Editing Images
 
-To edit an existing image instead of generating a new one, attach it as a [`Document`](/docs/ai/agent#documents). The prompt then describes the change you want:
+To edit an image instead of generating a new one, attach it as a [`Document`](/docs/ai/agent). The prompt then describes the change you want:
 
 ```python
-from fastapi_startkit.ai import Image, Document
+from fastapi_startkit.ai import Document, Image
 
-source = await Document.from_url("https://example.com/photo.jpg")
+photo = await Document.from_storage("uploads/avatar.png")
 
 image = await (
     Image.of("Turn this into an impressionist painting")
-    .attachments([source])
+    .attachments([photo])
     .generate()
 )
 
-await image.storePublicly()
+filename = await image.storePublicly()
 ```
 
-`Document` can load the source image from a local file, a URL, or application storage:
+`Document` loads the source image from a local file, a URL or the `local` storage disk:
 
 ```python
-Document.from_path("photo.jpg")             # local file (sync)
-await Document.from_url("https://...")       # download (async)
-await Document.from_storage("uploads/x.png") # application storage (async)
+photo = Document.from_path("photos/avatar.png")
+photo = await Document.from_url("https://example.com/avatar.png")
+photo = await Document.from_storage("uploads/avatar.png")
 ```
 
-::: warning Provider support
-Only the OpenAI backend supports editing. It uses DALL-E 2, the model that supports inpainting. The Google backend raises `NotImplementedError` for edits, so set `AI_DEFAULT_IMAGE_PROVIDER=openai` when you need them. Only the first attachment is used, and edits are always `1024×1024`.
-:::
+Edits always use `dall-e-2` and return a 1024x1024 image. Only the first attachment is sent, and the size, model and quality methods have no effect on an edit.
 
-## The `ImageResponse` Object
+## Storing Images {#the-imageresponse-object}
 
-Every call to `generate()` returns an `ImageResponse`. It holds the raw PNG bytes and gives you a handful of async methods for saving them.
-
-### Accessing raw bytes
+`generate()` returns an `ImageResponse`. Its `data` property holds the raw PNG bytes, for when you want to stream the image or hand it to another service:
 
 ```python
 image = await Image.of("A red bicycle").generate()
 
-raw: bytes = image.data
+png: bytes = image.data
 ```
 
-### Storing to a disk
+### Storing to a Disk
 
-Most of the time you'll want to save the image somewhere. These methods write it to a [storage disk](/docs/storage) and return the stored filename. All of them are coroutines:
+Most of the time you'll save the image to a [storage disk](/docs/storage). Each method is a coroutine that returns the stored filename:
 
 ```python
-path = await image.store()                       # auto-named, private "local" disk
-path = await image.storeAs("result.png")         # custom name, private "local" disk
-path = await image.storePublicly()               # auto-named, public disk
-path = await image.storePubliclyAs("result.png") # custom name, public disk
+filename = await image.store()                           # "local" disk, generated name
+filename = await image.storeAs("posts/hero.png")         # "local" disk, your name
+filename = await image.storePublicly()                   # "public" disk, generated name
+filename = await image.storePubliclyAs("posts/hero.png") # "public" disk, your name
 ```
 
 | Method | Disk | Filename |
 |---|---|---|
-| `store()` | `local` | Auto-generated (UUID) |
+| `store()` | `local` | A UUID with a `.png` extension |
 | `storeAs(name)` | `local` | `name` |
-| `storePublicly()` | `public` | Auto-generated (UUID) |
+| `storePublicly()` | `public` | A UUID with a `.png` extension |
 | `storePubliclyAs(name)` | `public` | `name` |
 
-Auto-generated filenames use a UUID with the image extension, for example `2f1c….png`. If the [Storage](/docs/storage) facade is unavailable, the bytes are written to a file in the system temp directory instead, and you get that absolute path back.
+Files on the `public` disk are served at `/storage/{filename}` (see [Public URLs](/docs/storage#public-urls)). If `StorageProvider` isn't registered, the image is written to the system temp directory instead and the method returns that absolute path.
+
+## Testing
+
+Your tests shouldn't call OpenAI. Replace `Image.generate` with a mock that returns an `ImageResponse`, and fake the disk the image is stored on:
+
+```python
+# tests/test_avatars.py
+from unittest.mock import AsyncMock, patch
+
+from fastapi_startkit.ai import Image, ImageResponse
+from fastapi_startkit.storage import Storage
+
+
+async def test_avatar_is_stored_publicly():
+    disk = Storage.fake("public")
+
+    with patch.object(Image, "generate", AsyncMock(return_value=ImageResponse(b"\x89PNG"))):
+        image = await Image.of("A friendly robot").generate()
+        await image.storePubliclyAs("avatars/robot.png")
+
+    disk.assert_exists("avatars/robot.png")
+    disk.cleanup()
+```
 
 ## Full Example
 
-Putting it all together, this route generates an image and returns its public URL:
+This route generates an avatar from a prompt, stores it on the `public` disk and returns its URL:
 
 ```python
-from fastapi_startkit.ai import Image
-from fastapi_startkit.storage import Storage
+# routes/api.py
+from fastapi import APIRouter
 
+from fastapi_startkit.ai import Image
+
+router = APIRouter()
+
+
+@router.post("/avatars")
 async def create_avatar(prompt: str):
     image = await Image.of(prompt).square().quality("hd").generate()
     filename = await image.storePublicly()
-    return {"url": Storage.disk("public").url(filename)}
+
+    return {"url": f"/storage/{filename}"}
 ```
 
-## See Also
-
-- [Audio Generation](/docs/ai/audio): text-to-speech with the same builder API
-- [AI Agents](/docs/ai/agent): LangChain agents and the `Document` helper
-- [Storage](/docs/storage): disks, public URLs, and fake storage for tests
+See [Audio Generation](/docs/ai/audio) for text-to-speech with the same builder style, and [Storage](/docs/storage) for disks and public URLs.

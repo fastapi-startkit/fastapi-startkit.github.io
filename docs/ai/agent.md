@@ -1,50 +1,38 @@
 ---
 outline: deep
 title: AI Agents
-description: Build declarative AI agents in FastAPI Startkit on top of LangChain, with Anthropic, OpenAI, and Google providers, tool calling, streaming, document attachments, structured output, middleware, and built-in testing helpers.
+description: Build AI agents in FastAPI Startkit with Anthropic, OpenAI, Google, Bedrock and local providers, with tool calling, streaming, document attachments, structured output, classification, middleware, and testing helpers.
 keywords: AI agents, classification, Decisions API, Anthropic, OpenAI, Google Gemini, LLM, tool calling, streaming, FastAPI, fastapi-startkit, agent testing, structured output, middleware
 ---
 
 # AI Agents
 
-## Introduction
-
-FastAPI Startkit lets you describe an AI agent as a plain Python class. Each agent extends `Agent`; you configure it with a few decorators and by overriding methods, then call `await agent.prompt(...)` or iterate over `agent.stream(...)`. Behind the scenes, the agent builds a LangChain chat model for the active provider, binds your tools, and returns the turn as a LangChain-style `{"messages": [...]}` dict.
-
-Because the provider is just configuration, you can move between Anthropic, OpenAI, and Google by changing one environment variable. And when it's time to write tests, you can run your agents offline with fakes and recorded cassettes.
-
-| Provider | `@provider` name | Default text model | LangChain integration package |
-|---|---|---|---|
-| Anthropic | `"anthropic"` | `claude-sonnet-4-6` | `langchain-anthropic` |
-| OpenAI | `"openai"` | `gpt-4o` | `langchain-openai` |
-| Google Gemini | `"google"` | `gemini-2.5-flash-lite` | `langchain-google-genai` |
-| Ollama | `"ollama"` | `llama3.1` | `langchain-ollama` |
-| Any OpenAI-compatible server | your own name | your own | `langchain-openai` |
-
-> [!NOTE]
-> The agent module is built on LangChain (`langchain` and `langchain-core`) with a small custom runner instead of a LangGraph graph. Models are created with `langchain.chat_models.init_chat_model`, so any provider LangChain supports can be wired in.
+An agent is a Python class that describes how to talk to a language model: its instructions, the tools it may call, and the shape of the answer you want back. You call `await agent.prompt(...)` for a full reply or iterate `agent.stream(...)` to show it as it's generated. The provider is configuration, so you can move an agent between Anthropic, OpenAI, Google, Bedrock or a local model without changing its code, and you can test it offline with fakes and recorded cassettes.
 
 ## Installation
 
-Install the `ai` extra to pull in LangChain:
+Install the `ai` extra:
 
 ```bash
 uv add "fastapi-startkit[ai]"
 ```
 
-> Python 3.12, 3.13, 3.14 and 3.15 are supported. The `fastapi-startkit[ai]` extra cannot be installed on Python 3.15 or newer yet, because its `langgraph` dependency requires `ormsgpack`, which does not support 3.15. Use Python 3.14 or older for the `ai` extra.
+Then install the integration package for each provider you use:
 
-The `ai` extra installs only `langchain` and `langchain-core`. Provider SDKs are loaded lazily through LangChain's integration packages, so you only need to install the ones for the providers you actually use:
+| Provider | `@provider` name | Recommended text model | Install |
+|---|---|---|---|
+| Anthropic | `"anthropic"` | `claude-sonnet-5-5` | `uv add langchain-anthropic` |
+| OpenAI | `"openai"` | `gpt-6.2-astra` | `uv add langchain-openai` |
+| Google Gemini | `"google"` | `gemini-3.8-flash` | `uv add langchain-google-genai` |
+| Amazon Bedrock | `"bedrock"` | `AWS_BEDROCK_MODEL`, or an inference profile ID, such as `global.anthropic.claude-sonnet-5-5` | `uv add "fastapi-startkit[bedrock]"` |
+| Ollama | `"ollama"` | `llama3.1` | `uv add "fastapi-startkit[ollama]"` |
+| Any OpenAI-compatible server | your own name | your own | `uv add langchain-openai` |
 
-```bash
-uv add langchain-anthropic        # Anthropic
-uv add langchain-openai           # OpenAI
-uv add langchain-google-genai     # Google Gemini
-```
+Set these models explicitly in `config/ai.py`, as shown in [Config File](#config-file).
 
-### Registering the provider
+### Registering the Provider {#registering-the-provider}
 
-Next, register `AIProvider` in your application. It merges the AI configuration into the `ai` config key:
+Register `AIProvider` in your application. It loads the AI configuration into the `ai` config key:
 
 ```python
 # bootstrap/application.py
@@ -53,10 +41,9 @@ from pathlib import Path
 from fastapi_startkit import Application
 from fastapi_startkit.ai import AIProvider
 
-app: Application = Application(
+app = Application(
     base_path=Path(__file__).resolve().parent.parent,
     providers=[
-        # ... other providers
         AIProvider,
     ],
 )
@@ -75,28 +62,30 @@ OPENAI_API_KEY=sk-...
 GEMINI_API_KEY=AIza...
 ```
 
-### Environment variables
+### Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `AI_PROVIDER` | `google` | Active text provider: any name under `providers`, such as `anthropic`, `openai`, `google`, `ollama`, or a [custom provider](#custom-and-local-providers) |
+| `AI_PROVIDER` | `google` | Provider for agents and [classification](#classification): any name under `providers`, such as `anthropic`, `openai`, `google`, `bedrock`, `ollama`, or a [custom provider](#custom-and-local-providers) |
 | `ANTHROPIC_API_KEY` | `""` | API key for Anthropic |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic API base URL |
 | `OPENAI_API_KEY` | `""` | API key for OpenAI |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL, used for chat, images and audio |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL for the `ollama` provider |
-| `GEMINI_API_KEY` | `""` | API key for Google Gemini (`GOOGLE_API_KEY` is also accepted) |
-| `AI_DEFAULT_DECISIONS_PROVIDER` | `google` | Provider used by [Classification](#classification): `google` (Decisions API), `openai`, `anthropic`, or `bedrock` |
+| `GEMINI_API_KEY` | `""` | API key for Google Gemini. `GOOGLE_API_KEY` is also accepted |
+| `AWS_BEDROCK_MODEL` | the framework's built-in model | Bedrock text model: an inference profile ID, such as `global.anthropic.claude-sonnet-5-5`. A geo prefix (`us.`, `eu.`, `ca.`, `au.`) also works |
+| `AWS_REGION` | `""` | Bedrock region. `AWS_DEFAULT_REGION` is also accepted |
+| `AWS_BEARER_TOKEN_BEDROCK` | `""` | Bedrock API key. You may use `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` or `AWS_PROFILE` instead |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 
-> [!TIP]
-> `AI_DEFAULT_IMAGE_PROVIDER`, `AI_DEFAULT_AUDIO_PROVIDER`, `AI_DEFAULT_TRANSCRIBE_PROVIDER`, and `AI_DEFAULT_EMBEDDINGS_PROVIDER` (each defaulting to `openai`) select the providers used by the [Image](./image), [Audio](./audio) and [Embeddings](./embeddings) helpers. Each feature picks its provider on its own, independently of `AI_PROVIDER`.
+`AI_DEFAULT_EMBEDDINGS_PROVIDER` picks the provider for [Embeddings](./embeddings), and defaults to `openai` independently of `AI_PROVIDER`. [Image](./image) and [Audio](./audio) use OpenAI.
 
-### Config file
+### Config File
 
-The AI settings live in an `AIConfig` dataclass, and every field reads its value from `.env` through `env()`. To change them, keep your own config in `config/ai.py`, as you do for the [database](/docs/database/#configuration). Subclass the framework's `AIConfig` and override only the fields you need:
+The settings live in an `AIConfig` dataclass. To change them, subclass it in `config/ai.py` and override only the fields you need:
 
 ```python
 # config/ai.py
+import os
 from dataclasses import dataclass, field
 
 from fastapi_startkit.ai import AIConfig as BaseAIConfig
@@ -108,35 +97,40 @@ from fastapi_startkit.environment import env
 @dataclass
 class AIConfig(BaseAIConfig):
     default: str = env("AI_PROVIDER", "google")
-    default_image: str = env("AI_DEFAULT_IMAGE_PROVIDER", "openai")
-    default_audio: str = env("AI_DEFAULT_AUDIO_PROVIDER", "openai")
-    default_transcribe: str = env("AI_DEFAULT_TRANSCRIBE_PROVIDER", "openai")
     default_embeddings: str = env("AI_DEFAULT_EMBEDDINGS_PROVIDER", "openai")
-    default_decisions: str = env("AI_DEFAULT_DECISIONS_PROVIDER", "google")
 
     providers: dict[str, Config] = field(default_factory=lambda: {
         "google": GoogleConfig(models={
-            "default": "gemini-2.5-flash",
-            "default_image": "imagen-3.0-generate-002",
-            "default_embeddings": "gemini-embedding-001",
+            "default": "gemini-3.8-flash",
+            "default_embeddings": "gemini-embedding-2",
             "default_decisions": "gemini-decision-1",
         }),
-        "openai": OpenAIConfig(),
-        "anthropic": AnthropicConfig(),
+        "openai": OpenAIConfig(models={
+            "default": "gpt-6.2-astra",
+            "default_embeddings": "text-embedding-3-small",
+        }),
+        "anthropic": AnthropicConfig(models={"default": "claude-sonnet-5-5"}),
         "elevenlabs": ElevenLabsConfig(),
-        "bedrock": BedrockConfig(),
+        "bedrock": BedrockConfig(models={
+            "default": os.getenv("AWS_BEDROCK_MODEL") or "global.anthropic.claude-sonnet-5-5",
+            "default_embeddings": "amazon.titan-embed-text-v2:0",
+        }),
     })
 ```
 
-Each `env(name, default)` field reads the variable when the config is created and uses the default when it is unset. The example keeps the framework defaults, except for Google's chat model, which changes to `gemini-2.5-flash`. Use `env()` only as a dataclass field default: inside a dict such as `models` it is not resolved, so write those values as plain strings. Then pass the class to `AIProvider`:
+This example sets every provider's models explicitly. Framework releases can ship older default models than the ones in these docs, so set the models you rely on here. A `models` map replaces the provider's whole default map, so list every key you use. Use `env()` only as a dataclass field default. Inside a dict such as `models`, write plain strings or call `os.getenv`. Then pass the class to `AIProvider`:
 
 ```python
 # bootstrap/application.py
-from config.ai import AIConfig
+from pathlib import Path
+
+from fastapi_startkit import Application
 from fastapi_startkit.ai import AIProvider
 
-app: Application = Application(
-    base_path=...,
+from config.ai import AIConfig
+
+app = Application(
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
         (AIProvider, AIConfig),
     ],
@@ -145,16 +139,16 @@ app: Application = Application(
 
 `AIProvider` merges your config over the defaults one top-level field at a time. A `providers` map you set replaces the default map as a whole, so list every provider you use.
 
-### Custom and local providers
+### Custom and Local Providers {#custom-and-local-providers}
 
-The key under `providers` is the provider's name, and its `driver` field picks the integration. You can give a provider any name and select it with `AI_PROVIDER=<name>` or `@provider("<name>")`. Built-in names keep working as before.
+The key under `providers` is the provider's name, and its `driver` picks the integration. You can give a provider any name and select it with `AI_PROVIDER=<name>` or `@provider("<name>")`.
 
 | Driver | Integration | Settings passed to the model |
 |---|---|---|
-| `anthropic`, `google`, `bedrock` | Native LangChain integration | `key`, plus AWS options for Bedrock |
-| `openai` | `ChatOpenAI` | `key` as `api_key`, `url` as `base_url` |
-| `openai-compatible` | `ChatOpenAI` against any OpenAI-compatible server (LM Studio, vLLM, llama.cpp, Ollama's `/v1`) | `url` as `base_url`, `key` as `api_key` (a placeholder key is sent when it is empty) |
-| `ollama` | Native `ChatOllama` from `langchain-ollama` | `url` as `base_url` |
+| `anthropic`, `google`, `bedrock` | The provider's own integration package | `key`, plus the AWS settings for Bedrock |
+| `openai` | OpenAI | `key` as `api_key`, `url` as `base_url` |
+| `openai-compatible` | Any OpenAI-compatible server, such as LM Studio, vLLM, llama.cpp or Ollama's `/v1` | `url` as `base_url`, `key` as `api_key`. A placeholder key is sent when `key` is empty |
+| `ollama` | Ollama's native API | `url` as `base_url` |
 
 Use `OpenAICompatibleConfig` for a self-hosted server and `OllamaConfig` for Ollama:
 
@@ -174,8 +168,11 @@ class AIConfig(BaseAIConfig):
     default: str = env("AI_PROVIDER", "ollama")
 
     providers: dict[str, Config] = field(default_factory=lambda: {
-        "openai": OpenAIConfig(),
-        "anthropic": AnthropicConfig(),
+        "openai": OpenAIConfig(models={
+            "default": "gpt-6.2-astra",
+            "default_embeddings": "text-embedding-3-small",
+        }),
+        "anthropic": AnthropicConfig(models={"default": "claude-sonnet-5-5"}),
         "local": OpenAICompatibleConfig(
             url=os.getenv("LOCAL_AI_URL", "http://localhost:1234/v1"),
             key=os.getenv("LOCAL_AI_API_KEY", ""),
@@ -185,8 +182,6 @@ class AIConfig(BaseAIConfig):
     })
 ```
 
-Inside the `providers` factory, read variables with `os.getenv`: `env()` only works as a dataclass field default.
-
 ```ini
 # .env
 AI_PROVIDER=ollama
@@ -194,16 +189,10 @@ OLLAMA_BASE_URL=http://localhost:11434
 LOCAL_AI_URL=http://localhost:1234/v1
 ```
 
-Install the integration for the driver you use:
-
-```bash
-uv add "fastapi-startkit[ollama]"   # ollama driver (langchain-ollama)
-uv add langchain-openai             # openai-compatible driver
-```
-
 Then point an agent at the provider by name:
 
 ```python
+# app/agents/support_agent.py
 from fastapi_startkit.ai import Agent, provider
 
 
@@ -213,127 +202,163 @@ class SupportAgent(Agent):
         return "You answer support questions."
 ```
 
-The default `AIConfig` already registers `ollama` (`OLLAMA_BASE_URL`, default `http://localhost:11434`), so `AI_PROVIDER=ollama` works without a config file once Ollama is running and `ollama pull llama3.1` is done. Both drivers also work with [Embeddings](./embeddings); Ollama embeddings do not accept `dimensions()`. A provider whose `driver` is unknown raises `ValueError` naming the provider and the driver. Image and audio helpers still support only their built-in providers.
+The default `AIConfig` already registers `ollama`, so `AI_PROVIDER=ollama` works without a config file once Ollama is running and you've pulled `llama3.1`. Both drivers also work with [Embeddings](./embeddings). The [Image](./image) and [Audio](./audio) helpers support only their built-in providers. A provider with an unknown `driver` raises `ValueError` naming the provider and the driver.
 
-### Provider models
+### Provider Models
 
-Each provider config has a `models` map with the default model for each feature. A `model` passed to an agent, `Image`, `Embeddings` or `classify()` overrides it.
+Each provider config has a `models` map with the default model for each feature. The framework's built-in defaults can be older than the models recommended below. A `model` you pass to an agent, `Embeddings` or `classify()` overrides it.
 
-| Key | Used by | `google` | `openai` | `anthropic` |
+| Key | Used by | Recommended for `google` | Recommended for `openai` | Recommended for `anthropic` |
 |---|---|---|---|---|
-| `default` | Agents, classification on chat providers | `gemini-2.5-flash-lite` | `gpt-4o` | `claude-sonnet-4-6` |
-| `default_image` | [Image](./image) | `imagen-3.0-generate-002` | `dall-e-3` | |
-| `default_embeddings` | [Embeddings](./embeddings) | `gemini-embedding-001` | `text-embedding-3-small` | |
+| `default` | Agents, and classification on non-Google providers | `gemini-3.8-flash` | `gpt-6.2-astra` | `claude-sonnet-5-5` |
+| `default_embeddings` | [Embeddings](./embeddings) | `gemini-embedding-2` | `text-embedding-3-small` | |
 | `default_decisions` | [Classification](#classification) on Google | `gemini-decision-1` | | |
 
-You can read any of these values at runtime with the `Config` facade:
+Set these models explicitly in `config/ai.py`, as shown in [Config File](#config-file).
+
+With the config file above, you can read any of these values with the `Config` facade:
 
 ```python
-from fastapi_startkit import Config
+from fastapi_startkit.facades import Config
 
-Config.get("ai.providers.anthropic.key")          # dotted access
-Config.get("ai.providers.google.models.default")  # "gemini-2.5-flash-lite"
+Config.get("ai.default")                                    # "google"
+Config.get("ai.providers.google.models.default")            # "gemini-3.8-flash"
 Config.get("ai.providers.google.models.default_decisions")  # "gemini-decision-1"
 ```
 
-## Creating an Agent
+## Creating Agents
 
-To create an agent, extend `Agent`, add any decorators you need, and return your system prompt from `instructions()`:
+To create an agent, extend `Agent`, add the decorators you need, and return your system prompt from `instructions()`:
 
 ```python
-from fastapi_startkit.ai import Agent, provider, model, max_tokens, state
+# app/agents/support_agent.py
+from fastapi_startkit.ai import Agent, max_tokens, model, provider
+
 
 @provider("anthropic")
-@model("claude-sonnet-4-6")
+@model("claude-sonnet-5-5")
 @max_tokens(2048)
 class SupportAgent(Agent):
     def instructions(self) -> str:
         return "You are a friendly customer support assistant."
-
-agent = SupportAgent()
-result = await agent.prompt("How do I reset my password?")
-print(state.text(result))  # "To reset your password, click …"
 ```
 
-> [!IMPORTANT]
-> `prompt()` is a coroutine and `stream()` returns a streamable response. `await` the first and iterate the second with `async for`, or return it from a route through a [stream protocol](#stream-protocols).
+### Overridable Methods
 
-### Overridable methods
-
-Beyond `instructions()`, you can override any of the following methods. Every one of them is optional:
+Beyond `instructions()`, you may override any of these methods. Each one is optional:
 
 | Method | Returns | Purpose |
 |---|---|---|
-| `instructions()` | `str \| None` | The system prompt, sent first in the message list |
-| `messages()` | `list[dict]` | Prior conversation turns to prepend |
-| `tools()` | `list[BaseTool]` | LangChain tools the model may call |
-| `schema()` | `type \| None` | Pydantic model for [structured output](#structured-output) |
-| `middleware()` | `list` | [Middleware](#middleware-pipeline) layers wrapping each request |
-| `provider_options()` | `dict` | Per-provider SDK options |
+| `instructions()` | `str \| None` | The system prompt, sent first |
+| `messages()` | `list[dict]` | Earlier conversation turns. May be `async`, for history you load from a database |
+| `tools()` | `list` | [Tools](#tools) the model may call |
+| `schema()` | `type \| None` | A Pydantic model for [structured output](#structured-output) |
+| `middleware()` | `list` | [Middleware](#middleware-pipeline) that wraps each request |
+| `provider_options()` | `dict` | [Provider options](#provider-options), keyed by provider name |
 
-## Decorators Reference
+### Decorators
 
 Each decorator sets a class attribute on the agent:
 
 | Decorator | Default | Description |
 |---|---|---|
-| `@provider(name)` | `AI_PROVIDER` (default `google`) | LLM provider: `"anthropic"`, `"openai"`, `"google"` |
-| `@model(name)` | provider default | Model identifier (e.g. `"claude-sonnet-4-6"`, `"gpt-4o"`) |
+| `@provider(name)` | `AI_PROVIDER` | Provider name from `ai.providers` |
+| `@model(name)` | the provider's `default` model | Model identifier, such as `"gpt-6.2-astra"` |
 | `@max_tokens(n)` | `4096` | Maximum output tokens per response |
-| `@max_steps(n)` | `10` | Stored on the agent but not read yet: the runner makes one model call and runs the requested tools once |
-| `@timeout(seconds)` | `30.0` | Per-request timeout in seconds |
-| `@top_p(value)` | `1.0` | Top-p nucleus sampling parameter |
+| `@timeout(seconds)` | `30.0` | Request timeout in seconds |
+| `@top_p(value)` | `1.0` | Nucleus sampling parameter |
+| `@max_steps(n)` | `10` | Stored on the agent. A prompt makes one model call and runs the requested tools once, whatever the value |
 
-You may stack as many decorators as you like:
-
-```python
-@provider("openai")
-@model("gpt-4o")
-@max_tokens(1024)
-@timeout(60.0)
-class AnalysisAgent(Agent):
-    ...
-```
-
-If you prefer, you can set the same attributes on the class directly:
+You may stack as many decorators as you like, or set the same attributes on the class directly. `temperature` and `tool_choice` have no decorator, so set them as attributes:
 
 ```python
+# app/agents/analysis_agent.py
+from fastapi_startkit.ai import Agent
+
+
 class AnalysisAgent(Agent):
-    provider = "openai"
-    model = "gpt-4o"
+    provider = "google"
+    model = "gemini-3.8-flash"
     max_tokens = 1024
+    temperature = 0.2
+    tool_choice = "auto"
 ```
 
-## prompt()
+## Prompting Agents
 
-The `Agent.prompt()` method sends a user message to the model and returns the whole turn as a dict:
+`prompt()` sends a user message to the model and returns the whole turn:
 
 ```python
-result = await agent.prompt("Summarise this lead and score it 1–10.")
+from fastapi_startkit.ai import state
+
+result = await SupportAgent().prompt("How do I reset my password?")
+
+print(state.text(result))  # "To reset your password, click ..."
 ```
 
-### Signature
+It accepts a few keyword arguments for a single call:
 
 ```python
 async def prompt(
     self,
     message: str,
     *,
-    model: str | None = None,            # override the model for this call only
-    attachments: list[Document] | None = None,  # documents to include
-    provider_options: dict | None = None,        # per-provider options for this call
+    model: str | None = None,
+    attachments: list[Document] | None = None,
+    provider_options: dict | None = None,
 ) -> dict
 ```
 
-### Reading the result
+### Building the Conversation
 
-The result has the same shape as LangChain's `create_agent().invoke()`: `{"messages": [HumanMessage, AIMessage, ToolMessage, ...]}`, plus `"structured_response"` when the agent defines a [`schema()`](#structured-output). Rather than digging through the messages yourself, you can read it with the helpers in `fastapi_startkit.ai.state`:
+`prompt()` and `stream()` send the messages in this order:
+
+1. The system message from `instructions()`, unless it returns `None`.
+2. The earlier turns from `messages()`.
+3. The `message` you passed in.
+4. One more user message with your text and any `attachments` (see [Documents](#documents)).
+
+For example, this agent carries a short history:
+
+```python
+# app/agents/job_assistant.py
+from fastapi_startkit.ai import Agent
+
+
+class JobAssistant(Agent):
+    def instructions(self) -> str:
+        return "You help users find jobs."
+
+    def messages(self) -> list[dict]:
+        return [
+            {"role": "user", "content": "I'm a Python developer."},
+            {"role": "assistant", "content": "Great, what location?"},
+        ]
+```
+
+A call to `await JobAssistant().prompt("Find me a job")` sends:
+
+```python
+[
+    {"role": "system", "content": "You help users find jobs."},
+    {"role": "user", "content": "I'm a Python developer."},
+    {"role": "assistant", "content": "Great, what location?"},
+    {"role": "user", "content": "Find me a job"},
+]
+```
+
+`instructions()` is a regular method, so you can build the prompt from the current user, request data or configuration.
+
+### Reading the Result {#reading-the-result}
+
+The result is a dict with a `"messages"` list for the turn: your message, the model's reply, and one tool message per tool that ran. It also has `"structured_response"` when the agent defines a [`schema()`](#structured-output). Read it with the helpers in `fastapi_startkit.ai.state`:
 
 | Helper | Returns |
 |---|---|
 | `state.text(result)` | The last message's text: the model's answer, or the tool's result when a tool ran |
+| `state.messages(result)` | The turn's messages |
 | `state.tool_calls(result)` | Every tool call the model requested |
-| `state.tool_events(result)` | Each executed tool with its `name`, `args`, `content`, and `response_time` |
+| `state.tool_events(result)` | Each tool that ran, with its `name`, `args`, `id`, `content`, `content_type` and `response_time` |
 | `state.usage(result)` | Token counts: `{"input": n, "output": n}` |
 | `state.runtime(result)` | Seconds spent on model and tool calls |
 | `state.structured(result)` | The validated schema instance, or `None` |
@@ -343,13 +368,13 @@ from fastapi_startkit.ai import state
 
 result = await agent.prompt("Analyse Q3 revenue.")
 
-print(state.text(result))   # text reply
+print(state.text(result))   # the reply
 print(state.usage(result))  # {"input": 312, "output": 78}
 ```
 
-## stream()
+## Streaming Responses
 
-When you want to show the reply as it's generated, use `Agent.stream()`. It returns a `StreamableAgentResponse`; iterating it yields the same event dicts as LangChain's `astream_events`: `on_chat_model_start`, `on_chat_model_stream`, and `on_chat_model_end` for the model turn, then `on_tool_start` and `on_tool_end` around each tool call. The text arrives in `on_chat_model_stream` events, in `event["data"]["chunk"]`:
+To show the reply as it's generated, call `stream()`. It takes the same `model` and `provider_options` arguments as `prompt()` and returns a `StreamableAgentResponse`. Iterating it yields event dicts: `on_chat_model_start`, `on_chat_model_stream` and `on_chat_model_end` for the model, then `on_tool_start` and `on_tool_end` around each tool call. The text arrives in `on_chat_model_stream` events:
 
 ```python
 async for event in agent.stream("Write a follow-up email to the lead."):
@@ -357,21 +382,11 @@ async for event in agent.stream("Write a follow-up email to the lead."):
         print(event["data"]["chunk"].text, end="", flush=True)
 ```
 
-### Signature
+A stream can be consumed once. Iterating it again, or passing it to a second protocol, raises `RuntimeError` instead of running the agent and its tools a second time. Call `stream()` again for a new run.
 
-```python
-def stream(
-    self,
-    message: str,
-    *,
-    model: str | None = None,
-    provider_options: dict | None = None,
-) -> StreamableAgentResponse
-```
+### Stream Protocols {#stream-protocols}
 
-### Stream protocols
-
-Chat front-ends expect a specific wire format. Instead of translating LangChain events by hand, return the stream through a protocol. Each method returns a Starlette `StreamingResponse`, so a FastAPI route can return it directly.
+Chat front-ends expect a specific wire format. Return the stream through a protocol and you get a Starlette `StreamingResponse` that a FastAPI route can return directly:
 
 | Method | Front-end | Format |
 |---|---|---|
@@ -379,15 +394,17 @@ Chat front-ends expect a specific wire format. Instead of translating LangChain 
 | `using_agent_user_interaction_protocol(thread_id=None, run_id=None)` | CopilotKit and other [AG-UI](https://docs.ag-ui.com/) clients | AG-UI events over SSE |
 | `using_protocol(protocol)` | Anything else | Your own `StreamProtocol` |
 
-#### Vercel AI SDK
+### Vercel AI SDK
 
 ```python
+# routes/api.py
 from fastapi import APIRouter
 
 from app.agents.sales_coach import SalesCoach
 from app.requests.chat import ChatRequest
 
 api = APIRouter()
+
 
 @api.post("/api/chat")
 async def chat(request: ChatRequest):
@@ -405,18 +422,21 @@ const { messages, sendMessage } = useChat({
 });
 ```
 
-#### AG-UI and CopilotKit
+### AG-UI and CopilotKit
 
-AG-UI clients such as `HttpAgent` and CopilotKit POST a `RunAgentInput` body that carries the `threadId`, the `runId` and the conversation so far. Accept it and forward the ids, so the events the client receives belong to the run it started:
+AG-UI clients such as `HttpAgent` and CopilotKit POST a `RunAgentInput` body with the `threadId`, the `runId` and the conversation so far. Accept it and forward the ids, so the events belong to the run the client started:
 
 ```python
+# routes/api.py
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class AgUiMessage(BaseModel):
     role: str
     content: str | None = None
+
 
 class RunAgentInput(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -425,6 +445,7 @@ class RunAgentInput(BaseModel):
     run_id: str = Field(alias="runId")
     messages: list[AgUiMessage] = []
     state: Any = None
+
 
 @api.post("/api/copilotkit")
 async def copilot(run: RunAgentInput):
@@ -435,43 +456,51 @@ async def copilot(run: RunAgentInput):
     )
 ```
 
-The stream emits `RUN_STARTED`, `STEP_STARTED`, `TEXT_MESSAGE_START`/`CONTENT`/`END`, `REASONING_*`, `TOOL_CALL_START`/`ARGS`/`END`/`RESULT`, `STEP_FINISHED` and `RUN_FINISHED`. `TOOL_CALL_START` carries `parentMessageId` when the model wrote text before calling the tool, so the call is attached to that assistant message. Without explicit ids, `threadId` defaults to the agent's `conversation_id` and then to the stream's `invocation_id`, and `runId` defaults to the `invocation_id`.
+The stream emits `RUN_STARTED`, `STEP_STARTED`, `TEXT_MESSAGE_START`/`CONTENT`/`END`, `REASONING_*`, `TOOL_CALL_START`/`ARGS`/`END`/`RESULT`, `STEP_FINISHED` and `RUN_FINISHED`. `TOOL_CALL_START` carries `parentMessageId` when the model wrote text before calling the tool. Without explicit ids, `threadId` falls back to the agent's `conversation_id` and then to the stream's `invocation_id`, and `runId` falls back to the `invocation_id`.
 
 Set `conversation_id` on the agent when it belongs to a stored conversation:
 
 ```python
+# app/agents/sales_coach.py
+from fastapi_startkit.ai import Agent
+
+
 class SalesCoach(Agent):
-    def __init__(self, conversation_id: str):
+    def __init__(self, conversation_id: str | None = None):
         self.conversation_id = conversation_id
 ```
 
-#### Errors
+### Stream Errors
 
-If the agent raises while streaming, the error is logged, any open text or reasoning part is closed, and the stream ends with a protocol error event: an `error` part followed by `[DONE]` for the Vercel protocol, and `RUN_ERROR` (without `RUN_FINISHED`) for AG-UI. The message sent to the browser is `"An error occurred."` so provider details do not leak. Override `error_text()` on `VercelDataProtocol` or `error_message()` on `AgentUserInteractionProtocol` to change it:
+If the agent raises while streaming, the error is logged, any open text or reasoning part is closed, and the stream ends with a protocol error: an `error` part followed by `[DONE]` for Vercel, and `RUN_ERROR` without `RUN_FINISHED` for AG-UI. The browser receives `"An error occurred."`, so provider details don't leak. Override `error_text()` on `VercelDataProtocol` or `error_message()` on `AgentUserInteractionProtocol` to change it:
 
 ```python
+# app/streaming/verbose_vercel_protocol.py
 from fastapi_startkit.ai import VercelDataProtocol
+
 
 class VerboseVercelProtocol(VercelDataProtocol):
     def error_text(self, error: Exception) -> str:
         return str(error)
+```
 
+```python
 return SalesCoach().stream(message).using_protocol(VerboseVercelProtocol())
 ```
 
-If the client disconnects, the agent stream is closed, so middleware `.then()` callbacks still run once.
+If the client disconnects, the agent stream is closed, and middleware `.then()` callbacks still run once.
 
-A stream can be consumed once. Iterating it a second time, or passing it to a second protocol, raises `RuntimeError` instead of running the agent and its tools again; call `stream()` again for a new run.
+### Custom Protocols
 
-#### Custom protocols
-
-Extend `StreamProtocol` and implement `encode()`. `stream.events()` yields protocol-neutral events from `fastapi_startkit.ai.streaming`: `StreamStarted`, `StepStarted`, `TextStarted`, `TextDelta`, `TextEnded`, `ReasoningStarted`, `ReasoningDelta`, `ReasoningEnded`, `ToolInputStarted`, `ToolInputDelta`, `ToolInputAvailable`, `ToolOutputAvailable`, `StepFinished`, `StreamFinished` and `StreamFailed`. Text and reasoning parts are always opened and closed in order. `ToolInputStarted` always has a tool name, `ToolInputAvailable` carries the arguments the model finally parsed, and tool results are matched to their call by id and arrive JSON-decoded when possible.
+Extend `StreamProtocol` and implement `encode()`. `stream.events()` yields protocol-neutral events from `fastapi_startkit.ai.streaming`: `StreamStarted`, `StepStarted`, `TextStarted`, `TextDelta`, `TextEnded`, `ReasoningStarted`, `ReasoningDelta`, `ReasoningEnded`, `ToolInputStarted`, `ToolInputDelta`, `ToolInputAvailable`, `ToolOutputAvailable`, `StepFinished`, `StreamFinished` and `StreamFailed`. Text and reasoning parts are always opened and closed in order, and tool results are matched to their call by id and JSON-decoded when possible.
 
 ```python
+# app/streaming/plain_text_protocol.py
 from collections.abc import AsyncIterator
 
 from fastapi_startkit.ai import StreamableAgentResponse, StreamProtocol
 from fastapi_startkit.ai.streaming import StreamFailed, TextDelta, ToolOutputAvailable
+
 
 class PlainTextProtocol(StreamProtocol):
     media_type = "text/plain"
@@ -485,20 +514,24 @@ class PlainTextProtocol(StreamProtocol):
                     yield f"\n[{name}] {output}\n"
                 case StreamFailed():
                     yield "\n[error]"
+```
 
+```python
 @api.post("/chat/plain")
 async def plain(request: ChatRequest):
     return SalesCoach().stream(request.message).using_protocol(PlainTextProtocol())
 ```
 
-`StreamProtocol` provides `sse(payload)` to format a server-sent event, `headers()` (`cache-control: no-cache` and `x-accel-buffering: no` by default) and `media_type` (`text/event-stream` by default).
+`StreamProtocol` also gives you `sse(payload)` to format a server-sent event, `headers()` (`cache-control: no-cache` and `x-accel-buffering: no` by default) and `media_type` (`text/event-stream` by default).
 
-### Streaming raw events
+### Streaming Raw Events
 
-You can still iterate the stream and build your own `StreamingResponse`:
+You can also iterate the stream yourself and build your own `StreamingResponse`:
 
 ```python
+# routes/api.py
 from fastapi.responses import StreamingResponse
+
 
 @api.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
@@ -510,49 +543,16 @@ async def chat_stream(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```
 
-When the agent uses tools, the model events are followed by an `on_tool_start` and `on_tool_end` pair for each tool. The tool's result is in `event["data"]["output"]` of the `on_tool_end` event.
-
-## Prompting
-
-Both `prompt()` and `stream()` build the message list in the same order:
-
-1. The system message from `instructions()` (skipped when it returns `None`).
-2. Any prior turns from `messages()`.
-3. The user `message` you passed in.
-4. A multimodal user message for any `attachments` (see [Documents](#documents)).
-
-```python
-class JobAssistant(Agent):
-    def instructions(self) -> str:
-        return "You help users find jobs."
-
-    def messages(self) -> list[dict]:
-        return [
-            {"role": "user", "content": "I'm a Python developer."},
-            {"role": "assistant", "content": "Great — what location?"},
-        ]
-```
-
-With that agent, a call to `await JobAssistant().prompt("Find me a job")` is sent as:
-
-```python
-[
-    {"role": "system", "content": "You help users find jobs."},
-    {"role": "user", "content": "I'm a Python developer."},
-    {"role": "assistant", "content": "Great — what location?"},
-    {"role": "user", "content": "Find me a job"},
-]
-```
-
-Since `instructions()` is a regular method, you're free to build the prompt from the current user, request data, or configuration.
+When a tool runs, its result is in `event["data"]["output"]` of the `on_tool_end` event.
 
 ## Tools
 
-Tools let the model call your own code, and they're ordinary LangChain tools. Define them with `@tool` from `langchain_core.tools` and return them from `tools()`. The docstring becomes the tool's description, and the type hints become its input schema:
+Tools let the model call your own code. Define them with `@tool` from `langchain_core.tools` and return them from `tools()`. The docstring becomes the tool's description, and the type hints become its input schema:
 
 ```python
 # app/tools/job_search_tool.py
 from langchain_core.tools import tool
+
 
 @tool
 def job_search_tool(query: str) -> list:
@@ -561,116 +561,105 @@ def job_search_tool(query: str) -> list:
 ```
 
 ```python
-# app/agents/chat.py
-from typing import Callable
-
+# app/agents/job_agent.py
 from fastapi_startkit.ai import Agent
 
 from app.tools.job_search_tool import job_search_tool
+
 
 class JobAgent(Agent):
     def instructions(self) -> str:
         return "You are a job-search assistant."
 
-    def tools(self) -> list[Callable]:
+    def tools(self) -> list:
         return [job_search_tool]
 ```
 
-### How tool calls run
-
-1. The agent binds your tools to the chat model and sends the message.
-2. If the model responds with tool calls, the framework runs each tool once.
-3. The turn ends with the tool results, so `state.text()` returns the last tool's output.
+When the model asks for a tool, the agent runs each requested tool once and the turn ends with the tool results. `state.text()` then returns the last tool's output, and `state.tool_events()` lists every tool that ran:
 
 ```python
-agent = JobAgent()
-result = await agent.prompt("Find me a python job")
-print(state.text(result))   # the tool's output
+result = await JobAgent().prompt("Find me a python job")
+
+print(state.text(result))  # the tool's output
 ```
 
-> [!NOTE]
-> A tool's name must be unique within an agent. Calling a tool the agent didn't register raises `ValueError`.
+Tool names must be unique within an agent. If the model calls a tool the agent didn't register, `prompt()` raises `ValueError`.
 
-## Documents
+## Documents {#documents}
 
-You can hand files to the model by passing `Document` instances to `prompt()`. Attachments are sent in an extra user message that repeats your text. A document whose `media_type` is `text/*` is inlined as a labelled text part; any other type, such as `image/png` or `application/pdf`, is sent as a base64 block.
+To hand files to the model, pass `Document` instances as `attachments`. A document whose `media_type` is `text/*`, or whose content is a `str`, is inlined as a labelled text part. Any other type, such as `image/png` or `application/pdf`, is sent as a base64 block:
 
 ```python
 from fastapi_startkit.ai import Document
 
-doc = Document(content="Q3 revenue was $1.2M …", name="q3-report.txt")
+doc = Document(content="Q3 revenue was $1.2M ...", name="q3-report.txt")
+
 result = await agent.prompt("Summarise this report.", attachments=[doc])
 ```
 
-### Loading documents
+### Loading Documents
 
-You can also load a document from a file, from application storage, or from a URL:
+You can load a document from a file, from application storage or from a URL:
 
 ```python
-# From a local file: text files load as str, binary files fall back to bytes
-doc = Document.from_path("reports/q3.txt")
-
-# From application storage (async) — reads storage/<key>
-doc = await Document.from_storage("reports/q3.txt")
-
-# From a URL (async, uses httpx)
-doc = await Document.from_url("https://example.com/photo.jpg")
+doc = Document.from_path("reports/q3.txt")                       # text loads as str, binary as bytes
+doc = await Document.from_storage("reports/q3.txt")              # storage/<key>
+doc = await Document.from_url("https://example.com/photo.jpg")   # downloads with httpx
 ```
 
-### Document fields
+The loaders don't detect the type, so `media_type` stays `text/plain` unless you set it:
+
+```python
+doc = Document(content=png_bytes, name="chart.png", media_type="image/png")
+```
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `content` | `str \| bytes` | required | The document content (text or binary) |
-| `name` | `str` | `""` | Display name / filename |
+| `content` | `str \| bytes` | required | The document content |
+| `name` | `str` | `""` | Display name or filename |
 | `media_type` | `str` | `"text/plain"` | MIME type of the content |
 
-The loaders don't detect the type: `media_type` stays `text/plain` unless you set it, for example `Document(content=png_bytes, name="chart.png", media_type="image/png")`.
+`Document` also has `to_bytes()` and `to_base64()`, plus `to_anthropic_block()` and `to_openai_block()` when you call a provider SDK yourself.
 
-`Document` also has `to_bytes()`, `to_base64()`, and `to_langchain_block()` (which `prompt()` calls for you), plus `to_anthropic_block()` and `to_openai_block()` for provider-native blocks.
+## Structured Output {#structured-output}
 
-## Structured Output
-
-Sometimes you want data rather than prose. Return a Pydantic model from `schema()` and you'll get a validated object back in `result["structured_response"]`:
+When you want data instead of prose, return a Pydantic model from `schema()`. `state.structured()` then gives you a validated instance:
 
 ```python
+# app/agents/lead_agent.py
 from pydantic import BaseModel
-from fastapi_startkit.ai import Agent, provider, model
+
+from fastapi_startkit.ai import Agent
+
 
 class LeadSummary(BaseModel):
     name: str
     company: str
-    score: int          # 1–10
+    score: int
     next_action: str
 
-@provider("anthropic")
-@model("claude-sonnet-4-6")
+
 class LeadAgent(Agent):
     def instructions(self) -> str:
-        return (
-            "Analyse the lead and reply with ONLY a JSON object matching: "
-            '{"name": str, "company": str, "score": int, "next_action": str}.'
-        )
+        return "Analyse the lead and reply with a JSON object with name, company, score (1-10) and next_action."
 
     def schema(self):
         return LeadSummary
-
-agent = LeadAgent()
-result = await agent.prompt("Lead: Jane Doe, Acme Corp, interested in enterprise plan.")
-
-summary = state.structured(result)  # a validated LeadSummary instance
-print(summary.score)               # 8
-print(summary.next_action)         # "Schedule demo call"
 ```
 
-The model is called through LangChain's `with_structured_output()`, so providers that support it return data in the schema's shape. If that fails, the agent falls back to parsing JSON from the reply text, so it still helps to ask for JSON in your instructions. If the reply can't be parsed into the schema, `prompt()` raises a validation error. When no schema is set, `state.structured()` returns `None`.
+```python
+result = await LeadAgent().prompt("Lead: Jane Doe, Acme Corp, interested in the enterprise plan.")
 
-> [!TIP]
-> A faked or recorded JSON string is validated into the schema too, so `state.structured()` works in tests.
+summary = state.structured(result)
+summary.score        # 8
+summary.next_action  # "Schedule demo call"
+```
 
-## Classification
+Providers that support structured output return data in the schema's shape. Otherwise the agent parses JSON from the reply text, so it helps to ask for JSON in your instructions. A reply that can't be parsed into the schema raises a Pydantic `ValidationError`. A faked or recorded JSON reply is validated the same way, so `state.structured()` works in tests.
 
-Classification answers a fixed set of questions about one piece of text: is it urgent, which team owns it, how angry is the customer. It builds on [structured output](#structured-output): you describe each question once, and you get back typed answers that are already checked against the options you allowed.
+## Classification {#classification}
+
+Classification answers a fixed set of questions about one piece of text: is it urgent, which team owns it, how angry is the customer. You describe each question once and get back typed answers, already checked against the options you allowed:
 
 ```python
 from fastapi_startkit.ai import Classification
@@ -694,48 +683,44 @@ result.department      # "technical"
 result["frustration"]  # 2
 ```
 
-All questions go to the provider in one request. How they are answered depends on the provider:
+All questions go to the provider in one request. How they're answered depends on the provider's driver:
 
-| Provider | How it classifies | Confidence and probabilities |
+| Driver | How it classifies | Confidence and probabilities |
 |---|---|---|
-| `google` | [Gemini Decisions API](https://aistudio.google.com/docs/decisions-api) with `gemini-decision-1` | Yes, calibrated by the API |
-| `openai`, `anthropic`, `bedrock` | A structured-output [agent](#structured-output) | No (`None`) |
+| `google` | [Gemini Decisions API](https://aistudio.google.com/docs/decisions-api) | Yes, from the API |
+| Any other | A [structured-output](#structured-output) agent using the provider's `default` model | No (`None`) |
 
-The Decisions API scores each option instead of generating text, and it bills input tokens only.
+The Decisions API scores each option instead of generating text.
 
-### Classification Settings
+### Choosing the Provider
 
-Classification picks its provider from `AI_DEFAULT_DECISIONS_PROVIDER` (`AIConfig.default_decisions`, default `google`), not from `AI_PROVIDER`. That way an app can chat through Anthropic and still classify through the Decisions API. If you have no Google key, point it at your chat provider:
+`classify()` uses `AI_PROVIDER`, like agents do. Pass `provider` and `model` to override them for one call:
 
-```ini
-AI_DEFAULT_DECISIONS_PROVIDER=openai
+```python
+await classification.classify(provider="openai", model="gpt-6-luna")
+await classification.classify(provider="google", model="gemini-decision-1")
 ```
 
-> [!IMPORTANT]
-> On Google, classification needs `GEMINI_API_KEY` (or `GOOGLE_API_KEY`). If the key is empty, `classify()` raises a `ClassificationError` naming `GEMINI_API_KEY` and `AI_DEFAULT_DECISIONS_PROVIDER` before anything is sent. Set the key, or point `AI_DEFAULT_DECISIONS_PROVIDER` at a provider you have configured. Passing `provider=` to `classify()` and `Decisions.fake()` in tests don't need the Google key.
-
-The API keys come from [Configuration](#configuration). On Google, the model comes from `ai.providers.google.models.default_decisions` (`gemini-decision-1`), and the request only needs `httpx`, which the `ai` extra already installs. The other providers use their chat model and LangChain package, as agents do.
+On Google, the model comes from `ai.providers.<name>.models.default_decisions`, and falls back to `gemini-decision-1` when that key isn't set. A `model` you pass on Google must be a Decisions model, not a chat model such as `gemini-3.8-flash`. The Google request needs `GEMINI_API_KEY` and nothing beyond the `ai` extra. Other providers need their integration package, as agents do.
 
 ### Questions
 
-Question keys may use letters, digits, `_` and `-`, up to 64 characters. This is the Decisions API's rule, and it applies to every provider so your questions stay portable. You can ask up to 1,000 questions at once.
-
-A key may not name an attribute of the result: `model`, `provider`, `usage`, `state`, `answers`, `answer`, `to_dict`, `get`, `keys`, `items`, `values`, or a dunder name such as `__init__`. These raise `ValueError`, because `result.model` would return the model name instead of your answer. Use a key such as `model_name` instead.
+Question keys may use letters, digits, `_` and `-`, up to 64 characters, and you can ask up to 1,000 questions at once. A key may not name an attribute of the result, such as `model`, `provider`, `usage`, `state`, `answers`, `answer`, `to_dict`, `get`, `keys`, `items` or `values`. Those raise `ValueError`, so use a key such as `model_name` instead.
 
 #### Boolean
 
-A yes/no question. The answer is a `bool`. Descriptions for `true` and `false` are optional and help the model decide:
+A yes/no question. The answer is a `bool`. Descriptions for `true` and `false` are optional:
 
 ```python
 Boolean("Did the item arrive damaged?")
 Boolean("Is this spam?", {"true": "Unsolicited advertising", "false": "A real customer message"})
 ```
 
-On Google, the answer is `True` when the API's probability of yes (`noul`) is at least 0.5.
+On Google, the answer is `True` when the API's probability of yes is at least 0.5.
 
 #### Choice
 
-Picks exactly one option. The answer is the option's key. Give a description for each option, or pass a list of keys. You need 2 to 255 options. Each option key must be 1 to 128 characters (at most 512 bytes in UTF-8), with no leading or trailing whitespace and no control characters. These are the Decisions API's rules, and they apply to every provider.
+Picks exactly one option, and the answer is the option's key. Give a description for each option, or pass a list of keys. You need 2 to 255 options, and each key must be 1 to 128 characters (at most 512 bytes in UTF-8) with no leading or trailing whitespace and no control characters:
 
 ```python
 Choice("Which team should handle this request?", {
@@ -753,13 +738,11 @@ Places the text on an ordered scale. List 2 to 255 levels from lowest to highest
 Score("How frustrated is the customer?", ["Calm", "Frustrated", "Very angry"])
 ```
 
-On Google, the answer is the level with the highest probability, so it always agrees with `answer.confidence`. On a tie, the lower level wins. The API also returns a probability-weighted average of the level indices, such as `1.1`; it stays in `answer.raw["score"]` and is only rounded to a level when the response has no probabilities. The average can point at a level the API rated unlikely: `{0: 0.45, 1: 0.0, 2: 0.55}` averages to `1.1`, but the answer is `2`.
+On Google, the answer is the level with the highest probability, and the lower level wins a tie. The API's probability-weighted average, such as `1.1`, stays in `answer.raw["score"]` and is rounded to a level only when the response has no probabilities.
 
-Probabilities keyed by level text (`"Calm"`) are mapped to level indices like those keyed by index (`"0"`). A probability for an unknown level raises `ClassificationError`.
+### Reading the Answers
 
-### Reading the Classification
-
-`classify()` returns a `ClassificationResult`. It is a read-only mapping from question key to answer value, and each value is also available as an attribute:
+`classify()` returns a `ClassificationResult`. It's a read-only mapping from question key to answer value, and each value is also an attribute:
 
 ```python
 result["department"]   # "technical"
@@ -767,48 +750,36 @@ result.department      # "technical"
 result.to_dict()       # {"urgent": True, "department": "technical", "frustration": 2}
 ```
 
-> Use `result["key"]` for keys that are not valid Python names (`first-contact`). Keys that would clash with the result's own attributes (`model`, `provider`, `usage`, `state`, `answers`, `answer`, `to_dict`, `get`, `keys`, `items`, `values`) are rejected when you call `questions()`, so `result.<key>` always returns your answer.
-
-`result.answer(key)` returns the full `Answer`:
+Use `result["key"]` for keys that aren't valid Python names, such as `first-contact`. `result.answer(key)` returns the full `Answer`:
 
 | Field | Description |
 |---|---|
-| `value` | `bool`, the chosen key, or the level index |
+| `value` | The `bool`, the chosen key, or the level index |
 | `label` | The description of that value: the `Boolean` description (or `"true"`/`"false"`), the option's description (or its key), or the level text |
-| `confidence` | The probability that the top answer is right. Google only, otherwise `None` |
+| `confidence` | The API's confidence in the top answer. Google only, otherwise `None` |
 | `probabilities` | Per-value probabilities: `{True: .., False: ..}`, `{key: ..}` or `{index: ..}`. Google only |
-| `raw` | The provider's answer object as returned |
+| `raw` | The provider's answer as returned |
 
 ```python
 answer = result.answer("frustration")
-answer.label           # "Very angry"
-answer.confidence      # 0.74
-answer.probabilities   # {0: 0.02, 1: 0.24, 2: 0.74}
+
+answer.label          # "Very angry"
+answer.confidence     # 0.74
+answer.probabilities  # {0: 0.02, 1: 0.24, 2: 0.74}
 ```
 
-The result also carries `provider`, `model` and `usage` (`{"input": .., "output": ..}`, the same shape as [`state.usage()`](#reading-the-result)). On the structured-output path, `result.state` holds the agent's turn.
+The result also has `provider`, `model` and `usage` (`{"input": .., "output": ..}`, as [`state.usage()`](#reading-the-result) returns). On non-Google providers, `result.state` holds the agent's turn.
 
-### Choosing the Classification Provider
+### Handling Classification Errors
 
-`classify()` uses `AI_DEFAULT_DECISIONS_PROVIDER` unless you pass a `provider`. It takes the same `provider` and `model` overrides as agents:
+Building a classification raises `ValueError` for empty question instructions or input, an empty question map, an invalid or reserved key, a value that isn't a question, `Boolean` description keys other than `true` and `false`, an invalid `Choice` option key, and fewer than two choices or levels.
 
-```python
-await classification.classify(provider="openai", model="gpt-4.1-mini")
-await classification.classify(provider="google", model="gemini-decision-1")
-```
+A bad answer raises `ClassificationError`, a subclass of `ValueError`. The message names the failing question:
 
-On Google, `model` names a Decisions model, not a chat model such as `gemini-2.5-flash`.
-
-### Classification Errors
-
-Building a classification raises `ValueError` for empty instructions or input, an empty question map, an invalid or reserved key, a value that is not a question, unknown `Boolean` description keys, an invalid `Choice` option key, and fewer than two choices or levels.
-
-A bad answer raises `ClassificationError` (a `ValueError`) with the question's key in the message:
-
-- an unknown choice, a score outside the scale, or a `Boolean` answer that is not `true`/`false`;
-- a missing answer, or a Decisions answer of the wrong type;
-- a structured reply that does not match the schema; the message includes the validation error and names the failing question;
-- a failed Decisions API request, including safety blocks (`failed with 400: safety: ...`), network errors and timeouts (`request failed: ConnectError: ...`), and a response that is not a JSON object.
+- an unknown choice, a score outside the scale, or a `Boolean` answer that isn't true or false
+- a missing answer, or a Decisions answer of the wrong type
+- a structured reply that doesn't match the questions
+- a failed Decisions API request, including safety blocks, network errors, timeouts and a response that isn't a JSON object
 
 ```python
 from fastapi_startkit.ai.classification import ClassificationError
@@ -821,29 +792,30 @@ except ClassificationError as error:
 
 ### Testing Classification
 
-Both paths can be faked without calling a model.
-
-On Google, `Decisions.fake()` replaces only the HTTP call. You still test the request your questions build and how the answers are read. Pass a list of response bodies, or a function that receives the payload. Each payload is recorded on `.requests`:
+On Google, `Decisions.fake()` replaces only the HTTP call, so you still test the request your questions build and how the answers are read. Pass a list of response bodies, or a function that receives the payload. Each payload is recorded on `.requests`:
 
 ```python
+# tests/test_triage.py
+from fastapi_startkit.ai import Classification
 from fastapi_startkit.ai.classification import Decisions
 
-fake = Decisions.fake([{
-    "answers": {
-        "urgent": {"type": "noul", "noul": 0.97, "confidence": 0.97},
-        "department": {"type": "choice", "choice": "technical", "probabilities": {"technical": 0.9, "billing": 0.1}},
-    },
-}])
 
-result = await Classification.of(text).questions(questions).classify()
+async def test_it_routes_outages_to_technical():
+    fake = Decisions.fake([{
+        "answers": {
+            "urgent": {"type": "noul", "noul": 0.97, "confidence": 0.97},
+            "department": {"type": "choice", "choice": "technical", "probabilities": {"technical": 0.9, "billing": 0.1}},
+        },
+    }])
 
-assert result.urgent is True
-assert fake.requests[0]["questions"]["department"]["type"] == "choice"
+    result = await Classification.of(text).questions(questions).classify()
+
+    assert result.urgent is True
+    assert fake.requests[0]["questions"]["department"]["type"] == "choice"
+    Decisions.reset_fake()
 ```
 
-Call `Decisions.reset_fake()` (or `Ai.reset_fakes()`) when the test ends.
-
-For other providers, fake the `ClassificationAgent` like any [agent](#faking-responses). The reply is a JSON object keyed by question, with `Score` answers given as level indices:
+For other providers, fake `ClassificationAgent` like any [agent](#faking-responses). The reply is a JSON object keyed by question, with `Score` answers given as level indices:
 
 ```python
 from fastapi_startkit.ai.classification import ClassificationAgent
@@ -852,25 +824,23 @@ with ClassificationAgent.fake(['{"urgent": true, "department": "billing", "frust
     result = await Classification.of(text).questions(questions).classify(provider="openai")
 ```
 
-See the [Gemini Decisions API](https://aistudio.google.com/docs/decisions-api) reference for the Google endpoint.
+## Middleware {#middleware-pipeline}
 
-## Middleware (Pipeline)
+Middleware runs code around every model request, for logging, metrics or swapping the model. Return your layers from `middleware()`. A middleware is any object with a `handle(self, model, handler)` method, sync or async.
 
-Middleware gives you a place to run code around every model request, which is handy for logging, metrics, or swapping the model. Override `middleware()` to return your layers. A middleware is any object with a `handle(self, model, handler)` method, sync or async, and the first item in the list is the outermost layer.
-
-The `model` argument is the LangChain `BaseChatModel`, which you can inspect, wrap, or replace. Calling `handler(model)` invokes the next layer and returns a deferred `Response`. To run code after the response, attach a callback with `.then(callback)` and return the `Response` without awaiting it, so streaming keeps working. The callback receives the final value when the response completes.
+`model` is the chat model about to be called, which you can inspect, wrap or replace. `handler(model)` calls the next layer and returns a deferred `Response`. To run code after the response, attach a callback with `.then(callback)` and return the `Response` without awaiting it. The callback receives the final value:
 
 ```python
+# app/middleware/agent_logger.py
 import time
 from collections.abc import Callable
 from typing import Any
 
-from langchain_core.language_models.chat_models import BaseChatModel
-
 from fastapi_startkit.logging import Log
 
+
 class AgentLogger:
-    def handle(self, model: BaseChatModel, handler: Callable) -> Any:
+    def handle(self, model: Any, handler: Callable) -> Any:
         Log.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
         started_at = time.monotonic()
 
@@ -882,96 +852,150 @@ class AgentLogger:
         return handler(model).then(log_response)
 ```
 
-Then register the middleware on your agent:
+Then register it on your agent:
 
 ```python
+# app/agents/router_agent.py
 from fastapi_startkit.ai import Agent, Middleware
 
 from app.middleware.agent_logger import AgentLogger
+
 
 class RouterAgent(Agent):
     def middleware(self) -> list[Middleware]:
         return [AgentLogger()]
 ```
 
-You can return instances or classes; classes are instantiated with no arguments. For `[Outer(), Inner()]`, the code before `handler()` runs outer to inner, and the `.then()` callbacks run inner to outer.
+You can return instances or classes. Classes are created with no arguments. For `[Outer(), Inner()]`, the code before `handler()` runs outer to inner, and the `.then()` callbacks run inner to outer.
 
-> [!WARNING]
-> Awaiting `handler(model)` buffers the whole response before any token is yielded, which breaks streaming. Return `handler(model).then(callback)` unless you want the buffered result.
+A `.then()` callback runs exactly once, whether the stream is read to the end or closed early by a client disconnect or a `break`. A middleware can also skip the rest of the chain by returning a value without calling `handler`.
 
-### After-hooks fire exactly once
-
-A `.then()` callback runs once, whether the stream is read to the end or closed early by a client disconnect or a `break`, so you can use it for logging, metrics, and cleanup. A middleware can also skip the rest of the chain by returning a value from `handle()` without calling `handler`.
+::: warning
+Awaiting `handler(model)` buffers the whole response before any token reaches the client, which breaks streaming. Return `handler(model).then(callback)` unless you need the buffered result.
+:::
 
 ## Provider Options
 
-Each provider has its own settings, such as Anthropic's `thinking` option below. You can pass them by returning provider-specific parameters from `provider_options()`, keyed by provider name. The options for the agent's `@provider` are merged into the model's keyword arguments. Agents without `@provider` don't get these options:
+Each provider has its own settings, such as Anthropic's `output_config`, which sets the effort level. Return them from `provider_options()`, keyed by provider name. The options for the agent's `@provider` are passed to the model:
 
 ```python
+# app/agents/thinking_agent.py
+from fastapi_startkit.ai import Agent, model, provider
+
+
 @provider("anthropic")
+@model("claude-sonnet-5-5")
 class ThinkingAgent(Agent):
     def provider_options(self):
         return {
-            "anthropic": {"thinking": {"type": "enabled", "budget_tokens": 1024}},
+            "anthropic": {"output_config": {"effort": "high"}},
             "openai": {"frequency_penalty": 0.5},
         }
 ```
 
-To override them for a single call, pass `provider_options` to `prompt()`:
+To override them for a single call, pass `provider_options` to `prompt()` or `stream()`:
 
 ```python
-result = await agent.prompt(
+result = await ThinkingAgent().prompt(
     "Solve this hard maths problem.",
-    provider_options={"anthropic": {"thinking": {"type": "enabled", "budget_tokens": 2048}}},
+    provider_options={"anthropic": {"output_config": {"effort": "max"}}},
 )
 ```
 
-## Multiple Providers
+::: warning
+Provider options are matched by the agent's `provider` attribute. Set `@provider` on any agent that uses them: an agent that relies on `AI_PROVIDER` doesn't receive the options from `provider_options()`.
+:::
 
-Any agent without a `@provider` decorator uses the `AI_PROVIDER` setting:
+## Using Multiple Providers
+
+An agent without `@provider` uses `AI_PROVIDER`:
 
 ```ini
-AI_PROVIDER=anthropic   # or openai, google
+# .env
+AI_PROVIDER=anthropic
 ```
 
-When an agent should always use a particular provider, pin it with the decorator:
+When an agent should always use one provider, pin it with the decorator:
 
 ```python
+# app/agents/review.py
+from fastapi_startkit.ai import Agent, provider
+
+
 @provider("openai")
 class DraftAgent(Agent):
-    """Always uses OpenAI, regardless of AI_PROVIDER."""
+    def instructions(self) -> str:
+        return "You write first drafts."
+
 
 @provider("anthropic")
 class ReviewAgent(Agent):
-    """Always uses Anthropic, regardless of AI_PROVIDER."""
+    def instructions(self) -> str:
+        return "You review drafts for accuracy."
 ```
 
 ## Testing
 
-Calling a real model in every test would be slow and expensive, so agents come with two testing helpers. `Agent.fake()` replaces only the chat model. Message building, middleware, and tool execution still run, so a faked tool call executes the real tool. `Agent.record()` calls the real model once, saves the result to a cassette, and replays it on later runs.
+Agents come with two testing helpers, so your tests don't call a real model each time:
 
-> [!NOTE]
-> `Agent.fake()` is keyed by class name, so any `YourAgent()` created inside the `with` block or decorated test is faked, including one built inside a controller. `Agent.record()` only records and replays calls made through the handle it returns (`with YourAgent.record(...) as agent`). Code that creates its own `YourAgent()` calls the real model.
+- `YourAgent.fake(responses)` replaces only the chat model. Message building, middleware and tool execution still run, so a faked tool call runs the real tool.
+- `YourAgent.record(cassette)` calls the real model once, saves the turn to a cassette, and replays it on later runs.
 
-### Faking responses
+`fake()` is keyed by class name, so any `YourAgent()` created inside the `with` block or decorated test is faked, including one built inside a controller. `record()` only records calls made through the handle it returns. Code that creates its own `YourAgent()` calls the real model.
 
-`YourAgent.fake(responses)` returns a context manager that also works as a decorator. `responses` is an ordered list of replies: strings, or LangChain messages such as `AIMessage(..., tool_calls=[...])` to fake a tool call. Each `prompt()` or `stream()` call uses the next reply, and calling past the end of the list raises an error.
+### Faking Responses {#faking-responses}
+
+`fake()` returns a context manager that also works as a decorator. `responses` is an ordered list of replies: strings, or `AIMessage` objects with `tool_calls` to fake a tool call. Each `prompt()` or `stream()` uses the next reply, and calling past the end of the list raises `RuntimeError`:
 
 ```python
-# As a context manager
-with SupportAgent.fake(["Click 'Forgot password' on the login page."]):
-    result = await SupportAgent().prompt("How do I reset my password?")
+# tests/test_support_agent.py
+from fastapi_startkit.ai import state
+
+from app.agents.support_agent import SupportAgent
+
+
+async def test_it_answers_password_questions():
+    with SupportAgent.fake(["Click 'Forgot password' on the login page."]):
+        result = await SupportAgent().prompt("How do I reset my password?")
+
     assert state.text(result) == "Click 'Forgot password' on the login page."
 
-# Multiple calls replay in order
-with SupportAgent.fake(["first reply", "second reply"]):
-    await SupportAgent().prompt("one")
-    await SupportAgent().prompt("two")
+
+async def test_replies_replay_in_order():
+    with SupportAgent.fake(["first reply", "second reply"]):
+        first = await SupportAgent().prompt("one")
+        second = await SupportAgent().prompt("two")
+
+    assert state.text(second) == "second reply"
 ```
 
-You can also use it as a decorator on a controller test:
+To fake a tool call, pass an `AIMessage`. The real tool runs with the arguments you give:
 
 ```python
+# tests/test_job_agent.py
+from langchain_core.messages import AIMessage
+
+from app.agents.job_agent import JobAgent
+
+
+async def test_it_searches_for_jobs():
+    call = AIMessage(content="", tool_calls=[{"name": "job_search_tool", "args": {"query": "python"}, "id": "call_1"}])
+
+    with JobAgent.fake([call]) as agent:
+        await agent.prompt("Find me a python job")
+
+        agent.assert_tool_called("job_search_tool", lambda tool: tool.args["query"] == "python")
+```
+
+As a decorator on a controller test:
+
+```python
+# tests/features/test_chat_controller.py
+from app.agents.router_agent import RouterAgent
+
+from tests.test_case import TestCase
+
+
 class TestChatController(TestCase):
     @RouterAgent.fake(["Hello there, hope you are doing well."])
     async def test_it_responds_without_stream(self):
@@ -981,53 +1005,29 @@ class TestChatController(TestCase):
         response.assert_contents("Hello there, hope you are doing well.")
 ```
 
-A faked `stream()` yields the reply in several chunks, like a real token stream.
+A faked `stream()` yields the reply in several chunks, like a real token stream. Call `Ai.reset_fakes()` (from `fastapi_startkit.ai`) to clear every agent, embeddings and Decisions fake at once.
 
-### Recording & replaying — record()
+### Recording and Replaying
 
-`YourAgent.record(cassette)` calls the real model on the first run, saves each turn to a JSON cassette, and replays it from disk on later runs. Turns are keyed by the conversation so far, the new message, and any attachment names, so the same message after a different history is stored separately.
-
-```python
-class TestRouterAgent(IsolatedAsyncioTestCase):
-    async def test_it_records_a_reply(self):
-        with RouterAgent.record("record_no_stream.json") as agent:
-            result = await agent.prompt("Hi, I am Alex. Please respond by calling my name.")
-            assert "Alex" in state.text(result)
-```
-
-If you omit the path, the cassette is `cassettes/<Test_qualname>.json` next to the test file, with dots in the qualified name replaced by underscores. A relative path is resolved against the test file's directory. Streamed runs record the list of chunks, and a later `prompt()` against the same cassette returns the joined text.
-
-### Fluent record() — prompt() + assertions
-
-The handle returned by `record()` also has a set of `assert_*()` methods, each of which checks the most recent turn:
+`record()` calls the real model on the first run, saves each turn to a JSON cassette, and replays it from disk afterwards. Turns are keyed by the conversation so far, the new message and the attachment names, so the same message after a different history is stored separately. The first run needs the provider's API key:
 
 ```python
-class TestRouterAgent(IsolatedAsyncioTestCase):
-    async def test_the_router_agent(self):
-        with RouterAgent.record("record_stream.json") as agent:
-            await agent.prompt("hello")
-            agent.assert_text_response()
-            agent.assert_tool_not_called(["job_search_tool"])
-            await agent.assert_response_judged(
-                model="gpt-3.5-turbo",
-                expectation="The llm should respond with greetings",
-            )
-            agent.assert_response_time_lt(5)
+# tests/test_router_agent.py
+from fastapi_startkit.ai import state
 
-            await agent.prompt("suggest python developer jobs")
-            agent.assert_tool_called("job_search_tool", lambda tool: tool.name == "job_search_tool")
+from app.agents.router_agent import RouterAgent
+
+
+async def test_it_records_a_reply():
+    with RouterAgent.record("record_no_stream.json") as agent:
+        result = await agent.prompt("Hi, I am Alex. Please respond by calling my name.")
+
+    assert "Alex" in state.text(result)
 ```
 
-| Method | Description |
-|---|---|
-| `await agent.prompt(message)` | Run or replay one turn. It becomes the current turn for the assertions below |
-| `agent.assert_text_response()` | The current response has text |
-| `agent.assert_tool_called(name, predicate=None)` | A tool named `name` was called in the current turn. `predicate` receives an `AssertToolCall` (`.name`, `.args`, `.id`) for each match, and at least one must pass |
-| `agent.assert_tool_not_called(names)` | None of `names` were called in the current turn |
-| `agent.assert_response_time_lt(seconds)` | The recorded response times of all turns so far add up to less than `seconds` |
-| `await agent.assert_response_judged(model=..., expectation=...)` | An LLM judge, using `model`, grades the current response against `expectation`. Verdicts are cached in a `<cassette>.judge.json` file next to the cassette, so replays don't call the judge again |
+If you omit the path, the cassette is `cassettes/<test_qualname>.json` next to the test file, with dots in the qualified name replaced by underscores. A relative path is resolved against the test file's directory. Streamed runs store their chunks, and replaying a stream yields them again.
 
-To start from an existing conversation, seed earlier history with `messages=`, as dicts or LangChain messages. The seed is part of the cassette key, so a seeded session doesn't collide with an unseeded one that sends the same text:
+To start from an existing conversation, seed earlier history with `messages=`, as dicts or message objects. The seed is part of the cassette key:
 
 ```python
 from langchain_core.messages import AIMessage, HumanMessage
@@ -1040,68 +1040,63 @@ with RouterAgent.record(
     ],
 ) as agent:
     await agent.prompt("suggest python developer jobs")
-    agent.assert_tool_called("job_search_tool", lambda tool: tool.name == "job_search_tool")
+    agent.assert_tool_called("job_search_tool")
 ```
 
 ### Assertions
 
-Both `fake()` and `record()` return handles that count the calls made through them, so you can assert how often an agent was prompted:
-
-| Method | Description |
-|---|---|
-| `agent.assert_prompted()` | `prompt()` or `stream()` was called at least once |
-| `agent.assert_prompted(times=n)` | Exactly `n` calls were made |
-| `agent.assert_not_prompted()` | No calls were made |
-| `agent.reset()` | Clear the call log and return the handle |
+The handles returned by `fake()` and `record()` have `prompt()` and `stream()` methods and a set of assertions. Assertions about a response check the most recent turn made through the handle:
 
 ```python
-async def test_agent_is_called_once():
-    with SupportAgent.fake(["OK"]) as agent:
-        await agent.prompt("Hello")
-        agent.assert_prompted(times=1)
+async def test_the_router_agent():
+    with RouterAgent.record("router.json") as agent:
+        await agent.prompt("hello")
+
+        agent.assert_text_response()
+        agent.assert_tool_not_called(["job_search_tool"])
+        agent.assert_response_time_lt(5)
+        await agent.assert_relevant()
+
+        await agent.prompt("suggest python developer jobs")
+        agent.assert_tool_called("job_search_tool")
+        agent.assert_follow_trajectory(["job_search_tool"])
 ```
 
-## Provider Backends
+| Method | Checks |
+|---|---|
+| `assert_prompted(times=None)` | The handle was prompted at least once, or exactly `times` times |
+| `assert_not_prompted()` | The handle wasn't prompted |
+| `assert_prompt(expected)` | A prompt contains `expected`, or satisfies it when `expected` is a callable |
+| `assert_response(expected)` | The response text contains `expected` |
+| `assert_text_response()` | The response has text |
+| `assert_json()` | The response text is valid JSON |
+| `assert_tool_called(name, predicate=None)` | A tool named `name` was called. `predicate` receives an `AssertToolCall` with `.name`, `.args` and `.id`, and at least one call must pass |
+| `assert_tool_not_called(names)` | None of `names` were called |
+| `assert_follow_trajectory(names)` | The tools called across every turn match `names`, in order |
+| `assert_tokens(predicate)` | Token totals across every turn, for example `lambda x: x.where("input", "<=", 5000)` |
+| `assert_response_time_lt(seconds)` | The recorded response times of every turn add up to less than `seconds` |
+| `reset()` | Clears the history and totals and returns the handle |
 
-Models are created with LangChain's `init_chat_model`, which picks the integration package for the active provider. For each provider you use, install the matching package alongside `fastapi-startkit[ai]` and set its API key.
+A few assertions ask a judge model to grade the response. They're `async`, and they use the agent's provider and model unless you pass `provider=` or `model=`:
 
-### Anthropic
+| Method | Checks |
+|---|---|
+| `await assert_response_judged(expectation=...)` | The response meets `expectation` |
+| `await assert_satisfy(expectation)` | Same as `assert_response_judged` |
+| `await assert_relevant()` | The response addresses the last prompt |
+| `await assert_safe()` | The response is free of harmful content |
+| `await assert_prompt_judged(expectation)` | The last prompt meets `expectation` |
 
-```bash
-uv add langchain-anthropic
-```
-
-```ini
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-### OpenAI
-
-```bash
-uv add langchain-openai
-```
-
-```ini
-OPENAI_API_KEY=sk-...
-```
-
-### Google Gemini
-
-```bash
-uv add langchain-google-genai
-```
-
-```ini
-GEMINI_API_KEY=AIza...   # GOOGLE_API_KEY also works
-```
+Under `record()`, verdicts are saved to a `<cassette>.judge.json` file next to the cassette, so replays don't call the judge again.
 
 ## Complete Example
 
-To tie everything together, here's a support agent with a tool, logging middleware, FastAPI routes, and a controller test, laid out like the `example/agents` app.
+Here's a support agent with a tool, logging middleware, two routes and a controller test.
 
 ```python
 # app/tools/job_search_tool.py
 from langchain_core.tools import tool
+
 
 @tool
 def job_search_tool(query: str) -> list:
@@ -1115,12 +1110,11 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from langchain_core.language_models.chat_models import BaseChatModel
-
 from fastapi_startkit.logging import Log
 
+
 class AgentLogger:
-    def handle(self, model: BaseChatModel, handler: Callable) -> Any:
+    def handle(self, model: Any, handler: Callable) -> Any:
         Log.info(f"request | model={getattr(model, 'model', type(model).__name__)}")
         started_at = time.monotonic()
 
@@ -1131,19 +1125,18 @@ class AgentLogger:
 ```
 
 ```python
-# app/agents/chat.py
-from typing import Callable
-
+# app/agents/router_agent.py
 from fastapi_startkit.ai import Agent, Middleware
 
 from app.middleware.agent_logger import AgentLogger
 from app.tools.job_search_tool import job_search_tool
 
+
 class RouterAgent(Agent):
     def instructions(self) -> str:
         return "You are a friendly customer support assistant."
 
-    def tools(self) -> list[Callable]:
+    def tools(self) -> list:
         return [job_search_tool]
 
     def middleware(self) -> list[Middleware]:
@@ -1157,15 +1150,17 @@ from fastapi.responses import StreamingResponse
 
 from fastapi_startkit.ai import state
 
-from app.agents.chat import RouterAgent
+from app.agents.router_agent import RouterAgent
 from app.requests.chat import ChatRequest
 
 api = APIRouter()
+
 
 @api.post("/chat")
 async def chat(request: ChatRequest):
     result = await RouterAgent().prompt(request.message)
     return {"content": state.text(result)}
+
 
 @api.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
@@ -1179,9 +1174,10 @@ async def chat_stream(request: ChatRequest):
 
 ```python
 # tests/features/test_chat_controller.py
-from app.agents.chat import RouterAgent
+from app.agents.router_agent import RouterAgent
 
 from tests.test_case import TestCase
+
 
 class TestChatController(TestCase):
     @RouterAgent.fake(["Hello there, hope you are doing well."])
@@ -1198,3 +1194,5 @@ class TestChatController(TestCase):
         response.assert_ok()
         response.assert_stream_contains("Hello there, this is stream chat.")
 ```
+
+See [Image](./image), [Audio](./audio) and [Embeddings](./embeddings) for the other AI helpers, and [MCP](./mcp) to expose your app's tools to AI clients.
