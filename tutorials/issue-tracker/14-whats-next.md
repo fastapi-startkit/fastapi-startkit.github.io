@@ -7,9 +7,9 @@ duration: 3
 
 # What's next?
 
-**Goal:** know what you've built and where to take it next.
+Issue Tracker is finished. This lesson sums up what you built and where to take it next.
 
-## What you built
+## What You Built
 
 Issue Tracker now:
 
@@ -27,7 +27,7 @@ Issue Tracker now:
 
 Those pieces are most of what a real app needs. The rest builds on the same ideas: a provider to switch a feature on, a config class to set it up and `artisan` to do the chores.
 
-## Ideas to try
+## Ideas to Try
 
 - **Edit projects.** Give `ProjectController` `update` and `destroy` methods and add them to `only=`.
 - **Labels.** Add a `labels` table and an `issue_label` table, use `BelongsToMany` on `Issue`, and add a `?label=bug` filter.
@@ -37,7 +37,7 @@ Those pieces are most of what a real app needs. The rest builds on the same idea
 - **Who's acting.** Replace `reporter_id` and `author_id` in request bodies with the logged-in user. The separate `fastapi-startkit-auth` package adds sign up, log in and protected routes.
 - **Switch databases.** Point `DB_CONNECTION` at PostgreSQL or MySQL and install the matching extra. Your models don't change. The [database docs](/docs/database/) show the settings.
 
-## Keep reading
+## Keep Reading
 
 - [Configuration](/docs/configuration) covers `env()`, environment files and config classes.
 - [FastAPI](/docs/fastapi) covers routers, `resource()` and its options.

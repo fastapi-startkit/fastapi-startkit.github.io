@@ -25,13 +25,13 @@ Along the way you'll learn how a FastAPI Startkit app fits together: providers a
 
 You don't need to know the framework already. Every lesson builds on the one before it, so work through them in order. Each one ends with a quick check, so you always know your code works before you move on.
 
-## The finished app
+## The Finished App
 
 The whole app is on GitHub at [fastapi-startkit/issue-tracker](https://github.com/fastapi-startkit/issue-tracker). Each lesson that changes code is one commit, tagged `lesson-02` to `lesson-13`. If you get stuck, each lesson links to its tag and to the exact changes it makes.
 
-## What you need
+## What You Need
 
 - Python 3.12 or newer
 - [uv](https://docs.astral.sh/uv/), to create the project and run commands
 - [Node.js](https://nodejs.org/) 22.12 or newer, to build the Vue board in lesson 12
-- A way to send HTTP requests. The lessons use `curl`, but the built-in `/docs` page works just as well.
+- A way to send HTTP requests. The lessons use `curl`, but the built-in `/docs` page works too.
