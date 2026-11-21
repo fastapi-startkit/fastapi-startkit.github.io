@@ -1,41 +1,58 @@
 ---
 outline: deep
 title: Models
-description: Define database models with the Masonite ORM built into FastAPI Startkit.
+description: Define database models and query them with the FastAPI Startkit ORM.
 keywords: orm, models, database, fastapi, active record
 ---
 
 # Models
 
-Models are the heart of the ORM. Each model maps to one database table, and it's the class you reach for whenever you want to query, insert, update, or delete rows in that table. Each instance represents a single row, and you work with its columns as ordinary Python attributes.
+## Introduction
 
-## Defining a Model
+A model is a class that maps to one database table. You use it to query, insert, update, and delete rows in that table, and each instance represents a single row whose columns you read as ordinary Python attributes. Every method that touches the database is async, so you `await` it.
 
-To get started, extend `Model` from `fastapi_startkit.masoniteorm` and annotate the columns with Python types:
+Before you start, configure a database connection as described in [Database: Getting Started](./).
+
+## Defining Models
+
+To define a model, extend `Model` and annotate the table's columns with Python types:
 
 ```python
+# app/models/User.py
 from fastapi_startkit.masoniteorm import Model
 
-class User(Model):
-    __table__ = "users"
 
-    id: int
+class User(Model):
     name: str
     email: str
+    password: str
+    role: str
+    is_active: bool
 ```
 
-### `__table__`
+The annotations also decide how each value is converted when it's read and written, and which attributes `update()` and `fill()` may set. See [Casts](./casts) for the supported types. This `User` matches the `users` table in [A Complete Example](./migrations#a-complete-example).
 
-By default, the table name is the class name, snake_cased and pluralized. If your table is named something else, set `__table__`:
+### Table Names
+
+By default, the table name is the class name in snake_case, pluralized: `User` uses `users` and `ReviewLog` uses `review_logs`. If your table has another name, set `__table__`:
 
 ```python
 class PostTag(Model):
     __table__ = "post_tag"
 ```
 
-### `__timestamps__`
+### Primary Keys
 
-The model fills in `created_at` and `updated_at` for you when it saves. If a table doesn't have those columns, set `__timestamps__ = False`:
+The model assumes the primary key column is `id`. Set `__primary_key__` to use another column:
+
+```python
+class Country(Model):
+    __primary_key__ = "code"
+```
+
+### Timestamps
+
+The model fills in `created_at` and `updated_at` when it saves. If a table doesn't have those columns, set `__timestamps__ = False`:
 
 ```python
 class PostTag(Model):
@@ -43,104 +60,155 @@ class PostTag(Model):
     __timestamps__ = False
 ```
 
-### Generating a Model
+### Database Connection
 
-`db:make:model` writes a model class into `app/models/`, creating the directory if it doesn't exist yet. Add `-m` to also create a `create_<table>_table` migration, or `-s` for a seeder:
+A model uses the default connection. To use another one, set `__connection__` to its name, as described in [Using Multiple Database Connections](./#using-multiple-database-connections):
+
+```python
+class Report(Model):
+    __connection__ = "reporting"
+```
+
+## Generating a Model
+
+Run `db:make:model` from the project root. It writes a model class into `app/models/` under the current directory, creating the directory if needed:
 
 ```bash
 uv run python artisan db:make:model Post -m
 ```
 
-The file is named after the class (`app/models/Post.py`). Pass `-p` for a snake_case file name (`app/models/post.py`), and `--directory` to write somewhere else. The migration and seeder generators also create their target directories, so a fresh app can run `db:make:model Post -m` and then `db:migrate` straight away.
+The file is named after the class, `app/models/Post.py`. These options are available:
 
-## Querying
+| Option | Effect |
+|---|---|
+| `-m`, `--migration` | Also creates a `create_posts_table` migration |
+| `-s`, `--seeder` | Also creates a seeder |
+| `-p`, `--pep` | Uses a snake_case file name, `app/models/post.py` |
+| `-d`, `--directory` | Writes the model to another directory |
 
-Every method that hits the database is async, so remember to `await` it. Here are the queries you'll use most often.
+The migration and seeder generators create their directories too, so you can run `db:migrate` right after `db:make:model Post -m`.
 
-### Fetch all records
+## Retrieving Models
+
+Once you have a model, you can query its table. `all()` returns every row:
 
 ```python
 users = await User.all()
+
+for user in users:
+    print(user.email)
 ```
 
-### Fetch the first record
+Columns are attributes on each model. Timestamps come back as `Carbon` instances:
 
 ```python
 user = await User.first()
+
+user.name
+user.created_at.diff_for_humans()  # "a few seconds ago"
 ```
 
-### Find by primary key
+### Building Queries
+
+Each model is also a query builder. Add constraints with `where`, then call `get()` to run the query:
+
+```python
+posts = await Post.where("user_id", 1).order_by("created_at", "desc").limit(10).get()
+```
+
+To fetch one row, use `first()` or look up a primary key with `find()`. Both return `None` when nothing matches:
 
 ```python
 user = await User.find(1)
-```
 
-### Filter with `where`
-
-```python
 user = await User.where("email", "admin@example.com").first()
 ```
 
-### `get()` — execute a query
+`find_or_fail()` and `first_or_fail()` raise `ModelNotFoundException` instead:
 
 ```python
-posts = await Post.where("user_id", 1).get()
-```
+from fastapi_startkit.masoniteorm import ModelNotFoundException
 
-### `find_or_fail(id)` — find or raise
-
-`find_or_fail` raises `ModelNotFoundException` when no row has that primary key:
-
-```python
 user = await User.find_or_fail(1)
-```
 
-### `first_or_fail()` — first or raise
-
-`first_or_fail` raises `ModelNotFoundException` when the query matches nothing:
-
-```python
 user = await User.where("email", "admin@example.com").first_or_fail()
 ```
 
-### `exists()` — check existence
+### Or and Raw Conditions
+
+Chain `or_where` for an `OR` condition. `where_null`, `where_not_null`, and `where_in` add the matching checks, and `or_where_null` and `or_where_not_null` add them with `OR`:
 
 ```python
-active = await User.where("is_active", True).exists()
+users = await User.where("role", "admin").or_where("role", "moderator").get()
+
+users = await User.where("name", "Alice").or_where_null("role").get()
 ```
 
-### `count()` — row count
+For a condition the builder can't express, use `where_raw` or `or_where_raw`. Pass values as a tuple of bindings:
+
+```python
+users = await User.where_raw("length(name) > ?", (20,)).get()
+
+users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").get()
+```
+
+### Counting and Checking Existence
+
+`count()` returns the number of matching rows, and `exists()` tells you whether there are any:
 
 ```python
 total = await User.count()
-active_count = await User.where("is_active", True).count()
+active = await User.where("is_active", True).count()
+
+has_active = await User.where("is_active", True).exists()
 ```
 
-### `paginate(per_page, page)` — paginate results
+### Paginating Results
 
-`paginate` is a query builder method, so you start from `query()` or a `where`. It returns a `LengthAwarePaginator`:
+`paginate(per_page, page)` returns one page of models and the total count. Start it from `query()` or a `where`:
 
 ```python
 page = await User.query().paginate(per_page=15, page=1)
 
 page.result     # the User instances on this page
-page.total      # total number of matching rows
+page.total      # number of matching rows
 page.last_page  # last page number
 ```
 
-### `or_where` / `where_raw` / `or_where_raw` / `or_where_null` — raw & OR variants
+The paginator also has `current_page`, `next_page`, and `previous_page`. When you don't need the total, `simple_paginate(per_page, page)` skips the count query.
+
+## Chunking Results
+
+Loading a large table with `all()` or `get()` can run your process out of memory. The chunk methods fetch one batch at a time and return async iterators, so you loop over them with `async for`:
 
 ```python
-users = await User.where("role", "admin").or_where("role", "moderator").get()
-
-users = await User.where_raw("created_at > NOW() - INTERVAL '7 days'").get()
-
-users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").get()
-
-users = await User.where("name", "Alice").or_where_null("deleted_at").get()
+async for users in User.where("is_active", True).chunk(100):
+    for user in users:
+        print(user.email)
 ```
 
-### JSON columns
+`chunk(size)` pages with `limit` and `offset`, and stops when a batch is empty or smaller than `size`.
+
+### Chunking by ID
+
+If you change rows while you loop, offsets can shift and rows get skipped or repeated. `chunk_by_id(size, column=None, alias=None)` pages on the primary key instead, fetching each batch with `id > last_id`:
+
+```python
+async for users in User.chunk_by_id(500):
+    for user in users:
+        await user.update({"is_active": False})
+```
+
+`chunk_by_id_desc` walks from the highest id down. Both methods work like this:
+
+- They ignore any `order_by` on the query.
+- An `offset` on the query applies to the first batch only.
+- A `limit` caps the total, so `.limit(250)` chunked by 100 gives batches of 100, 100, and 50.
+- Pass `column` to page by another increasing column, and `alias` when that column is selected under another name. A row without the `alias` column raises `RuntimeError`.
+
+All chunk methods raise `ValueError` if the size is zero or negative.
+
+## Querying JSON Columns
 
 To reach a key inside a JSON column, join the column and its keys with `->`. This works anywhere the builder takes a column name, including `where`, `or_where`, `order_by`, and `select`:
 
@@ -159,9 +227,8 @@ Each database gets its own JSON syntax:
 | PostgreSQL | `"posts"."settings"->'meta'->>'headline'` |
 | SQLite | `json_extract("posts"."settings", '$."meta"."headline"')` |
 | MySQL | ``json_unquote(json_extract(`posts`.`settings`, '$."meta"."headline"'))`` |
-| SQL Server | `json_value([posts].[settings], '$."meta"."headline"')` |
 
-Comparisons and `like` behave the same way everywhere for **string** values. Numbers and booleans don't: SQLite's `json_extract` returns the native JSON type, while PostgreSQL's `->>` always returns text, so `where("settings->count", 5)` matches on SQLite but fails on PostgreSQL. Compare those values with `where_raw` and a cast for your database:
+String comparisons and `like` behave the same everywhere, and on PostgreSQL `like` compiles to `ILIKE`. Numbers and booleans don't: PostgreSQL's `->>` returns text, so compare those with `where_raw` and a cast for your database:
 
 ```python
 # PostgreSQL
@@ -171,72 +238,11 @@ posts = await Post.where_raw("(settings->>'count')::int = ?", (5,)).get()
 posts = await Post.where_raw("json_extract(settings, '$.count') = ?", (5,)).get()
 ```
 
-On PostgreSQL, `like` still compiles to `ILIKE`, so the match ignores case. A table prefix such as `drafts.settings->headline` is kept.
+Values are always bindings, but keys are written into the SQL, so a key may only contain letters, digits, and underscores. Anything else raises `ValueError`, so write `settings->headline`, not `settings->>headline`. For array indexes (`tags->0`) and containment checks, use `where_raw`.
 
-Values are always sent as bindings. The keys, though, are written into the SQL, so each key may only contain letters, digits, and underscores. Anything else raises `ValueError`. Write `settings->headline`, not Postgres's `settings->>headline`: the builder picks the operator for you, and the extra `>` is rejected as part of the key.
+## Subquery Selects
 
-> Array indexes (`tags->0`) and JSON containment checks aren't supported yet. Use `where_raw` for those.
-
-### Retrieving records
-
-`get()` runs the query and returns a `Collection` of models:
-
-```python
-users = await User.where("is_active", True).get()
-
-for user in users:
-    print(user.email)
-```
-
-#### Chunking large result sets
-
-Loading a large table with `all()` or `get()` can run your process out of memory. The `chunk` methods solve this by fetching one batch at a time. They return async iterators, so you loop over them with `async for`:
-
-```python
-async for users in User.chunk(200):
-    for user in users:
-        print(user.email)
-```
-
-Filtered queries can be chunked too:
-
-```python
-async for projects in Project.where("is_active", True).chunk(100):
-    for project in projects:
-        await project.archive()
-```
-
-`chunk(size)` pages with `limit` and `offset`. It stops when a batch is empty or smaller than `size`.
-
-#### `chunk_by_id(size, column=None, alias=None)`
-
-If you're changing rows while you loop, offsets can shift underneath you. `chunk_by_id` avoids that by paging on an increasing column instead. It orders by the primary key by default and fetches each batch with `column > last_id`, so rows added or removed during the loop don't cause skips or repeats:
-
-```python
-async for users in User.chunk_by_id(500):
-    for user in users:
-        await user.recalculate_score()
-```
-
-An `offset` already on the query applies to the first batch only. A `limit` caps the total number of rows, so `.limit(250)` chunked by 100 gives batches of 100, 100, and 50. Pass `column` to page by another column, and `alias` when that column is selected under a different name.
-
-> `chunk_by_id` ignores any `order_by` on the query and raises `RuntimeError` if a row is missing the `alias` column.
-
-#### `chunk_by_id_desc(size, column=None, alias=None)`
-
-This works just like `chunk_by_id`, but walks from the highest id down, using `column < last_id`:
-
-```python
-async for projects in Project.chunk_by_id_desc(100):
-    for project in projects:
-        await project.archive()
-```
-
-> All three chunk methods raise `ValueError` if the batch size is not a positive integer.
-
-### Subquery selects
-
-Sometimes you want a value from another table alongside each row. You can select a subquery as an extra column for that. For example, this loads every user with the time of their latest login, all in one query:
+To load a value from another table alongside each row, select a subquery as an extra column. For example, this loads every user with the time of their latest login in one query:
 
 ```python
 users = await (
@@ -258,9 +264,9 @@ users[0].serialize()["last_login_at"]
 SELECT "users".*, (SELECT "logins"."created_at" FROM "logins" WHERE user_id = users.id ORDER BY "created_at" DESC LIMIT 1) AS last_login_at FROM "users"
 ```
 
-#### `select_sub(subquery, alias)`
+### Using `select_sub`
 
-Adds `(subquery) AS alias` to the selected columns. `subquery` is either a query builder, or a callable that receives an empty builder with no table set and returns the subquery:
+`select_sub(subquery, alias)` adds `(subquery) AS alias` to the selected columns. The subquery is a query builder, or a callable that receives an empty builder and returns one. Call `table()` on that builder to choose its table:
 
 ```python
 posts = await (
@@ -281,83 +287,37 @@ posts = await (
 SELECT "posts"."id", (SELECT "categories"."name" FROM "categories" WHERE categories.id = posts.category_id LIMIT 1) AS category_name FROM "posts"
 ```
 
-Passing a builder instead of a callable gives the same SQL:
+Bindings from the subquery come before the outer query's bindings, so `?` placeholders stay in order. Anything other than a builder or a callable raises `TypeError`.
 
-```python
-category_name = Category.query().select("name").where_column("categories.id", "posts.category_id").limit(1)
+### Using `add_select`
 
-posts = await Post.query().select("id").select_sub(category_name, "category_name").get()
-```
-
-Bindings from the subquery come before bindings from the outer `WHERE` clause, so `?` placeholders stay in order. Anything other than a builder or a callable raises `TypeError`.
-
-#### `add_select(*columns)`
-
-`add_select` adds columns to the selection instead of replacing it. You can pass the columns as separate arguments or as one list, and a column that's already selected won't be added twice:
+`add_select` adds columns to the selection instead of replacing it. Pass the columns as arguments or as one list. A column that's already selected isn't added twice:
 
 ```python
 Post.query().select("id").add_select("title", "category_id")
-Post.query().select("id").add_select(["title", "category_id"])
-Post.query().select("id", "title").add_select("title", "category_id")
+Post.query().select("id", "title").add_select(["title", "category_id"])
 ```
 
-All three produce:
+Both produce:
 
 ```sql
 SELECT "posts"."id", "posts"."title", "posts"."category_id" FROM "posts"
 ```
 
-To add a subquery column, pass a `{alias: subquery}` dict instead. The subquery can be a builder or a callable, and each entry is passed to `select_sub(subquery, alias)`. You can mix plain columns and dicts in one list:
+To add a subquery column, pass a `{alias: subquery}` dict, as in the login example above. You can mix plain columns and dicts in one list. If nothing is selected yet, `add_select` selects `{table}.*` first, so the model's own columns come back next to the subquery column:
 
 ```python
-Post.query().select("id").add_select({"category_name": category_name})
+category_name = Category.query().select("name").where_column("categories.id", "posts.category_id").limit(1)
+
 Post.query().add_select(["id", {"category_name": category_name}])
-```
-
-If nothing is selected yet, `add_select` selects `{table}.*` first, so the model's own columns come back next to the subquery column:
-
-```python
 Post.query().add_select({"category_name": category_name})
 ```
 
-```sql
-SELECT "posts".*, (SELECT "categories"."name" FROM "categories" WHERE categories.id = posts.category_id LIMIT 1) AS category_name FROM "posts"
-```
+A subquery passed without an alias, such as `add_select(Category.query().select("name"))`, raises `TypeError`.
 
-There are two edge cases to keep in mind:
+## Unions
 
-- A string dict value is a plain column, and the key is ignored. `add_select({"ignored": "title"})` is the same as `add_select("title")`.
-- A subquery without an alias, such as `add_select(Category.query().select("name"))`, raises `TypeError`. Wrap it in a dict or use `select_sub()`.
-
-::: warning Migrating from `add_select(alias, callable)`
-Older versions added a subquery column with `add_select(alias, callable)`. That form has been removed; `add_select` now only takes columns. Use `select_sub`, and note that the arguments are in the opposite order:
-
-```python
-# Before
-Post.query().add_select("category_name", lambda q: ...)
-
-# After
-Post.query().select_sub(lambda q: ..., "category_name")
-# or
-Post.query().add_select({"category_name": lambda q: ...})
-```
-:::
-
-#### `table(name)`
-
-`table` changes the table the builder queries. You'll mostly need it inside a `select_sub` callable, where the builder has no table yet, but it works on a model query as well:
-
-```python
-rows = await Post.query().table("categories").select("name").get()
-```
-
-```sql
-SELECT "categories"."name" FROM "categories"
-```
-
-### Unions
-
-`union` and `union_all` combine the rows of two queries. `union` removes duplicate rows and `union_all` keeps them. Each takes a query builder, or a callable that receives an empty builder and returns one:
+`union` and `union_all` combine the rows of two queries. `union` removes duplicate rows and `union_all` keeps them. Each takes a query builder or a callable:
 
 ```python
 user_ids = await (
@@ -376,15 +336,13 @@ user_ids = await (
 )
 ```
 
-On PostgreSQL, the first query compiles to:
+On PostgreSQL, the query compiles to:
 
 ```sql
 (SELECT "review_logs"."user_id" FROM "review_logs" WHERE "review_logs"."created_at" > ?) UNION ALL (SELECT "plays"."user_id" FROM "plays" WHERE "plays"."created_at" > ?)
 ```
 
-The queries must select the same number of columns, as SQL requires. Every query stays bound, and the bindings follow the order of the SQL. Each database wraps the queries in its own way. PostgreSQL and MySQL put each one in parentheses, SQLite uses `SELECT * FROM (...)`, and SQL Server uses `SELECT * FROM (...) AS [temp_table]`.
-
-Each query keeps its own `order_by` and `limit`. `count()` and the other aggregates count the rows of the whole union. So do `paginate()`, `simple_paginate()`, `chunk()`, `chunk_by_id()`, and `chunk_by_id_desc()`, which also page across the whole union, not just the first query:
+The queries must select the same number of columns. Each query keeps its own `order_by` and `limit`. `count()`, the other aggregates, `paginate()`, `simple_paginate()`, and the chunk methods work on the whole union:
 
 ```python
 total = await ReviewLog.query().select("user_id").union(Play.query().select("user_id")).count()
@@ -392,13 +350,9 @@ total = await ReviewLog.query().select("user_id").union(Play.query().select("use
 page = await ReviewLog.query().select("user_id").union_all(Play.query().select("user_id")).paginate(per_page=20)
 ```
 
-To order, filter, or group the union as a whole outside those methods, select from it with `from_sub`.
+### Selecting From a Subquery
 
-### Subqueries as tables
-
-`from_sub(subquery, alias)` selects from a subquery instead of a table. Like `union`, it takes a builder or a callable. The outer query's columns, `where`, `group_by`, and `order_by` are prefixed with the alias.
-
-With a union as the subquery, you can count distinct users per day across several tables in one query:
+To filter, group, or order a union as a whole, select from it with `from_sub(subquery, alias)`. The outer query's columns, `where`, `group_by`, and `order_by` are prefixed with the alias. For example, this counts distinct users per day across two tables:
 
 ```python
 events = (
@@ -416,21 +370,11 @@ rows = await (
 )
 ```
 
-```sql
-SELECT "events"."day", COUNT(DISTINCT user_id) AS learners
-FROM ((SELECT "review_logs"."user_id", "review_logs"."day" FROM "review_logs") UNION ALL (SELECT "plays"."user_id", "plays"."day" FROM "plays")) AS "events"
-GROUP BY "events"."day"
-```
+Because the outer `group_by` is prefixed with the alias, a computed column has to be selected inside each subquery, where it becomes a real column. `INTERSECT`, `EXCEPT`, and `GROUPING SETS` aren't supported.
 
-Because the outer `group_by` is prefixed with the alias, a computed column, such as a local day, has to be selected inside each subquery, where it becomes a real column.
+## Inserting Models
 
-`union`, `union_all`, and `from_sub` are also available directly on the model, as in `ReviewLog.from_sub(...)` above. Each raises `TypeError` if it gets anything other than a builder or a callable. `INTERSECT`, `EXCEPT`, and `GROUPING SETS` aren't supported.
-
-## Creating Records
-
-### `create`
-
-The easiest way to add a row is `create`. It takes a dict of attributes, inserts the row, and returns the model:
+To add a row, pass a dict of attributes to `create`. It inserts the row, fills in the timestamps, and returns the model:
 
 ```python
 post = await Post.create({
@@ -440,35 +384,39 @@ post = await Post.create({
 })
 ```
 
-### `first_or_create`
+### Finding or Creating Models
 
-When you want to reuse a row if it already exists, use `first_or_create`. It returns the first row matching the first dict. If there isn't one, it creates one from both dicts merged:
+`first_or_create(search, attributes)` returns the first row matching `search`. If there's none, it creates one from both dicts merged:
 
 ```python
 user = await User.first_or_create(
     {"email": "admin@example.com"},
-    {"name": "Admin User", "password": "secret"}
+    {"name": "Admin User", "password": "secret"},
 )
 ```
 
-### `insert` — bulk insert rows
-
-For bulk work, `insert` writes one or many rows without building model instances:
+`update_or_create(search, attributes)` works the same way, but updates the found row with `attributes`:
 
 ```python
-await User.insert({"email": "picard@example.com", "votes": 0})
+user = await User.update_or_create({"email": "admin@example.com"}, {"name": "Administrator"})
+```
 
+### Inserting Many Rows
+
+`insert` writes one or many rows without building models:
+
+```python
 await User.insert([
-    {"email": "picard@example.com", "votes": 0},
-    {"email": "janeway@example.com", "votes": 0},
+    {"name": "Picard", "email": "picard@example.com", "password": "secret"},
+    {"name": "Janeway", "email": "janeway@example.com", "password": "secret"},
 ])
 ```
 
-> Unlike `create`, `insert` doesn't fire model events, set timestamps, or return models. Reach for it in bulk seeding and batch jobs.
+Unlike `create`, `insert` doesn't fire model events, set timestamps, or return models. Use it for seeding and batch jobs.
 
-### `insert_or_ignore` and `upsert` — let the database handle duplicates
+## Upserts
 
-`first_or_create` and `update_or_create` run a `SELECT` first and then an `INSERT`. If two requests do that at the same moment, both miss the row, and the second insert fails on the unique index. `insert_or_ignore` and `upsert` avoid that race by letting the database resolve the conflict in a single statement.
+`first_or_create` and `update_or_create` run a `SELECT` and then an `INSERT`. If two requests do that at the same moment, both miss the row and the second insert fails on the unique index. `insert_or_ignore` and `upsert` let the database resolve the conflict in a single statement.
 
 `insert_or_ignore(values, unique_by=None)` inserts the rows and skips any row that would break a unique constraint:
 
@@ -479,7 +427,7 @@ await Lexeme.insert_or_ignore(
 )  # 1 the first time, 0 after that
 ```
 
-`upsert(values, unique_by, update=None)` inserts the rows, and updates the `update` columns of any row that already exists:
+`upsert(values, unique_by, update=None)` inserts the rows, and updates the `update` columns of rows that already exist:
 
 ```python
 await Lexeme.upsert(
@@ -499,25 +447,20 @@ INSERT INTO "lexemes" ("slug", "language", "word") VALUES (?, ?, ?) ON CONFLICT 
 INSERT INTO "lexemes" ("slug", "language", "word") VALUES (?, ?, ?) ON CONFLICT ("slug", "language") DO UPDATE SET "word" = EXCLUDED."word"
 ```
 
-Both methods work like this:
+Both methods follow these rules:
 
-- `values` is a dict or a list of dicts. Every value is a binding. Each row must have the same columns as the first row, or a `ValueError` is raised. The order of the keys doesn't matter.
+- `values` is a dict or a list of dicts, and every row must have the same columns as the first, or a `ValueError` is raised. Key order doesn't matter.
 - `unique_by` and `update` take a column name or a list of names.
-- Both return the number of affected rows. An empty `values` runs nothing and returns `0`.
-- Like `insert`, they don't fire model events or fill in timestamps. Both are also query builder methods, so `Lexeme.query().upsert(...)` works the same way.
-
-For `insert_or_ignore`, leaving out `unique_by` gives `ON CONFLICT DO NOTHING`, which skips a conflict on any unique index.
-
-`upsert` has a few more rules:
-
-- It needs at least one `unique_by` column, or it raises `ValueError`.
-- With `update=None`, it updates every inserted column that isn't in `unique_by`. If that leaves nothing to update, it falls back to `insert_or_ignore`.
-- Every `update` column must be one of the inserted columns, or it raises `ValueError`. Otherwise the database would overwrite that column with its default.
-- On PostgreSQL, a batch that repeats a `unique_by` key fails with `ON CONFLICT DO UPDATE command cannot affect row a second time`. Send each key once per batch. SQLite applies the repeats in order and keeps the last one.
+- They return the number of affected rows. An empty `values` runs nothing and returns `0`.
+- Like `insert`, they don't fire model events or fill in timestamps.
+- Without `unique_by`, `insert_or_ignore` skips a conflict on any unique index.
+- `upsert` needs at least one `unique_by` column. With `update=None`, it updates every inserted column that isn't in `unique_by`, and falls back to `insert_or_ignore` if that leaves nothing.
+- Every `update` column must be one of the inserted columns, or `upsert` raises `ValueError`.
+- On PostgreSQL, a batch that repeats a `unique_by` key fails, so send each key once per batch. SQLite applies the repeats in order and keeps the last one.
 
 SQLite needs version 3.24 or later.
 
-#### MySQL
+### Upserts on MySQL
 
 On MySQL, `insert_or_ignore` compiles to `INSERT IGNORE` and `upsert` to `ON DUPLICATE KEY UPDATE`:
 
@@ -526,20 +469,15 @@ INSERT IGNORE INTO `lexemes` (`slug`, `language`, `word`) VALUES (?, ?, ?)
 INSERT INTO `lexemes` (`slug`, `language`, `word`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `word` = VALUES(`word`)
 ```
 
-These behave differently from `ON CONFLICT`, so keep the following in mind:
+Keep these differences in mind:
 
-- MySQL finds the conflicting unique index by itself, so `unique_by` isn't part of the SQL. `upsert` still requires it, because it uses `unique_by` to work out the default `update` columns.
-- `INSERT IGNORE` ignores more than duplicate keys. It also turns other errors, such as a `NOT NULL` violation, a failed foreign key, or a value that's too long for its column, into warnings. The row is then skipped or stored with an adjusted value instead of raising an error.
-- The `VALUES(col)` form is deprecated as of MySQL 8.0.20, but it still works.
-- Affected-row counts aren't the same as on other databases. MySQL counts an inserted row as 1 and an updated row as 2. A matched row that the upsert leaves unchanged counts as 1, because SQLAlchemy's MySQL drivers connect with the `FOUND_ROWS` flag. Without that flag, it would count as 0. Don't rely on the exact number across databases.
+- MySQL finds the conflicting unique index itself, so `unique_by` isn't part of the SQL. `upsert` still requires it to work out the default `update` columns.
+- `INSERT IGNORE` also turns other errors, such as a `NOT NULL` violation, a failed foreign key, or a value too long for its column, into warnings. The row is then skipped or stored with an adjusted value.
+- MySQL counts an inserted row as 1, an updated row as 2, and an unchanged matched row as 1. Don't rely on the exact count across databases.
 
-::: warning SQL Server
-`insert_or_ignore` and `upsert` aren't supported on SQL Server. They raise `NotImplementedError`.
-:::
+## Updating Models
 
-## Updating Records
-
-To update a row, change its attributes and call `save()`:
+To update a model, change its attributes and call `save()`:
 
 ```python
 user = await User.find(1)
@@ -547,56 +485,33 @@ user.name = "Jane Doe"
 await user.save()
 ```
 
-## Deleting Records
+`update()` sets several attributes and saves them in one call, and `touch()` only refreshes `updated_at`. `update()` and `fill()` set only the attributes annotated on the model and skip other keys without an error, and so does `update_or_create()` when it finds an existing row. `create()`, `first_or_create()`, and `update_or_create()` when no row matches write every key you pass:
 
-To remove a row, call `delete()` on the model:
+```python
+await user.update({"name": "Jane Smith", "role": "editor"})
+
+await user.touch()
+```
+
+To update every row a query matches, call `update` on the query. It returns the number of affected rows and doesn't fire model events:
+
+```python
+await User.where("role", "moderator").update({"is_active": True})
+```
+
+## Deleting Models
+
+To delete a model, call `delete()` on it:
 
 ```python
 user = await User.find(1)
 await user.delete()
 ```
 
-## Accessing Attributes
-
-Columns are available as attributes on the model:
+To delete every row a query matches, call `delete` on the query. It returns the number of deleted rows:
 
 ```python
-user = await User.first()
-print(user.id)
-print(user.name)
-print(user.email)
-print(user.created_at.diff_for_humans())  # pendulum datetime
+await User.where("is_active", False).delete()
 ```
 
-## Complete Example
-
-To tie it all together, here's the `Post` model from the example app, with its columns and relationships:
-
-```python
-# app/models/post.py
-from typing import TYPE_CHECKING
-from fastapi_startkit.masoniteorm import Model, BelongsTo, BelongsToMany, HasMany
-
-if TYPE_CHECKING:
-    from app.models.user import User
-    from app.models.tag import Tag
-    from app.models.media import Media
-
-class Post(Model):
-    __table__ = "posts"
-
-    id: int
-    user_id: int
-    title: str
-    content: str
-
-    author = BelongsTo["User"](local_key="user_id", foreign_key="id")
-    media = HasMany["Media"](foreign_key="post_id", local_key="id")
-    tags = BelongsToMany["Tag"](
-        local_foreign_key="post_id",
-        other_foreign_key="tag_id",
-        table="post_tag",
-    )
-```
-
-From here, head to [Relationships](./relationships) to learn how to declare relationships, or [Casts](./casts) for type conversion and value objects.
+See [Relationships](./relationships) to connect models to each other, and [Casts](./casts) to control how attributes are converted.
