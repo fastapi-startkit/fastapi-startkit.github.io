@@ -160,7 +160,7 @@ export default defineConfig({
                     text: 'Guide',
                     items: [
                         { text: 'Getting Started', link: '/docs/getting-started' },
-                        { text: 'Env Variables', link: '/docs/configuration' },
+                        { text: 'Configuration', link: '/docs/configuration' },
                         { text: 'FastAPI', link: '/docs/fastapi' },
                         { text: 'Exception Handling', link: '/docs/exception-handling' },
                         { text: 'Logging', link: '/docs/logging' },

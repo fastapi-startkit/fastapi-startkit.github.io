@@ -1,107 +1,276 @@
 ---
 outline: deep
 title: Console Commands
-description: Write CLI commands with Cleo and run them through artisan.
-keywords: cli, console, commands, automation, cleo
+description: Write CLI commands with Cleo, run them through artisan, and use the built-in commands.
+keywords: cli, console, commands, automation, cleo, artisan
 ---
 
 # Console Commands
 
-Not everything your application does happens in response to an HTTP request. Data imports, cleanup jobs, and one-off maintenance tasks are often easier to run from the terminal. FastAPI Startkit lets you write these as console commands, built on [Cleo](https://cleo.readthedocs.io/en/latest/) and run through your `artisan` script, much like in Laravel.
+Not everything your application does happens in an HTTP request. Data imports, cleanup jobs and maintenance tasks are easier to run from the terminal. The framework lets you write these as console commands, built on [Cleo](https://cleo.readthedocs.io/en/latest/), and run them through your application's `artisan` script. It also ships commands for migrations, code generation and serving your application.
+
+- [Running Commands](#running-commands)
+- [Creating a Command](#creating-a-command)
+- [Registering Commands](#registering-commands)
+- [Calling Commands From Code](#calling-commands-from-code)
+- [Built-In Commands](#built-in-commands)
+
+## Running Commands
+
+Run a command by passing its name to `artisan`:
+
+```bash
+uv run python artisan db:migrate
+```
+
+Run `artisan` with no arguments to list every registered command, and add `--help` to a command to see its arguments and options:
+
+```bash
+uv run python artisan
+uv run python artisan db:migrate --help
+```
+
+To run a command against another environment, add `--env`. See [Configuration](/docs/configuration#choosing-the-environment-via-the-cli).
 
 ## Creating a Command
 
-A command is a class that extends `fastapi_startkit.console.Command`, a subclass of Cleo's `Command`. Give it a `name` and `description`, declare any `arguments` or `options` it accepts, and put the actual work in `handle()`:
+A command is a class that extends `fastapi_startkit.console.Command`. Give it a `name` and a `description`, declare the `arguments` and `options` it accepts, and put the work in `handle()`. The value `handle()` returns becomes the command's exit code:
 
 ```python
-from cleo.helpers import argument
+# app/console/commands/send_digest_command.py
+from cleo.helpers import argument, option
+
 from fastapi_startkit.console import Command
 from fastapi_startkit.logging import Log
 
-class HelloCommand(Command):
-    name = "hello"
-    description = "Say hello from the console"
+
+class SendDigestCommand(Command):
+    name = "digest:send"
+    description = "Send the weekly digest email to a user"
 
     arguments = [
-        argument(
-            "name",
-            description="Who do you want to greet?",
-            optional=True
-        )
+        argument("email", description="The user's email address"),
     ]
 
-    def handle(self):
-        name = self.argument('name')
-        text = f"Hello {name}" if name else "Hello"
+    options = [
+        option("dry-run", None, description="Print the digest without sending it", flag=True),
+        option("limit", "l", description="Maximum number of posts to include", flag=False, default="10"),
+    ]
 
-        Log.info(f"Greeting: {text}")
+    def handle(self) -> int:
+        email = self.argument("email")
+        limit = int(self.option("limit"))
 
-        self.line(f"<info>{text}</info>")
+        if self.option("dry-run"):
+            self.line(f"<comment>Would send {limit} posts to {email}</comment>")
+            return 0
+
+        Log.info(f"Sending digest to {email}")
+        self.line(f"<info>Digest sent to {email}</info>")
+        return 0
 ```
+
+Once it's [registered](#registering-commands), you can run it:
+
+```bash
+uv run python artisan digest:send taylor@example.com --dry-run --limit=5
+# Would send 5 posts to taylor@example.com
+```
+
+### Arguments and Options
+
+`argument()` and `option()` come from `cleo.helpers`:
+
+- `argument(name, description=..., optional=False, multiple=False, default=None)` declares a positional argument. Read it with `self.argument("email")`.
+- `option(long_name, short_name=None, description=..., flag=True, value_required=True, multiple=False, default=None)` declares an `--option`. With `flag=True` the option is a switch that reads as `True` or `False`. With `flag=False` it takes a value, such as `--limit=5`. Read it with `self.option("limit")`.
+
+Option values are strings, so convert them yourself, as `int(self.option("limit"))` does above. Running a command without a required argument prints an error such as `Not enough arguments (missing: "email")`.
+
+### Writing Output and Asking Questions
+
+Commands inherit Cleo's output and input helpers:
+
+| Method | Description |
+|---|---|
+| `self.line(text)` | Writes a line. Wrap text in `<info>`, `<comment>`, `<question>` or `<error>` tags to colour it. |
+| `self.info(text)` | Writes a line in the `info` style. |
+| `self.comment(text)` | Writes a line in the `comment` style. |
+| `self.line_error(text)` | Writes a line to stderr. |
+| `self.confirm(question, default=False)` | Asks a yes or no question and returns a `bool`. |
+| `self.ask(question, default=None)` | Asks for a value and returns the answer. |
+| `self.choice(question, choices, default=None)` | Asks the user to pick from a list. |
+| `self.table(header, rows)` | Builds a table. Call `.render()` on the result to print it. |
+
+When a command runs without a terminal, for example in a cron job or with `--no-interaction`, the questions return their default.
+
+### Running Async Code
+
+`handle()` is a regular function, while models and most services are async. Run async work with `asyncio.run()`:
+
+```python
+# app/console/commands/prune_drafts_command.py
+import asyncio
+
+from fastapi_startkit.console import Command
+
+from app.models.post import Post
+
+
+class PruneDraftsCommand(Command):
+    name = "posts:prune-drafts"
+    description = "Delete every draft post"
+
+    def handle(self) -> int:
+        if not self.confirm("Delete every draft post?", default=False):
+            self.comment("Nothing deleted.")
+            return 1
+
+        deleted = asyncio.run(self.prune())
+        self.info(f"Deleted {deleted} drafts.")
+        return 0
+
+    async def prune(self) -> int:
+        count = await Post.where("status", "draft").count()
+        await Post.where("status", "draft").delete()
+        return count
+```
+
+This example needs `DatabaseProvider` registered. See [Database](/docs/database/).
 
 ## Registering Commands
 
-Before you can run a command, you need to register it from a service provider. It only takes three steps.
-
-### 1. Create a Service Provider
-
-Pass your command classes to `self.commands()` in the provider's `register()` or `boot()` method:
+Register your commands from a service provider by passing the classes to `self.commands()`:
 
 ```python
+# app/providers/console_service_provider.py
 from fastapi_startkit.support import Provider
-from app.console.commands.hello_command import HelloCommand
+
+from app.console.commands.prune_drafts_command import PruneDraftsCommand
+from app.console.commands.send_digest_command import SendDigestCommand
+
 
 class ConsoleServiceProvider(Provider):
     def boot(self):
         self.commands([
-            HelloCommand,
+            SendDigestCommand,
+            PruneDraftsCommand,
         ])
 ```
 
-### 2. Register the Provider in your Application
-
-Add the provider to the `providers` list, usually in `bootstrap/application.py`:
+Then add the provider to your application:
 
 ```python
+# bootstrap/application.py
+from pathlib import Path
+
+from fastapi_startkit import Application
+
 from app.providers.console_service_provider import ConsoleServiceProvider
 
 app = Application(
     base_path=Path(__file__).parent.parent,
     providers=[
-        # ... other providers
         ConsoleServiceProvider,
-    ]
+    ],
 )
 ```
 
-### 3. Handle Commands in Entry Point
+### The `artisan` Script
 
-Finally, your `artisan` script hands the command line over to `app.handle_command()`:
+The `artisan` script in your project root hands the command line to `app.handle_command()` and exits with the command's exit code:
 
 ```python
 #!/usr/bin/env python3
+# artisan
 import sys
+
 from bootstrap.application import app
 
 if __name__ == "__main__":
-    status = app.handle_command()
-    sys.exit(status if isinstance(status, int) else 0)
+    sys.exit(app.handle_command())
 ```
 
-## Running the Command
+## Calling Commands From Code
 
-With everything registered, run your command by name:
+To run a command from your own code, such as a scheduled job or a test, call `app.run()` with the command name and its arguments. It returns the exit code:
+
+```python
+from bootstrap.application import app
+
+status = app.run("digest:send", ["taylor@example.com", "--dry-run"])
+# Would send 10 posts to taylor@example.com
+
+status = app.run("digest:send", "taylor@example.com --limit=3")
+```
+
+The arguments can be a list or a single string.
+
+## Built-In Commands
+
+The framework's providers register these commands for you. The `provider:publish` and `db:install` commands are always available. The others appear once you register their provider.
+
+| Command | Provider | Description |
+|---|---|---|
+| `provider:publish` | Always available | Copies provider config files into your project. `--provider=logging` publishes one provider's files. |
+| `db:install` | Always available | Publishes `config/database.py` and registers `DatabaseProvider`. `--driver` picks the database driver, `sqlite` by default. |
+| `serve` | `FastAPIProvider` | Starts the development server. Accepts `--host`, `--port`, `--reload`, `--app` and `--ws`. |
+| `make:notification` | `NotificationProvider` | Creates a notification class in `app/notifications`. See [Notifications](/docs/notifications). |
+| `ai:skills` | `AISkillProvider` | Lists or syncs the AI skills that providers declare. See [AI Skills](/docs/ai/skills). |
+
+### Database Commands
+
+`DatabaseProvider` registers these commands. See [Migrations](/docs/database/migrations) and [Seeding](/docs/database/seeds) for how to use them.
+
+| Command | Description |
+|---|---|
+| `db:migrate` | Runs the pending migrations. |
+| `db:migrate:status` | Shows which migrations have run. |
+| `db:migrate:rollback` | Rolls back the last batch of migrations. |
+| `db:migrate:refresh` | Rolls back every migration, then runs them all again. |
+| `db:migrate:fresh` | Drops every table, then runs all migrations. |
+| `db:seed` | Runs your seeders. |
+| `db:make:migration` | Creates a migration file. `--create=posts` starts a new table, `--table=posts` alters one. |
+| `db:make:model` | Creates a model file. `-m` also creates a migration, `-s` a seeder. |
+| `db:make:observer` | Creates a model observer in `app/observers`. |
+| `seed` | Creates a seeder file in `databases/seeders`. |
+
+`db:migrate:refresh` and `db:migrate:fresh` accept `--seed` to run seeders afterwards. Pass a table name, such as `--seed=users` to run `UsersTableSeeder`, or `--seed=null` to run `DatabaseSeeder`.
+
+`db:make:observer` takes the observer's name and an optional `--model`:
 
 ```bash
-uv run python artisan hello
+uv run python artisan db:make:observer User --model=User
+# Observer created: UserObserver.py
 ```
 
-To see every command available, run `artisan` with no arguments:
+The file contains an async method for each model event, such as `creating`, `updated` and `deleted`.
+
+### Registering the Shell and Reset Commands
+
+Two database commands aren't registered by `DatabaseProvider`:
+
+- `shell` opens your database's own command-line client (`sqlite3`, `psql`, `mysql` or `sqlcmd`) using the connection settings from your config. `--connection` picks a connection other than the default. The client must be installed and on your `PATH`.
+- `db:migrate:reset` rolls back every migration without running them again.
+
+To use them, import them from `fastapi_startkit.masoniteorm.commands` and register them in your own provider:
+
+```python
+# app/providers/console_service_provider.py
+from fastapi_startkit.masoniteorm.commands import MigrateResetCommand, ShellCommand
+from fastapi_startkit.support import Provider
+
+
+class ConsoleServiceProvider(Provider):
+    def boot(self):
+        self.commands([
+            MigrateResetCommand,
+            ShellCommand,
+        ])
+```
 
 ```bash
-uv run python artisan
+uv run python artisan db:migrate:reset
+uv run python artisan shell
 ```
 
-## Example Application
-
-For a complete project, take a look at the [console example app](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/console-app).
+For a complete project, see the [console example app](https://github.com/fastapi-startkit/fastapi-startkit-modules/tree/main/example/console-app).

@@ -7,35 +7,50 @@ keywords: fastapi, database, migrations, schema, python, orm
 
 # Migrations
 
-Migrations are like version control for your database. Each one is a small, versioned change to your schema, so your teammates and your production server can build the exact same tables you have locally. Every migration has an `up` method that applies the change and a `down` method that reverts it.
+## Introduction
 
-::: warning Migrations are not auto-generated
-FastAPI Startkit doesn't inspect your models to generate migrations the way Django does. You write each migration by hand. The model describes how Python reads a table; the migration decides what the table looks like.
-:::
+Migrations are version control for your database. Each migration is a file that describes one change to your schema, so your teammates and your production server can build the same tables you have locally. Every migration has an `up` method that applies the change and a `down` method that reverts it.
 
-## Creating a Migration
+You write each migration by hand. The framework doesn't generate migrations from your models.
 
-To create a migration, run `db:make:migration`. It generates a file with a timestamp prefix:
+- [Generating Migrations](#generating-migrations)
+- [Migration Structure](#migration-structure)
+- [Running Migrations](#running-migrations)
+- [Creating Tables](#creating-tables)
+- [Updating Tables](#updating-tables)
+- [Foreign Keys](#foreign-keys)
+
+## Generating Migrations
+
+To create a migration, run `db:make:migration` with a name that describes the change:
 
 ```bash
 uv run python artisan db:make:migration create_users_table
 ```
 
-You'll find the new file in `databases/migrations/`:
+The file is written to `databases/migrations/`, which is created if it doesn't exist, with a timestamp prefix that decides the order migrations run in:
 
 ```text
 databases/migrations/
 └── 2026_01_01_000000_create_users_table.py
 ```
 
-The generator creates `databases/migrations/` if it doesn't exist yet. To create a model and its migration together, see [Generating a Model](./models#generating-a-model).
+The generator guesses the table name from the migration name and fills in a `create` migration. To choose the table yourself, pass `--create` for a new table or `--table` to alter an existing one:
 
-## Migration Class
+```bash
+uv run python artisan db:make:migration add_bio_to_users_table --table=users
+```
 
-A migration class extends `Migration` and implements async `up` and `down` methods. Inside them, you build tables with `self.schema`:
+To create a model and its migration together, see [Generating a Model](./models#generating-a-model).
+
+## Migration Structure
+
+A migration class extends `Migration` and implements async `up` and `down` methods. Inside them, you change tables with `self.schema`:
 
 ```python
+# databases/migrations/2026_01_01_000000_create_users_table.py
 from fastapi_startkit.masoniteorm import Migration
+
 
 class CreateUsersTable(Migration):
     async def up(self):
@@ -50,25 +65,33 @@ class CreateUsersTable(Migration):
         await self.schema.drop("users")
 ```
 
+The table is created when the `async with` block exits, so declare every column inside it.
+
 ## Running Migrations
 
-When you're ready, run all pending migrations:
+To run all pending migrations, use `db:migrate`:
 
 ```bash
 uv run python artisan db:migrate
 ```
 
-If the migrations directory doesn't exist yet, `db:migrate` treats it as empty instead of failing.
+Each run records its migrations as one batch in the `migrations` table. To run a single file, pass its name without `.py` to `--migration`, and use `--connection` to migrate a connection other than the default:
 
-### Checking Status
+```bash
+uv run python artisan db:migrate --migration=2026_01_01_000000_create_users_table
+```
 
-To see which migrations have run and which are still pending, check the status:
+When `APP_ENV` is `production`, `db:migrate` asks for confirmation first. Pass `--force` to skip the prompt.
+
+### Checking Migration Status
+
+To see which migrations have run, use `db:migrate:status`:
 
 ```bash
 uv run python artisan db:migrate:status
 ```
 
-```
+```text
 +------+------------------------------------------+-------+
 | Ran? | Migration                                | Batch |
 +------+------------------------------------------+-------+
@@ -78,9 +101,35 @@ uv run python artisan db:migrate:status
 +------+------------------------------------------+-------+
 ```
 
+### Rolling Back Migrations
+
+To undo the last batch, run `db:migrate:rollback`. It calls `down` on every migration in that batch:
+
+```bash
+uv run python artisan db:migrate:rollback
+```
+
+Pass `--migration` to roll back one migration instead.
+
+### Rebuilding the Database
+
+`db:migrate:refresh` rolls back every migration and runs them all again. `db:migrate:fresh` drops every table, without calling `down`, and then runs all migrations:
+
+```bash
+uv run python artisan db:migrate:refresh
+
+uv run python artisan db:migrate:fresh --seed
+```
+
+Both commands accept `--seed` to run your [seeders](./seeds) afterwards.
+
+::: danger
+`db:migrate:fresh` drops every table in the database, including tables your migrations didn't create.
+:::
+
 ## Creating Tables
 
-To create a new table, call `self.schema.create()` in `up`:
+To create a table, call `self.schema.create()` in `up` and drop it in `down`:
 
 ```python
 async def up(self):
@@ -89,60 +138,69 @@ async def up(self):
         table.string("title")
         table.text("body").nullable()
         table.boolean("published").default(False)
-        table.integer("user_id").unsigned()
-        table.foreign("user_id").references("id").on("users")
         table.timestamps()
-```
 
-Then drop it again in `down`:
-
-```python
 async def down(self):
     await self.schema.drop("posts")
 ```
 
+To check for a table or column first, use `has_table` and `has_column`. `drop_table_if_exists` drops a table only if it's there:
+
+```python
+if not await self.schema.has_column("users", "bio"):
+    async with await self.schema.table("users") as table:
+        table.text("bio").nullable()
+
+await self.schema.drop_table_if_exists("legacy_users")
+```
+
 ### Column Types
 
-The schema builder offers the column types below. The SQL types listed are for PostgreSQL; other databases use their closest equivalent.
+The schema builder offers the column types below. The SQL types listed are for PostgreSQL; MySQL and SQLite use their closest equivalent.
 
-| Method | SQL Type | Notes |
+| Method | PostgreSQL type | Notes |
 |---|---|---|
-| `table.id()` | `BIGSERIAL PRIMARY KEY` | Auto-incrementing big integer |
-| `table.increments("col")` | `SERIAL PRIMARY KEY` | Auto-incrementing integer |
-| `table.integer("col")` | `INTEGER` | |
-| `table.big_integer("col")` | `BIGINT` | |
-| `table.string("col")` | `VARCHAR(255)` | |
-| `table.text("col")` | `TEXT` | |
-| `table.boolean("col")` | `BOOLEAN` | |
-| `table.decimal("col")` | `DECIMAL` | Use instead of `float` for cross-database compatibility |
-| `table.date("col")` | `DATE` | |
-| `table.datetime("col")` | `TIMESTAMPTZ` | |
-| `table.timestamp("col")` | `TIMESTAMP` | |
-| `table.time("col")` | `TIME` | |
-| `table.json("col")` | `JSON` | |
-| `table.uuid("col")` | `UUID` | |
-| `table.timestamps()` | `created_at`, `updated_at` | Filled in by the model on save |
+| `table.id()` | `BIGSERIAL` | Auto-incrementing primary key named `id` |
+| `table.increments("id")` | `SERIAL` | Auto-incrementing primary key |
+| `table.integer("votes")` | `INTEGER` | |
+| `table.big_integer("views")` | `BIGINT` | |
+| `table.string("name", 100)` | `VARCHAR(100)` | Length defaults to 255 |
+| `table.char("code", 2)` | `CHAR(2)` | |
+| `table.text("body")` | `TEXT` | |
+| `table.boolean("published")` | `BOOLEAN` | |
+| `table.decimal("price", 8, 2)` | `DECIMAL(8, 2)` | Defaults to `(17, 6)` |
+| `table.float("ratio")` | `FLOAT` | |
+| `table.date("due_on")` | `DATE` | |
+| `table.datetime("sent_at")` | `TIMESTAMPTZ` | |
+| `table.timestamp("seen_at")` | `TIMESTAMP` | |
+| `table.time("starts_at")` | `TIME` | |
+| `table.json("settings")` | `JSON` | `table.jsonb()` for `JSONB` |
+| `table.uuid("token")` | `UUID` | |
+| `table.timestamps()` | `TIMESTAMPTZ` | Nullable `created_at` and `updated_at`, defaulting to the current time |
 
 ### Column Modifiers
 
-You can chain modifiers onto a column to add constraints or defaults:
+Chain modifiers onto a column to add constraints or defaults:
 
 ```python
 table.string("email").unique()
 table.string("bio").nullable()
 table.boolean("active").default(True)
 table.integer("score").unsigned()
+table.string("slug").index()
 ```
 
-Columns in primary keys, unique constraints, fulltext indexes, `CREATE INDEX` statements, and foreign keys (both the column and the column it references) are quoted the same way as column definitions, both when you create a table and when you alter one. That means a column named after a reserved word, such as `key`, `order`, `user`, or `group`, works on every database:
+To use a column other than `id` as the primary key, add `.primary()` and leave out `table.id()`. Column names are quoted, so reserved words such as `key` and `order` work as column names:
 
 ```python
-table.string("key").primary()
+async with await self.schema.create("settings") as table:
+    table.string("key").primary()
+    table.string("order")
 ```
 
 ## Updating Tables
 
-To change a table that already exists, call `self.schema.table()` instead:
+To change a table that already exists, call `self.schema.table()`. New columns are added to the table:
 
 ```python
 async def up(self):
@@ -151,20 +209,9 @@ async def up(self):
         table.integer("login_count").default(0)
 ```
 
-### Dropping Columns
+### Modifying Columns
 
-To remove columns, pass one or more column names to `drop_column`:
-
-```python
-async def up(self):
-    async with await self.schema.table("users") as table:
-        table.drop_column("bio")
-        table.drop_column("login_count", "legacy_flag")
-```
-
-### Modifying a Column
-
-To change an existing column's type or constraints, define the column again and add `.change()`:
+To change an existing column's type or constraints, declare the column again and add `.change()`:
 
 ```python
 async with await self.schema.table("users") as table:
@@ -172,36 +219,52 @@ async with await self.schema.table("users") as table:
     table.text("bio").nullable().change()
 ```
 
-### Renaming a Table
+### Dropping Columns
+
+To remove columns, pass one or more names to `drop_column`:
 
 ```python
-async def up(self):
-    await self.schema.rename("old_name", "new_name")
+async with await self.schema.table("users") as table:
+    table.drop_column("login_count", "legacy_flag")
+```
+
+### Renaming Tables
+
+To rename a table, call `rename` with the old and new names:
+
+```python
+await self.schema.rename("drafts", "notes")
 ```
 
 ## Foreign Keys
 
-To add a foreign key, declare the column first, then the constraint:
+To add a foreign key, declare the column, then the constraint:
 
 ```python
 table.integer("user_id").unsigned()
 table.foreign("user_id").references("id").on("users")
 ```
 
-If you want related rows removed automatically, add `on_delete` with a cascade rule:
+`foreign_id` creates an unsigned big integer column and starts the constraint in one call. Add `on_delete` to remove related rows along with their parent:
 
 ```python
-table.integer("post_id").unsigned()
-table.foreign("post_id").references("id").on("posts").on_delete("cascade")
+async with await self.schema.create("comments") as table:
+    table.id()
+    table.foreign_id("post_id").references("id").on("posts").on_delete("cascade")
+    table.text("body")
+    table.timestamps()
 ```
 
-## Full Example
+`on_update` takes the same rules as `on_delete`, such as `"cascade"` or `"set null"`.
 
-Here's how it all fits together. This migration creates the five tables used by the blog example:
+### A Complete Example
+
+This migration creates the tables used by a small blog, including a `post_tag` pivot table without timestamps:
 
 ```python
 # databases/migrations/2026_04_12_000000_create_blog_tables.py
 from fastapi_startkit.masoniteorm import Migration
+
 
 class CreateBlogTables(Migration):
     async def up(self):
@@ -225,7 +288,6 @@ class CreateBlogTables(Migration):
             table.string("name").unique()
             table.timestamps()
 
-        # Pivot table, no timestamps
         async with await self.schema.create("post_tag") as table:
             table.increments("id")
             table.integer("post_id").unsigned()
@@ -233,17 +295,11 @@ class CreateBlogTables(Migration):
             table.integer("tag_id").unsigned()
             table.foreign("tag_id").references("id").on("tags").on_delete("cascade")
 
-        async with await self.schema.create("media") as table:
-            table.increments("id")
-            table.integer("post_id").unsigned()
-            table.foreign("post_id").references("id").on("posts").on_delete("cascade")
-            table.string("url")
-            table.timestamps()
-
     async def down(self):
-        await self.schema.drop("media")
         await self.schema.drop("post_tag")
         await self.schema.drop("tags")
         await self.schema.drop("posts")
         await self.schema.drop("users")
 ```
+
+See [Models](./models) to query these tables, and [Seeding](./seeds) to fill them with data.

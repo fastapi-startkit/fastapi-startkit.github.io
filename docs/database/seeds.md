@@ -1,101 +1,141 @@
 ---
 outline: deep
 title: Seeds
-description: Populate your database with test data using seeder files in FastAPI Startkit.
-keywords: database, seeding, test data, python, fastapi
+description: Fill your database with known data using seeder classes in FastAPI Startkit.
+keywords: database, seeding, seeders, test data, python, fastapi
 ---
 
 # Seeds
 
-A fresh database is an empty one, and that makes it hard to click around your app or demo a feature. Seeders fix that by inserting a known set of rows into your database whenever you need them. They're async classes, and one seeder can call others, so you can keep each seeder small and compose them as your data grows.
+Seeders insert a known set of rows into your database, such as an admin account, a list of categories or a few demo posts. You run them with one command whenever you set up a fresh development or staging database, so everyone on the team starts from the same data.
 
-## Creating a Seeder
+- [Writing Seeders](#writing-seeders)
+- [Calling Additional Seeders](#calling-additional-seeders)
+- [Using Model Factories](#using-model-factories)
+- [Running Seeders](#running-seeders)
 
-Seeders live in `databases/seeders/`. Each one extends `Seeder` and implements an async `run` method:
+## Writing Seeders
+
+To generate a seeder, run the `seed` command with a name. The command adds `TableSeeder` to the name and writes the file to `databases/seeders`:
+
+```bash
+uv run python artisan seed Post
+# Seed file created: databases/seeders/post_table_seeder.py
+```
+
+A seeder extends `Seeder` and does its work in an async `run` method. You can also write seeder files by hand. For example, this seeder creates two users:
 
 ```python
 # databases/seeders/user_seeder.py
 from fastapi_startkit.masoniteorm.seeders import Seeder
+
 from app.models.user import User
+
 
 class UserSeeder(Seeder):
     async def run(self):
         await User.first_or_create(
             {"email": "admin@example.com"},
-            {"name": "Admin User", "password": "secret"}
+            {"name": "Admin User", "password": "secret", "is_admin": True},
         )
         await User.first_or_create(
-            {"email": "john@example.com"},
-            {"name": "John Doe", "password": "secret"}
+            {"email": "jane@example.com"},
+            {"name": "Jane Doe", "password": "secret"},
         )
 ```
 
-Because `first_or_create` only inserts a row when no match exists, you can run the seeder again without creating duplicates.
+`first_or_create` only inserts a row when no row matches the first dictionary, so you can run the seeder again without creating duplicates.
 
-## Database Seeder (Entry Point)
-
-`DatabaseSeeder` is the seeder `db:seed` runs by default, which makes it a natural entry point. Call your other seeders from it:
-
-```python
-# databases/seeders/database_seeder.py
-from fastapi_startkit.masoniteorm.seeders import Seeder
-from .user_seeder import UserSeeder
-from .post_seeder import PostSeeder
-
-class DatabaseSeeder(Seeder):
-    async def run(self):
-        await self.call(UserSeeder)
-        await self.call(PostSeeder)
-```
-
-`self.call` waits for each seeder to finish before starting the next, so list them in dependency order. In this example, posts need users to exist first.
-
-## Complete Example
-
-Here's a fuller seeder from the blog example. It seeds tags, posts, and the pivot rows that link them:
+A seeder can use any model, including a pivot model. This one creates a post and links it to two tags:
 
 ```python
 # databases/seeders/post_seeder.py
 from fastapi_startkit.masoniteorm.seeders import Seeder
-from app.models import Post, User, Tag, PostTag
+
+from app.models import Post, PostTag, Tag, User
+
 
 class PostSeeder(Seeder):
     async def run(self):
-        user = await User.first()
-        if not user:
-            return
+        author = await User.where("email", "admin@example.com").first()
 
-        tag_python   = await Tag.first_or_create({"name": "python"})
-        tag_fastapi  = await Tag.first_or_create({"name": "fastapi"})
-        tag_database = await Tag.first_or_create({"name": "database"})
+        python = await Tag.first_or_create({"name": "python"})
+        fastapi = await Tag.first_or_create({"name": "fastapi"})
 
-        post1 = await Post.create({
-            "user_id": user.id,
-            "title": "Python and Databases",
-            "content": "This is a post about Python and its database capabilities.",
-        })
-        await PostTag.first_or_create({"post_id": post1.id, "tag_id": tag_python.id})
-        await PostTag.first_or_create({"post_id": post1.id, "tag_id": tag_database.id})
+        post = await Post.first_or_create(
+            {"title": "Getting Started with FastAPI"},
+            {"user_id": author.id, "body": "Install the framework and add your first route."},
+        )
 
-        post2 = await Post.create({
-            "user_id": user.id,
-            "title": "FastAPI and Databases",
-            "content": "This is a post about FastAPI performance and database handling.",
-        })
-        await PostTag.first_or_create({"post_id": post2.id, "tag_id": tag_fastapi.id})
-        await PostTag.first_or_create({"post_id": post2.id, "tag_id": tag_database.id})
+        await PostTag.first_or_create({"post_id": post.id, "tag_id": python.id})
+        await PostTag.first_or_create({"post_id": post.id, "tag_id": fastapi.id})
 ```
 
-## Running Seeds
+## Calling Additional Seeders
 
-To run `DatabaseSeeder`, use `db:seed`:
+`db:seed` runs the `DatabaseSeeder` class in `databases/seeders/database_seeder.py`. Use it as the entry point and call your other seeders from it with `self.call()`:
+
+```python
+# databases/seeders/database_seeder.py
+from fastapi_startkit.masoniteorm.seeders import Seeder
+
+from .post_seeder import PostSeeder
+from .user_seeder import UserSeeder
+
+
+class DatabaseSeeder(Seeder):
+    async def run(self):
+        await self.call(UserSeeder, PostSeeder)
+```
+
+`self.call()` runs the seeders one after another, in the order you pass them, and waits for each to finish. List them in dependency order: here `PostSeeder` needs the admin user that `UserSeeder` creates.
+
+## Using Model Factories
+
+When you need a lot of varied data, use [model factories](/docs/orm-factory) inside a seeder instead of writing each row by hand. For example, this seeder creates ten users with three posts each:
+
+```python
+# databases/seeders/demo_seeder.py
+from fastapi_startkit.masoniteorm.seeders import Seeder
+
+from databases.factories.post_factory import PostFactory
+from databases.factories.user_factory import UserFactory
+
+
+class DemoSeeder(Seeder):
+    async def run(self):
+        await UserFactory.new().count(10).has(PostFactory.new().count(3)).create()
+```
+
+## Running Seeders
+
+To run `DatabaseSeeder`, use the `db:seed` command:
 
 ```bash
 uv run python artisan db:seed
+# Database Seeder seeded!
 ```
 
-If you only want to run one seeder class, pass it with `--class`:
+To run one seeder class, pass its name with `--class`. The command looks for the class in the snake_case file of the same name, so `UserSeeder` is loaded from `databases/seeders/user_seeder.py`:
 
 ```bash
 uv run python artisan db:seed --class UserSeeder
+```
+
+For a seeder in a sub-directory, or one whose file name doesn't match the class, pass a dotted path relative to the seed directory. This loads `UserSeeder` from `databases/seeders/admin/user_seeder.py`:
+
+```bash
+uv run python artisan db:seed --class admin.user_seeder.UserSeeder
+```
+
+Seeders generated with the `seed` command can also be run by the name you gave them. This runs `PostTableSeeder` from `databases/seeders/post_table_seeder.py`:
+
+```bash
+uv run python artisan db:seed Post
+```
+
+Seeders are loaded from `databases/seeders` by default. To use another directory, pass `--directory`. It must contain its own `database_seeder.py` when you run it without `--class`:
+
+```bash
+uv run python artisan db:seed --directory databases/demo_seeders
 ```
