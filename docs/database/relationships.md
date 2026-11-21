@@ -768,15 +768,21 @@ class Video(Model):
     images = MorphMany("Image", morph_key="imageable_type", morph_id="imageable_id")
 ```
 
-`Post` declares the same `images = MorphMany(...)` attribute. `MorphMany` takes the child model's name, and `MorphTo` takes the name of the model it is declared on. Both are eager loaded with `with_()`:
+`Post` declares the same `images = MorphMany(...)` attribute. `MorphMany` takes the child model's name, and `MorphTo` takes the name of the model it is declared on. Load `MorphMany` with `with_()`, and load `MorphTo` on a single image, with `with_()` and `first()` or with `load()`:
 
 ```python
-images = await Image.with_("imageable").get()
-for image in images:
-    print(type(image.imageable).__name__)   # "Post" or "Video"
-
 videos = await Video.with_("images").get()
+
+image = await Image.with_("imageable").where("id", 4).first()
+print(type(image.imageable).__name__)   # "Video" when image 4 has imageable_type "Video"
+
+image = await Image.where("id", 4).first()
+await image.load("imageable")
 ```
+
+::: warning
+Eager loading `MorphTo` on a collection, with `with_("imageable").get()` or `load()` on a collection, attaches the wrong parent when a `Post` and a `Video` share an id. Load it on each image instead.
+:::
 
 ### Custom Morph Types
 

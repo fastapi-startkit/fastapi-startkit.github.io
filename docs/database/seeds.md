@@ -16,27 +16,27 @@ Seeders insert a known set of rows into your database, such as an admin account,
 
 ## Writing Seeders
 
-To generate a seeder, run the `seed` command with a name. The command adds `TableSeeder` to the name and writes the file to `databases/seeders`:
+To generate a seeder, run the `seed` command from the project root with a name. The command adds `TableSeeder` to the name and writes the file to `databases/seeders`:
 
 ```bash
 uv run python artisan seed Post
 # Seed file created: databases/seeders/post_table_seeder.py
 ```
 
-A seeder extends `Seeder` and does its work in an async `run` method. You can also write seeder files by hand. For example, this seeder creates two users:
+A seeder extends `Seeder` and does its work in an async `run` method. You can also write seeder files by hand. The examples on this page use the tables from [A Complete Example](./migrations#a-complete-example) and models generated with `db:make:model`, which writes each model to `app/models/<Name>.py`. For example, this seeder creates two users:
 
 ```python
 # databases/seeders/user_seeder.py
 from fastapi_startkit.masoniteorm.seeders import Seeder
 
-from app.models.user import User
+from app.models.User import User
 
 
 class UserSeeder(Seeder):
     async def run(self):
         await User.first_or_create(
             {"email": "admin@example.com"},
-            {"name": "Admin User", "password": "secret", "is_admin": True},
+            {"name": "Admin User", "password": "secret", "role": "admin"},
         )
         await User.first_or_create(
             {"email": "jane@example.com"},
@@ -46,13 +46,28 @@ class UserSeeder(Seeder):
 
 `first_or_create` only inserts a row when no row matches the first dictionary, so you can run the seeder again without creating duplicates.
 
-A seeder can use any model, including a pivot model. This one creates a post and links it to two tags:
+A seeder can use any model, including a pivot model. A generated `PostTag` model uses the `post_tags` table, so set `__table__` to match the `post_tag` pivot table, and turn off timestamps because that table has none:
+
+```python
+# app/models/PostTag.py
+from fastapi_startkit.masoniteorm import Model
+
+
+class PostTag(Model):
+    __table__ = "post_tag"
+    __timestamps__ = False
+```
+
+This seeder creates a post and links it to two tags:
 
 ```python
 # databases/seeders/post_seeder.py
 from fastapi_startkit.masoniteorm.seeders import Seeder
 
-from app.models import Post, PostTag, Tag, User
+from app.models.Post import Post
+from app.models.PostTag import PostTag
+from app.models.Tag import Tag
+from app.models.User import User
 
 
 class PostSeeder(Seeder):
@@ -64,7 +79,7 @@ class PostSeeder(Seeder):
 
         post = await Post.first_or_create(
             {"title": "Getting Started with FastAPI"},
-            {"user_id": author.id, "body": "Install the framework and add your first route."},
+            {"user_id": author.id, "content": "Install the framework and add your first route."},
         )
 
         await PostTag.first_or_create({"post_id": post.id, "tag_id": python.id})

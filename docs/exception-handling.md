@@ -23,9 +23,9 @@ Every exception your application doesn't catch goes through a single `ExceptionH
 
 When you register `FastAPIProvider`, every exception raised during a request is passed to the handler, which reports it and then renders a response. Without any configuration you get this behaviour:
 
-- An `HTTPException` from FastAPI or Starlette, or one of the framework's [HTTP exceptions](#built-in-exception-types), becomes a JSON response with its status code, its headers and a `detail` message, for example `{"detail": "Model Not Found"}` with status `404`.
+- An `HTTPException` from FastAPI or Starlette, or one of the framework's [HTTP exceptions](#built-in-exception-types), becomes a JSON response with its status code, its headers and a `detail` message. For example, `await User.find_or_fail(7)` with no matching row returns status `404` and `{"detail": "User with primary key 7 not found."}`.
 - Exceptions with a status below `500` aren't reported. A `404` or a `403` is a normal outcome, not something to log.
-- Validation errors return a `422` response, or redirect back with the errors for browser and Inertia requests. See [Validation](/docs/validation).
+- Validation errors return a `422` response with a `{"message": ..., "errors": {...}}` body when the request's `Accept` or `Content-Type` header is JSON. Inertia requests and other requests are redirected back to the previous page with a `303` and the errors in the session. See [Validation](/docs/validation).
 - Any other exception is reported and returns a `500` response.
 
 Reporting writes the exception to the `Log` facade at the `error` level when `LogProvider` is registered, and prints it to stderr otherwise. See [Logging](/docs/logging) to choose where those messages go.
@@ -182,17 +182,17 @@ Raising `OrderAlreadyShipped()` from a route returns `{"detail": "This order has
 
 The framework raises these exceptions itself, and you can raise them from your own code. `ModelNotFoundException` is imported from `fastapi_startkit.masoniteorm`. The others are in `fastapi_startkit.exceptions`.
 
-| Exception | Status | Raised by |
-|---|---|---|
-| `ModelNotFoundException` | 404 | `find_or_fail()` and `first_or_fail()` on a model |
-| `RouteNotFoundException` | 404 | Your code |
-| `AuthorizationException` | 403 | A form request whose `authorize()` check fails |
-| `MethodNotAllowedException` | 405 | Your code |
-| `ValidationException` | 422 | A form request whose rules fail |
-| `ThrottleRequestsException` | 429 | The `throttle()` dependency |
-| `HttpResponseException` | The wrapped response's status | Your code |
+| Exception | Status | Raised by | Default message |
+|---|---|---|---|
+| `ModelNotFoundException` | 404 | `find_or_fail()` and `first_or_fail()` on a model | `User with primary key 7 not found.` or `User not found.`; `Model Not Found` when you raise it without a message |
+| `RouteNotFoundException` | 404 | Your code | `Route Not Found` |
+| `AuthorizationException` | 403 | A form request whose `authorize()` check fails | `This action is unauthorized.` from a form request; `Action not authorized` when you raise it without a message |
+| `MethodNotAllowedException` | 405 | Your code | `<METHOD> method not allowed for this route. Supported methods are: <methods>.` |
+| `ValidationException` | 422 | A form request whose rules fail | The validation messages |
+| `ThrottleRequestsException` | 429 | The `throttle()` dependency | `Too many attempts` |
+| `HttpResponseException` | The wrapped response's status | Your code | The wrapped response |
 
-`ThrottleRequestsException` returns a `429 Too Many Requests` response with `Retry-After` and `X-RateLimit-*` headers when a client exceeds a rate limit.
+`ThrottleRequestsException` returns a `429` response with the message `Too many attempts` and the `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers when a client exceeds a rate limit.
 
 `HttpResponseException` wraps a ready-made response, which the handler returns unchanged:
 
@@ -223,4 +223,4 @@ def register(self):
 
 ## Exceptions in Console Commands
 
-Exceptions raised by a console command, or anywhere else outside an HTTP request, are reported in the same way: your reporters, handler objects and `dont_report()` list all apply. Nothing is rendered, since there's no request to respond to. Pressing `Ctrl+C` isn't reported.
+Exceptions raised by a console command, or anywhere else outside an HTTP request, are reported in the same way: your reporters, handler objects and `dont_report()` list all apply. Your renderers aren't called, because there's no HTTP response. The console still prints the error and the command exits with status `1`. Pressing `Ctrl+C` isn't reported.

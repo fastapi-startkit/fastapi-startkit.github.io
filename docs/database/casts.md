@@ -22,13 +22,13 @@ Casts convert a model attribute when you read it from the database and again whe
 Annotate the model's fields with Python types:
 
 ```python
-# app/models/user.py
+# app/models/User.py
 from fastapi_startkit.masoniteorm import Model
 
 
 class User(Model):
     name: str
-    is_admin: bool
+    is_active: bool
     score: float
     preferences: dict
     tags: list[str]
@@ -39,7 +39,7 @@ When you read a model, each value comes back as the annotated type:
 ```python
 user = await User.first()
 
-user.is_admin     # True, stored as 1
+user.is_active    # True, stored as 1
 user.preferences  # {"theme": "dark"}, stored as JSON text
 ```
 
@@ -48,7 +48,7 @@ Writing works the other way round. Pass plain Python values, without `json.dumps
 ```python
 await User.create({
     "name": "Joe",
-    "is_admin": True,
+    "is_active": True,
     "score": 3.14,
     "preferences": {"theme": "dark", "language": "en"},
     "tags": ["admin", "editor"],
@@ -70,7 +70,9 @@ The annotation decides the cast:
 | An `Enum` subclass | the enum member | the value you write |
 | A Pydantic model | the Pydantic model | JSON text |
 
-Other annotations, such as `Decimal`, are read as `str` and written as you pass them.
+::: warning
+Other annotations, including `Decimal`, aren't converted, so values are written as you pass them. A `Decimal` field reads back as a `str`, and on SQLite writing a `Decimal` raises `ProgrammingError`. Pass a `str` or a number instead.
+:::
 
 An enum field is read back as a member, but it's written as you pass it. Use a `StrEnum` or `IntEnum`, or pass the member's `.value`:
 
@@ -172,7 +174,7 @@ A `NULL` in `punch_in_time` now reads as `time(9, 0, 0)`.
 To store a group of values in one column, such as the parts of an address, define a Pydantic model and use it as the field type. It's written as JSON and read back as the Pydantic model:
 
 ```python
-# app/models/user.py
+# app/models/User.py
 from pydantic import BaseModel
 
 from fastapi_startkit.masoniteorm import Model
@@ -229,7 +231,7 @@ You can also declare the field explicitly with `address = Field[Address]()`. The
 When no built-in cast fits, write your own. Extend `BaseCast` and implement `get`, which converts the database value for your code, and `set`, which converts your value for the database. Then attach it to the field with `Annotated`:
 
 ```python
-# app/models/order.py
+# app/models/Order.py
 from typing import Annotated
 
 from fastapi_startkit.masoniteorm import Model

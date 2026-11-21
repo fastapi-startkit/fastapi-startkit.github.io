@@ -22,13 +22,13 @@ You write each migration by hand. The framework doesn't generate migrations from
 
 ## Generating Migrations
 
-To create a migration, run `db:make:migration` with a name that describes the change:
+To create a migration, run `db:make:migration` from the project root with a name that describes the change:
 
 ```bash
 uv run python artisan db:make:migration create_users_table
 ```
 
-The file is written to `databases/migrations/`, which is created if it doesn't exist, with a timestamp prefix that decides the order migrations run in:
+The file is written to `databases/migrations/` under the current directory, which is created if it doesn't exist, with a timestamp prefix that decides the order migrations run in:
 
 ```text
 databases/migrations/
@@ -59,6 +59,8 @@ class CreateUsersTable(Migration):
             table.string("name")
             table.string("email").unique()
             table.string("password")
+            table.string("role").default("member")
+            table.boolean("is_active").default(True)
             table.timestamps()
 
     async def down(self):
@@ -75,13 +77,13 @@ To run all pending migrations, use `db:migrate`:
 uv run python artisan db:migrate
 ```
 
-Each run records its migrations as one batch in the `migrations` table. To run a single file, pass its name without `.py` to `--migration`, and use `--connection` to migrate a connection other than the default:
+Each run records its migrations as one batch in the `migrations` table. To run a single file, pass its name without `.py` to `--migration`. Use `--connection` to migrate a connection other than the default, and `--directory` to read migrations from a directory other than `databases/migrations`:
 
 ```bash
 uv run python artisan db:migrate --migration=2026_01_01_000000_create_users_table
 ```
 
-When `APP_ENV` is `production`, `db:migrate` asks for confirmation first. Pass `--force` to skip the prompt.
+When your `.env` files set `APP_ENV=production`, `db:migrate` asks for confirmation first. Pass `--force` to skip the prompt.
 
 ### Checking Migration Status
 
@@ -118,10 +120,10 @@ Pass `--migration` to roll back one migration instead.
 ```bash
 uv run python artisan db:migrate:refresh
 
-uv run python artisan db:migrate:fresh --seed
+uv run python artisan db:migrate:fresh --seed=null
 ```
 
-Both commands accept `--seed` to run your [seeders](./seeds) afterwards.
+To run your [seeders](./seeds) afterwards, pass `--seed` with a value to either command. `--seed=null` runs `DatabaseSeeder`, and `--seed=Post` runs `PostTableSeeder` from `databases/seeders/post_table_seeder.py`, the file the `seed Post` command generates. `--seed` without a value is an error.
 
 ::: danger
 `db:migrate:fresh` drops every table in the database, including tables your migrations didn't create.
@@ -133,15 +135,15 @@ To create a table, call `self.schema.create()` in `up` and drop it in `down`:
 
 ```python
 async def up(self):
-    async with await self.schema.create("posts") as table:
+    async with await self.schema.create("categories") as table:
         table.id()
-        table.string("title")
-        table.text("body").nullable()
-        table.boolean("published").default(False)
+        table.string("name")
+        table.text("description").nullable()
+        table.boolean("is_visible").default(True)
         table.timestamps()
 
 async def down(self):
-    await self.schema.drop("posts")
+    await self.schema.drop("categories")
 ```
 
 To check for a table or column first, use `has_table` and `has_column`. `drop_table_if_exists` drops a table only if it's there:
@@ -160,8 +162,8 @@ The schema builder offers the column types below. The SQL types listed are for P
 
 | Method | PostgreSQL type | Notes |
 |---|---|---|
-| `table.id()` | `BIGSERIAL` | Auto-incrementing primary key named `id` |
-| `table.increments("id")` | `SERIAL` | Auto-incrementing primary key |
+| `table.id()` | `BIGSERIAL UNIQUE NOT NULL` | Primary key named `id`, with a `PRIMARY KEY` constraint |
+| `table.increments("id")` | `SERIAL UNIQUE NOT NULL` | Primary key, with a `PRIMARY KEY` constraint |
 | `table.integer("votes")` | `INTEGER` | |
 | `table.big_integer("views")` | `BIGINT` | |
 | `table.string("name", 100)` | `VARCHAR(100)` | Length defaults to 255 |
@@ -169,7 +171,8 @@ The schema builder offers the column types below. The SQL types listed are for P
 | `table.text("body")` | `TEXT` | |
 | `table.boolean("published")` | `BOOLEAN` | |
 | `table.decimal("price", 8, 2)` | `DECIMAL(8, 2)` | Defaults to `(17, 6)` |
-| `table.float("ratio")` | `FLOAT` | |
+| `table.float("ratio")` | `FLOAT(19, 4)` | PostgreSQL rejects this type, so use `table.double()` there |
+| `table.double("ratio")` | `DOUBLE PRECISION` | |
 | `table.date("due_on")` | `DATE` | |
 | `table.datetime("sent_at")` | `TIMESTAMPTZ` | |
 | `table.timestamp("seen_at")` | `TIMESTAMP` | |
@@ -273,6 +276,8 @@ class CreateBlogTables(Migration):
             table.string("name")
             table.string("email").unique()
             table.string("password")
+            table.string("role").default("member")
+            table.boolean("is_active").default(True)
             table.timestamps()
 
         async with await self.schema.create("posts") as table:
