@@ -15,11 +15,12 @@ Every page follows this order:
 
 1. **Title** as a single `#` heading.
 2. **Introduction.** Two or three sentences saying what the feature is and why you would use it. Start with the subject, not with "This page".
-3. **Contents.** A short list of the H2 sections, on pages with more than three sections.
-4. **Task sections.** Each H2 covers one task the reader wants to finish ("Defining Routes", "Dispatching Jobs"). Use H3 for steps or variants inside a task.
-5. **Related pages.** Optional. One line linking to the next logical pages, for example "See [Queues](/docs/queues) for background work."
+3. **Task sections.** Each H2 covers one task the reader wants to finish ("Defining Routes", "Dispatching Jobs"). Use H3 for steps or variants inside a task.
+4. **Related pages.** Optional. One line linking to the next logical pages, for example "See [Queues](/docs/queues) for background work."
 
 Use Title Case for H2 and H3 headings.
+
+Do not add a hand-written table of contents; VitePress renders the page outline.
 
 ## Writing Sections
 

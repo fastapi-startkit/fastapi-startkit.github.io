@@ -9,18 +9,6 @@ keywords: orm, relationships, database, foreign keys, eager loading, polymorphic
 
 Database tables are usually related to one another. A post has an author, a user writes many posts, and a post can carry many tags. Relationships let you describe those connections once, on the model, and then load and query related records without writing joins by hand.
 
-- [Defining Relationships](#defining-relationships)
-- [One to One](#one-to-one)
-- [One to Many](#one-to-many)
-- [Has One of Many](#has-one-of-many)
-- [Many to Many](#many-to-many)
-- [Has One Through](#has-one-through)
-- [Has Many Through](#has-many-through)
-- [Polymorphic Relationships](#polymorphic-relationships)
-- [Eager Loading](#eager-loading)
-- [Querying Relationship Existence](#querying-relationship-existence)
-- [Full Model Reference](#full-model-reference)
-
 ## Defining Relationships
 
 You declare a relationship as a class attribute on the model. Put the related model's name in square brackets, then pass the keys as keyword arguments:

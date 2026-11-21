@@ -11,13 +11,6 @@ Logs tell you what your application did and what went wrong. The framework write
 
 Logging is organised into channels. Each channel writes messages somewhere, such as a daily file or the terminal, and drops messages below its minimum level.
 
-- [Configuration](#configuration)
-- [Writing Log Messages](#writing-log-messages)
-- [Log Levels](#log-levels)
-- [Available Channels](#available-channels)
-- [Forwarding Standard Library Logs](#forwarding-standard-library-logs)
-- [Changing the Timezone](#changing-the-timezone)
-
 ## Configuration
 
 To start logging, register `LogProvider` in your application. Without any configuration, it sends every message to a `stack` channel that writes to a daily file and to the terminal:

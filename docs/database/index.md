@@ -21,12 +21,6 @@ The framework supports three databases, each through an async driver:
 
 A connection with any other driver raises `DriverNotFound` when it's first used.
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running SQL Queries](#running-sql-queries)
-- [Using Multiple Database Connections](#using-multiple-database-connections)
-- [Database Transactions](#database-transactions)
-
 ## Installation
 
 Setting up a database takes three steps: install the ORM with a driver, run `db:install`, and add your connection details to `.env`.

@@ -9,12 +9,6 @@ keywords: cli, console, commands, automation, cleo, artisan
 
 Not everything your application does happens in an HTTP request. Data imports, cleanup jobs and maintenance tasks are easier to run from the terminal. The framework lets you write these as console commands, built on [Cleo](https://cleo.readthedocs.io/en/latest/), and run them through your application's `artisan` script. It also ships commands for migrations, code generation and serving your application.
 
-- [Running Commands](#running-commands)
-- [Creating a Command](#creating-a-command)
-- [Registering Commands](#registering-commands)
-- [Calling Commands From Code](#calling-commands-from-code)
-- [Built-In Commands](#built-in-commands)
-
 ## Running Commands
 
 Run a command by passing its name to `artisan`:

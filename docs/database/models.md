@@ -13,18 +13,6 @@ A model is a class that maps to one database table. You use it to query, insert,
 
 Before you start, configure a database connection as described in [Database: Getting Started](./).
 
-- [Defining Models](#defining-models)
-- [Generating a Model](#generating-a-model)
-- [Retrieving Models](#retrieving-models)
-- [Chunking Results](#chunking-results)
-- [Querying JSON Columns](#querying-json-columns)
-- [Subquery Selects](#subquery-selects)
-- [Unions](#unions)
-- [Inserting Models](#inserting-models)
-- [Upserts](#upserts)
-- [Updating Models](#updating-models)
-- [Deleting Models](#deleting-models)
-
 ## Defining Models
 
 To define a model, extend `Model` and annotate the table's columns with Python types:

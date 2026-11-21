@@ -9,17 +9,6 @@ keywords: fastapi, dependency injection, service provider, container
 
 The `FastAPIProvider` runs your FastAPI application inside the framework. It creates the FastAPI instance, registers the `serve` command and sends errors through the framework's [exception handler](/docs/exception-handling). You write routes and dependencies the way FastAPI documents them, and you can use the framework's `Router` to keep all your routes in one file.
 
-- [Installation](#installation)
-- [Registering the Provider](#registering-the-provider)
-- [Defining Routes](#defining-routes)
-- [Resource Routes](#resource-routes)
-- [Grouping Routes](#grouping-routes)
-- [Registering Routes in Your Provider](#registering-routes-in-your-provider)
-- [Customizing the FastAPI Instance](#customizing-the-fastapi-instance)
-- [Configuration](#configuration)
-- [Serving the Application](#serving-the-application)
-- [Tracking Requests](#tracking-requests)
-
 ## Installation
 
 Install the framework with the `fastapi` extra:

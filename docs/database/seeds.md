@@ -9,11 +9,6 @@ keywords: database, seeding, seeders, test data, python, fastapi
 
 Seeders insert a known set of rows into your database, such as an admin account, a list of categories or a few demo posts. You run them with one command whenever you set up a fresh development or staging database, so everyone on the team starts from the same data.
 
-- [Writing Seeders](#writing-seeders)
-- [Calling Additional Seeders](#calling-additional-seeders)
-- [Using Model Factories](#using-model-factories)
-- [Running Seeders](#running-seeders)
-
 ## Writing Seeders
 
 To generate a seeder, run the `seed` command from the project root with a name. The command adds `TableSeeder` to the name and writes the file to `databases/seeders`:

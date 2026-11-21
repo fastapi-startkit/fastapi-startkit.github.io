@@ -13,13 +13,6 @@ Migrations are version control for your database. Each migration is a file that 
 
 You write each migration by hand. The framework doesn't generate migrations from your models.
 
-- [Generating Migrations](#generating-migrations)
-- [Migration Structure](#migration-structure)
-- [Running Migrations](#running-migrations)
-- [Creating Tables](#creating-tables)
-- [Updating Tables](#updating-tables)
-- [Foreign Keys](#foreign-keys)
-
 ## Generating Migrations
 
 To create a migration, run `db:make:migration` from the project root with a name that describes the change:

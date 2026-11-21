@@ -11,12 +11,6 @@ keywords: casts, serialization, model attributes, pydantic, json, orm
 
 Casts convert a model attribute when you read it from the database and again when you write it back, so you work with booleans, dicts, and dates instead of `1`, JSON strings, and text. The type annotation on a model field picks the cast, so most of the time the annotation is all you write.
 
-- [Using Built-in Casts](#using-built-in-casts)
-- [Casting Dates and Times](#casting-dates-and-times)
-- [Handling Null Values](#handling-null-values)
-- [Storing Pydantic Models](#storing-pydantic-models)
-- [Writing Custom Casts](#writing-custom-casts)
-
 ## Using Built-in Casts
 
 Annotate the model's fields with Python types:

@@ -9,13 +9,6 @@ keywords: configuration, environment, settings, fastapi
 
 Settings such as database credentials, API keys and ports change from one environment to the next. The framework keeps them in `.env` files and reads them into typed config classes, so the same code runs on your laptop and in production with a different `.env` file.
 
-- [Loading Environment Variables](#loading-environment-variables)
-- [Defining Config Classes](#defining-config-classes)
-- [Accessing Configuration Values](#accessing-configuration-values)
-- [Application Settings](#application-settings)
-- [Switching Environment at Runtime](#switching-environment-at-runtime)
-- [Using Your Own Config Classes](#using-your-own-config-classes)
-
 ## Loading Environment Variables
 
 The application loads your environment files as soon as you create it. `APP_ENV` names the environment, and you can set it in the process environment or in `.env`:

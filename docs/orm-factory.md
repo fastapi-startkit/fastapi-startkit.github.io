@@ -9,12 +9,6 @@ keywords: orm, factory, factories, test data, fake data, faker, database, fastap
 
 A model factory builds models filled with fake data. Instead of writing every attribute by hand in each test, you describe a model's default attributes once and ask the factory for one, ten or a hundred records. Factories use [Faker](https://faker.readthedocs.io/), which is installed with the `database` extra.
 
-- [Defining Factories](#defining-factories)
-- [Creating Models](#creating-models)
-- [Factory States](#factory-states)
-- [Factory Callbacks](#factory-callbacks)
-- [Factory Relationships](#factory-relationships)
-
 ## Defining Factories
 
 Factories live in `databases/factories/`. A factory extends `Factory`, sets `model`, and returns the default attributes from `definition()`. Inside `definition()`, `self.fake` is a Faker instance:

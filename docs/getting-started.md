@@ -19,12 +19,6 @@ FastAPI Startkit is an application framework for Python. It gives a FastAPI proj
 
 Each feature is a provider that you register with the application, so you only install what you use. You don't have to serve HTTP at all: a CLI tool, a cron script or a background worker can use the same providers.
 
-- [Creating a Project](#creating-a-project)
-- [Registering Providers](#registering-providers)
-- [Getting Started Using AI](#getting-started-using-ai)
-- [Manual Setup](#manual-setup)
-- [Running with Uvicorn](#running-with-uvicorn)
-
 ## Creating a Project
 
 The `fastapi-startkit init` installer creates a ready-to-run project. Run one command in a terminal:

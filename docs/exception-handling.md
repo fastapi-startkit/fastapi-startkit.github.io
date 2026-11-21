@@ -9,16 +9,6 @@ keywords: error handling, exceptions, fastapi, debugging
 
 Every exception your application doesn't catch goes through a single `ExceptionHandler`. The handler does two things: it **reports** the exception, by logging it or sending it to an error tracker, and for HTTP requests it **renders** the exception into a response. Because both happen in one place, you can decide how each kind of error is handled without scattering `try`/`except` blocks through your routes.
 
-- [How Exceptions Are Handled](#how-exceptions-are-handled)
-- [Customizing the Handler](#customizing-the-handler)
-- [Registering Renders](#registering-renders)
-- [Registering Reports](#registering-reports)
-- [Suppressing Reports](#suppressing-reports)
-- [Handler Objects](#handler-objects)
-- [Defining HTTP Exceptions](#defining-http-exceptions)
-- [Built-In Exception Types](#built-in-exception-types)
-- [Exceptions in Console Commands](#exceptions-in-console-commands)
-
 ## How Exceptions Are Handled
 
 When you register `FastAPIProvider`, every exception raised during a request is passed to the handler, which reports it and then renders a response. Without any configuration you get this behaviour:
