@@ -92,20 +92,18 @@ app: Application = Application(
             {
                 name: "logging.py",
                 path: "app/services/logging.py",
-                code: `from fastapi_startkit.logging import Logger
+                code: `from fastapi_startkit.logging import Log
 
-# Once LogProvider is registered in bootstrap/application.py,
-# the global Logger is accessible anywhere in your codebase.
-# No local instantiation or repetitive configuration is required.
+# Works anywhere once LogProvider is registered in bootstrap/application.py.
 
-Logger.debug("This is a debug message")
-Logger.info("Application is starting...")
-Logger.notice("A formal notice")
-Logger.warning("Unusual activity detected")
-Logger.error("An error occurred during processing")
-Logger.critical("System failure!")
-Logger.alert("Immediate action required")
-Logger.emergency("System is unusable")`,
+Log.debug("This is a debug message")
+Log.info("Application is starting...")
+Log.notice("A formal notice")
+Log.warning("Unusual activity detected")
+Log.error("An error occurred during processing")
+Log.critical("System failure!")
+Log.alert("Immediate action required")
+Log.emergency("System is unusable")`,
             },
         ],
     },
