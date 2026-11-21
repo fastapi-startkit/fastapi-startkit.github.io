@@ -7,7 +7,7 @@ duration: 5
 
 # What are we building?
 
-**Goal:** know what you're going to build, how its data fits together and the three ideas you'll use in every lesson.
+Issue Tracker is a small Jira-style app that you'll build over the next thirteen lessons. This lesson shows what it does, how its data fits together and the three ideas you'll use in every lesson.
 
 ## Issue Tracker
 
@@ -38,7 +38,7 @@ curl -X POST http://127.0.0.1:8000/api/projects/1/issues \
 
 You'll also build a board at `/projects/1/board`: a Vue page with a column for each status, where you add issues, move them along and delete them without the page reloading.
 
-## The data
+## The Data
 
 Four tables hold everything:
 
@@ -51,7 +51,7 @@ Four tables hold everything:
 
 There's no login in this course. Requests say who's acting with fields like `reporter_id` and `author_id`, so you can focus on the issue tracker itself.
 
-## The workflow
+## The Workflow
 
 Every issue starts in **To Do**. From there it can only move along these arrows:
 
@@ -64,9 +64,9 @@ Every issue starts in **To Do**. From there it can only move along these arrows:
 
 So you can't jump straight from To Do to Done, and a finished issue goes back to To Do if it needs reopening.
 
-## Three ideas
+## Three Ideas
 
-You only need three ideas to follow along.
+Three ideas run through the whole course.
 
 **The application is built from providers.** `bootstrap/application.py` creates one `Application` and gives it a list of providers. Each provider switches on a feature, such as logging, FastAPI or the database. Adding a feature usually means adding a provider to that list.
 
@@ -74,7 +74,7 @@ You only need three ideas to follow along.
 
 **`artisan` does the chores.** `uv run python artisan` is the project's command line. It starts the server, creates files for you and runs your migrations and seeders.
 
-## The plan
+## The Plan
 
 | Lesson | You'll add |
 |---|---|

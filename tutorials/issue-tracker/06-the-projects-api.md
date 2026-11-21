@@ -7,9 +7,9 @@ duration: 8
 
 # The projects API
 
-**Goal:** list, show and create projects, and turn away a bad or duplicate project key.
+The projects API lists, shows and creates projects from the database. Validation rules turn away a bad or duplicate project key before it reaches the table.
 
-## 1. Shape the output
+## 1. Shape the Output
 
 A resource is a Pydantic model that decides what the API sends back. `from_attributes=True` lets it read straight from a model. Create `app/http/resources/project.py`:
 
@@ -40,7 +40,7 @@ class UserResource(BaseModel):
     email: str
 ```
 
-## 2. Validate the input
+## 2. Validate the Input
 
 A `FormRequest` describes a request body and the rules each field must pass. Rules are chained on `Field()`. Create `app/http/requests/project.py`:
 
@@ -58,7 +58,7 @@ class StoreProjectRequest(FormRequest):
 
 The `key` must be two to ten capital letters, and `unique("projects")` checks the `projects` table so two projects can't share a key. You get a clear error long before the database's own unique index would complain.
 
-## 3. Read and write real projects
+## 3. Read and Write Real Projects
 
 Replace the made-up list in `app/http/controllers/project_controller.py` with real queries, and add `store()` and `show()`:
 
@@ -110,7 +110,7 @@ class UserController:
         return [UserResource.model_validate(user) for user in users]
 ```
 
-## 4. Add the routes
+## 4. Add the Routes
 
 Open `routes/api.py`. Add the users route and let `resource()` turn on the two new project methods:
 

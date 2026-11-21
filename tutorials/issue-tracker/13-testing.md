@@ -7,9 +7,9 @@ duration: 8
 
 # Testing
 
-**Goal:** a test suite that proves the rules of your issue tracker and runs against its own database.
+Tests prove the rules of your issue tracker and catch the day one of them breaks. In this lesson you write a suite that runs against its own database.
 
-## 1. Use a test database
+## 1. Use a Test Database
 
 Under pytest the app runs in the `testing` environment and loads `.env.testing` on top of `.env`. Create `.env.testing` with the one value that's different:
 
@@ -19,7 +19,7 @@ DB_DATABASE=databases/testing.sqlite
 
 `.gitignore` leaves out every `.env.*` file except `.env.example`, so each person who clones the project creates this file too.
 
-## 2. Write the tests
+## 2. Write the Tests
 
 Create `tests/test_issues.py`:
 

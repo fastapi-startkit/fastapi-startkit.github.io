@@ -7,9 +7,9 @@ duration: 10
 
 # Issues
 
-**Goal:** create issues in a project, each with the next key for that project, like `WEB-1` and `WEB-2`.
+Issues are the heart of the app. In this lesson you create them inside a project, and each one gets the next key for that project, like `WEB-1` and `WEB-2`.
 
-## 1. Name the statuses and priorities
+## 1. Name the Statuses and Priorities
 
 Statuses and priorities are fixed lists, so make them enums. A `StrEnum` stores as plain text and validates for free. Create `app/enums.py`:
 
@@ -31,7 +31,7 @@ class IssuePriority(StrEnum):
     URGENT = "urgent"
 ```
 
-## 2. Create the table
+## 2. Create the Table
 
 ```bash
 uv run python artisan db:make:migration create_issues_table --create issues
@@ -76,7 +76,7 @@ Run it:
 uv run python artisan db:migrate
 ```
 
-## 3. Add the model and its relationships
+## 3. Add the Model and Its Relationships
 
 Create `app/models/issue.py`:
 
@@ -118,7 +118,7 @@ A relationship tells a model how its rows connect to another table:
 - `local_key` is the column on this model and `foreign_key` is the column on the other one. `reporter` and `assignee` both point at `User`, so `local_key` is what tells them apart.
 - The model names are strings, like `"Project"`. The `TYPE_CHECKING` imports let your editor know what they are, without the two files importing each other when the app runs.
 
-## 4. Number issues in the project
+## 4. Number Issues in the Project
 
 A project has many issues, and it's also the one that knows what the next number is. Give `Project` the other side of the relationship and an `add_issue()` method in `app/models/project.py`:
 
@@ -160,7 +160,7 @@ Here's what `add_issue()` does:
 
 Keeping this in the model means every place that files an issue numbers it the same way. You'll file issues from a second place in lesson 12.
 
-## 5. Validate new issues
+## 5. Validate New Issues
 
 Create `app/http/requests/issue.py`:
 
@@ -182,7 +182,7 @@ class StoreIssueRequest(FormRequest):
 
 `exists("users", "id")` checks that the user is really there. `nullable()` lets `assignee_id` be left out or set to `null`, for an issue nobody has picked up yet. A `priority` outside the enum is refused.
 
-## 6. Shape the output
+## 6. Shape the Output
 
 Create `app/http/resources/issue.py`. It nests the reporter and assignee with the `UserResource` you already have:
 
@@ -209,7 +209,7 @@ class IssueResource(BaseModel):
     created_at: datetime
 ```
 
-## 7. Add the controller
+## 7. Add the Controller
 
 Create `app/http/controllers/issue_controller.py`:
 
@@ -246,7 +246,7 @@ The controller stays small. It finds the project, lets the model add the issue a
 
 `with_("reporter", "assignee")` loads both users for every issue in two extra queries, instead of two per issue. `load()` does the same for a model you already have. You'll see why that matters in lesson 10.
 
-## 8. Add the routes
+## 8. Add the Routes
 
 Issues live inside a project, so their routes nest under it. `resource()` builds flat routes, so write these out in `routes/api.py`:
 

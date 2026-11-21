@@ -7,174 +7,127 @@ keywords: database testing, migrations, transactions, orm, pytest
 
 # Database Testing
 
-Tests that touch the database have a habit of stepping on each other: a user created in one test shows up in the next, and suddenly your results depend on the order the tests ran in. FastAPI Startkit gives you two mixins to keep database state isolated between tests, `RefreshDatabase` and `DatabaseTransaction`. Both wrap each test in a transaction and roll it back when the test ends, so every test starts with a clean slate.
+Tests that write to the database need a clean state, or a row created in one test shows up in the next. The `RefreshDatabase` and `DatabaseTransaction` mixins wrap each test in a transaction and roll it back when the test ends, so every test starts from the same data.
+
+- [Installation](#installation)
+- [Using a Test Database](#using-a-test-database)
+- [Resetting the Database](#resetting-the-database)
+- [Testing Against an Existing Schema](#testing-against-an-existing-schema)
+- [Checking the Database](#checking-the-database)
 
 ## Installation
 
-Install the `database` extra, along with pytest and pytest-asyncio as dev dependencies:
+Install the `database` extra with a driver extra, such as `sqlite`, and add pytest and pytest-asyncio as dev dependencies:
 
 ```bash
-uv add fastapi-startkit --extra database
+uv add "fastapi-startkit[database,sqlite]"
 uv add --dev pytest pytest-asyncio
 ```
 
-Then set `asyncio_mode = "auto"` so your tests can run as coroutines:
+Configure pytest in `pyproject.toml`:
 
 ```toml
 # pyproject.toml
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-asyncio_default_test_loop_scope = "function"
 pythonpath = ["."]
+testpaths = ["tests"]
 ```
 
-The two loop-scope settings silence deprecation warnings from pytest-asyncio 0.23. `pythonpath = ["."]` puts the project root on `sys.path`, so `from bootstrap.application import app` resolves.
+## Using a Test Database
 
-## `RefreshDatabase`
+Under pytest, the application runs in the `testing` environment and loads `.env.testing` on top of `.env`. Point the tests at their own database there, so a test run never touches your development data:
 
-`RefreshDatabase` is the mixin you'll reach for most often. It runs `migrate:fresh` once per test session, before the first test that uses it, and then wraps each test in a transaction that is rolled back afterwards.
-
-```python
-from fastapi_startkit.masoniteorm.testing import RefreshDatabase
+```ini
+# .env.testing
+DB_DATABASE=databases/testing.sqlite
 ```
 
-Migrations are loaded from `databases/migrations/` under the base path of the running application.
+See [Configuration](/docs/configuration) for how environment files are loaded.
 
-### `get_application()`
+## Resetting the Database
 
-The mixins use the application that is already booted, so your test case needs to provide one through `get_application()`. `HttpTestCase` requires this method too, so a single implementation covers both:
+Add `RefreshDatabase` to a test class. It migrates the test database once per test run, before the first test that uses it, by dropping every table and running your migrations from `databases/migrations`. It then wraps each test in a transaction on the default connection and rolls it back when the test ends.
 
 ```python
+# tests/test_teams.py
 from fastapi_startkit.fastapi.testing import HttpTestCase
 from fastapi_startkit.masoniteorm.testing import RefreshDatabase
-from app.models.user import User
+
+from app.models.team import Team
 
 
-class TestRegister(HttpTestCase, RefreshDatabase):
+class TestTeams(RefreshDatabase, HttpTestCase):
     def get_application(self):
         from bootstrap.application import app
+
         return app
 
-    async def test_user_can_register(self):
-        response = await self.post("/students/register", json={
-            "name": "John Doe",
-            "email": "john@example.com",
-            "password": "password123",
-        })
+    async def test_it_creates_a_team(self):
+        response = await self.post("/api/teams", json={"name": "Phoenix Suns", "sport": "basketball"})
 
-        assert response.status_code == 200
-        assert response.json()["message"] == "Student registered successfully"
-        assert "user_id" in response.json()
+        response.assert_created()
 
-        user = await User.where("email", "john@example.com").first()
-        assert user is not None
-        assert user.name == "John Doe"
-        assert user.role == "student"
+        team = await Team.where("name", "Phoenix Suns").first()
+        assert team.sport == "basketball"
 
-    async def test_user_cannot_register_with_invalid_data(self):
-        # missing required fields
-        response = await self.post("/students/register", json={})
-        assert response.status_code == 422
+    async def test_it_rejects_a_duplicate_name(self):
+        await Team.create({"name": "Phoenix Suns", "sport": "basketball"})
 
-        # password too short
-        response = await self.post("/students/register", json={
-            "name": "John Doe",
-            "email": "john@example.com",
-            "password": "short",
-        })
-        assert response.status_code == 422
+        response = await self.post("/api/teams", json={"name": "Phoenix Suns", "sport": "basketball"})
 
-        # invalid email
-        response = await self.post("/students/register", json={
-            "name": "John Doe",
-            "email": "not-an-email",
-            "password": "password123",
-        })
-        assert response.status_code == 422
-
-        # name too short
-        response = await self.post("/students/register", json={
-            "name": "J",
-            "email": "john@example.com",
-            "password": "password123",
-        })
-        assert response.status_code == 422
-
-    async def test_user_cannot_register_with_duplicate_email(self):
-        payload = {
-            "name": "Jane Doe",
-            "email": "jane@example.com",
-            "password": "password123",
-        }
-
-        await self.post("/students/register", json=payload)
-
-        response = await self.post("/students/register", json=payload)
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Email already registered"
+        response.assert_status(422)
 ```
 
-### How it works
+Both tests create a team called Phoenix Suns. They don't clash, because each test's rows are rolled back before the next test starts. Seeders don't run, so every test starts with empty tables.
 
-- `migrate:fresh` drops every table and runs the migrations again. This happens once per session.
-- Before each test, the mixin opens a transaction on the default connection.
-- After each test, it rolls the transaction back, so the next test sees the same data.
-
-Under the hood, the mixins hook into `asyncSetUp` and `asyncTearDown` of the framework `TestCase`, which `HttpTestCase` extends. That means a plain `unittest` or pytest class won't run them.
-
-## `DatabaseTransaction`
-
-`DatabaseTransaction` gives you the same rollback without running migrations. It's a good fit when the schema already exists, for example a database you migrate yourself.
-
-```python
-from fastapi_startkit.fastapi.testing import HttpTestCase
-from fastapi_startkit.masoniteorm.testing import DatabaseTransaction
-from app.models.user import User
-
-
-class TestUserQueries(HttpTestCase, DatabaseTransaction):
-    def get_application(self):
-        from bootstrap.application import app
-        return app
-
-    async def test_can_find_user_by_email(self):
-        await User.create({"name": "Alice", "email": "alice@example.com", "role": "admin"})
-
-        user = await User.where("email", "alice@example.com").first()
-        assert user is not None
-        assert user.role == "admin"
-```
-
-Because the transaction is rolled back, this `User` is gone before the next test runs.
-
-## Choosing Between the Two
-
-Not sure which mixin to use? Here's how they compare:
-
-| | `RefreshDatabase` | `DatabaseTransaction` |
-|---|---|---|
-| Runs `migrate:fresh` | Yes, once per session | No |
-| Isolates each test | Yes, via rollback | Yes, via rollback |
-| Needs a booted application | Yes, from `get_application()` | Yes, from `get_application()` |
-| Best for | Full integration tests | Tests against an existing schema |
+The mixins run from the setup and teardown of the framework's `TestCase`, which `HttpTestCase` extends. A test class that doesn't extend one of them, such as a plain pytest class, doesn't get the reset.
 
 ::: tip Browser tests
-Neither rollback can undo writes that a live server makes through its own connections. For [browser tests](/docs/testing/browser), use `DatabaseTruncation`, which empties the tables before each test instead. See [Resetting the Database](/docs/testing/browser#resetting-the-database).
+A live server writes through its own connections, so a rollback can't undo what happens during a browser test. Use `DatabaseTruncation` there. See [Resetting the Database](/docs/testing/browser#resetting-the-database) in the browser testing docs.
 :::
 
-## Querying the Database Directly
+## Testing Against an Existing Schema
 
-You can query the ORM inside a test to check what a request actually wrote. There's no need to clean up afterwards, since the rollback takes care of it:
+`DatabaseTransaction` gives you the same rollback without running migrations. Use it when the test database's schema is already in place, for example one you migrate yourself before the run:
 
 ```python
-async def test_creates_user_on_register(self):
-    await self.post("/students/register", json={
-        "name": "John Doe",
-        "email": "john@example.com",
-        "password": "password123",
-    })
+# tests/test_team_queries.py
+from fastapi_startkit.fastapi.testing import HttpTestCase
+from fastapi_startkit.masoniteorm.testing import DatabaseTransaction
 
-    count = await User.where("email", "john@example.com").count()
-    assert count == 1
+from app.models.team import Team
+
+
+class TestTeamQueries(DatabaseTransaction, HttpTestCase):
+    def get_application(self):
+        from bootstrap.application import app
+
+        return app
+
+    async def test_it_finds_a_team_by_name(self):
+        await Team.create({"name": "Phoenix Suns", "sport": "basketball"})
+
+        team = await Team.where("name", "Phoenix Suns").first()
+
+        assert team.sport == "basketball"
 ```
+
+To migrate the test database yourself, run the migrations with `APP_ENV=testing`:
+
+```bash
+APP_ENV=testing uv run python artisan db:migrate
+```
+
+## Checking the Database
+
+Query your models inside a test to check what a request wrote. The rollback removes these rows too, so there's nothing to clean up:
+
+```python
+async def test_it_stores_the_team_once(self):
+    await self.post("/api/teams", json={"name": "Phoenix Suns", "sport": "basketball"})
+
+    assert await Team.where("name", "Phoenix Suns").count() == 1
+```
+
+See [FastAPI Testing](/docs/testing/fastapi) for the request helpers and response assertions.

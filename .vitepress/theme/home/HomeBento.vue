@@ -2,9 +2,9 @@
     const commands = ["python artisan db:make:model Order", "python artisan db:migrate", "python artisan db:seed"]
 
     const cards = [
-        { label: "03 / core", title: "Async core", text: "FastAPI, Starlette and Pydantic underneath. OpenAPI docs and type-hinted requests, end to end.", code: "user = await User.find_or_fail(1)", href: "/docs/fastapi" },
+        { label: "03 / core", title: "Async core", text: "Built on FastAPI, Starlette and Pydantic, with OpenAPI docs and type-hinted requests.", code: "user = await User.find_or_fail(1)", href: "/docs/fastapi" },
         { label: "04 / data", title: "ORM & migrations", text: "Active-record models, a chainable query builder, migrations, seeders and factories.", code: "await Order.where(\"status\", \"paid\").get()", href: "/docs/database/" },
-        { label: "05 / logs", title: "Logging channels", text: "Log to the terminal, daily files, syslog, or Slack by changing config.", code: "Logger.info(\"Order paid\")", href: "/docs/logging" },
+        { label: "05 / logs", title: "Logging channels", text: "Send logs to the terminal, daily files, syslog or Slack from your config.", code: "Log.info(\"Order paid\")", href: "/docs/logging" },
         { label: "06 / evals", title: "Agent evals", text: "Fake or record agents, assert on tool calls and trajectories, and grade answers with an LLM judge.", code: "agent.assert_tool_called(\"lookup_order\")", href: "/docs/ai/agent#testing", wide: true },
     ]
 </script>
@@ -15,8 +15,7 @@
             <div class="hp-head">
                 <h2 id="bento-title" class="hp-h2">Every layer, <em class="ink">wired together.</em></h2>
                 <p class="hp-blurb">
-                    Each module is a service provider you register. Use the whole stack or only the core.
-                    Modules you don’t register never load.
+                    Each module is a service provider. Register the ones your app needs.
                 </p>
             </div>
 

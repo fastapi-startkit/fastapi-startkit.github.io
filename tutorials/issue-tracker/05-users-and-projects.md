@@ -7,9 +7,9 @@ duration: 10
 
 # Users and projects
 
-**Goal:** a database with three users and two projects in it, which you can rebuild with two commands.
+Migrations describe your tables, models read and write their rows, and seeders fill them with sample data. By the end of this lesson your database holds three users and two projects, and two commands rebuild it.
 
-## 1. Create the migrations
+## 1. Create the Migrations
 
 A migration is a Python file that creates or changes a table. `artisan` writes the file for you:
 
@@ -61,7 +61,7 @@ class CreateProjectsTable(Migration):
 
 The `key` is the short code in front of every issue key, like `WEB` in `WEB-1`. `unique()` makes the database refuse two projects with the same key.
 
-## 2. Add the models
+## 2. Add the Models
 
 A model is a class for one table. You use it to read and write rows. Make one for each table:
 
@@ -101,7 +101,7 @@ The fields do two jobs. They decide which columns you can fill when you create a
 
 You don't name the table. `User` uses `users` and `Project` uses `projects`, the plural of the class name.
 
-## 3. Seed some data
+## 3. Seed Some Data
 
 A seeder is a class that puts rows in the database. Create one for each model:
 
@@ -141,7 +141,7 @@ class ProjectTableSeeder(Seeder):
         await Project.create({"key": "APP", "name": "Mobile app"}) # [!code ++]
 ```
 
-`create()` inserts a row and returns the model, with the `id` the database just gave it.
+`create()` inserts a row and returns the model, with the `id` the database gave it.
 
 `db:seed` starts from one seeder called `DatabaseSeeder`, which calls the others. Call both from `databases/seeders/database_seeder.py`:
 
