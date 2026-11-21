@@ -125,7 +125,7 @@ The framework ships with a handful of exceptions you can raise or handle. `Model
 | `AuthorizationException` | 403 |
 | `RouteNotFoundException` | 404 |
 | `MethodNotAllowedException` | 405 |
-| `ThrottleRequestsException` | 429 |
+| [`ThrottleRequestsException`](/docs/rate-limiting) | 429 |
 
 Each one has `get_status()` and `get_response()`, and some also have `get_headers()`. You can use them in a renderer:
 

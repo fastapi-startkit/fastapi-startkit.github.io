@@ -1,50 +1,70 @@
 ---
 outline: deep
 title: Storage
-description: Read and write files on local and S3 disks through the Storage facade.
-keywords: storage, file, local, s3, disk, fastapi startkit
+description: Read and write files on local and S3 disks through the Storage class.
+keywords: storage, file, local, s3, disk, upload, fastapi startkit
 ---
 
 # Storage
 
-FastAPI Startkit provides a simple filesystem abstraction through the `Storage` facade. Its drivers work with the local filesystem and Amazon S3 (through `boto3`). Even better, it is simple to switch between these storage options between your local development machine and your production server, as the API remains the same for each disk.
+The framework gives you one API for working with files, whether they live on the local filesystem or in Amazon S3. You configure named disks, and the `Storage` class reads and writes the default one. Because each disk has the same methods, you can keep files on the local disk in development and move them to S3 in production by changing `FILESYSTEM_DISK`.
 
-With Storage you can:
-
-- Write, read, append to, copy, move and delete files on any disk.
-- Switch between disks, or change the default, through configuration instead of code.
-- Save uploaded files straight to a disk.
-- Serve files on the `public` disk over HTTP, or build S3 URLs.
-- Replace a disk with a temporary fake in tests.
-
-For example, you can keep files on the local disk in development and move them to S3 in production by changing `FILESYSTEM_DISK`, without touching the code that uses them.
+- [Registering the Provider](#registering-the-provider)
+- [Configuration](#configuration)
+- [Basic Usage](#basic-usage)
+- [Using a Specific Disk](#using-a-specific-disk)
+- [Storing Uploaded Files](#storing-uploaded-files)
+- [Public URLs](#public-urls)
+- [Downloading Files](#downloading-files)
+- [Testing with Fake Storage](#testing-with-fake-storage)
+- [Adding a Custom Driver](#adding-a-custom-driver)
 
 ## Registering the Provider
 
-To get started, add `StorageProvider` to your providers in `bootstrap/application.py`:
+Add `StorageProvider` to the providers in `bootstrap/application.py`:
 
 ```python
+# bootstrap/application.py
+from pathlib import Path
+
 from fastapi_startkit import Application
 from fastapi_startkit.storage import StorageProvider
 
 app = Application(
-    base_path=...,
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
         StorageProvider,
-        # ... other providers
-    ]
+    ],
 )
 ```
 
-## Publishing the Config
+The provider registers a route that serves the `public` disk, so it needs the `fastapi` extra installed:
 
-When you want to change the disks, publish the config file:
+```bash
+uv add "fastapi-startkit[fastapi]"
+```
+
+## Configuration
+
+Three disks are configured by default, and `FILESYSTEM_DISK` picks the one the `Storage` class uses:
+
+| Disk | Driver | Root |
+|---|---|---|
+| `local` | `local` | `storage/` (`FILESYSTEM_DISK_ROOT`) |
+| `public` | `local` | `storage/app/public/` (`FILESYSTEM_PUBLIC_DISK_ROOT`) |
+| `s3` | `s3` | The bucket in `AWS_BUCKET` |
+
+A relative root is resolved against your application's base path.
+
+### Publishing the Config
+
+To change the disks, publish the config file:
 
 ```bash
 uv run python artisan provider:publish --provider=storage
 ```
 
-This copies `config/storage.py` into your project:
+This writes `config/storage.py` into your project:
 
 ```python
 # config/storage.py
@@ -69,12 +89,12 @@ class StorageConfig(Config):
                 url=env("FILESYSTEM_PUBLIC_DISK_URL", "/storage"),
             ),
             "s3": S3Config(
-                key=env("AWS_ACCESS_KEY_ID", ""),
-                secret=env("AWS_SECRET_ACCESS_KEY", ""),
-                region=env("AWS_DEFAULT_REGION", ""),
-                bucket=env("AWS_BUCKET", ""),
-                url=env("AWS_URL", ""),
-                endpoint=env("AWS_ENDPOINT", ""),
+                key=env("AWS_ACCESS_KEY_ID", "", cast=False),
+                secret=env("AWS_SECRET_ACCESS_KEY", "", cast=False),
+                region=env("AWS_DEFAULT_REGION", "", cast=False),
+                bucket=env("AWS_BUCKET", "", cast=False),
+                url=env("AWS_URL", "", cast=False),
+                endpoint=env("AWS_ENDPOINT", "", cast=False),
             ),
         }
     )
@@ -83,56 +103,69 @@ class StorageConfig(Config):
 Then pass the class along with the provider:
 
 ```python
-from fastapi_startkit import Application
-from fastapi_startkit.storage import StorageProvider
+# bootstrap/application.py
 from config.storage import StorageConfig
 
 app = Application(
-    base_path=...,
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
         (StorageProvider, StorageConfig),
-        # ... other providers
-    ]
+    ],
 )
 ```
 
-## Configuration
+### Amazon S3
 
-Out of the box, three disks are configured, and `FILESYSTEM_DISK` decides which one is the default:
+The `s3` driver needs `boto3`, which isn't part of any extra:
 
-| Disk | Driver | Default root |
-|---|---|---|
-| `local` | Local filesystem | `storage/` (`FILESYSTEM_DISK_ROOT`) |
-| `public` | Local filesystem, served over HTTP | `storage/app/public/` (`FILESYSTEM_PUBLIC_DISK_ROOT`) |
-| `s3` | Amazon S3 | Set with the `AWS_*` variables |
+```bash
+uv add boto3
+```
+
+Then set your credentials and bucket:
+
+```ini
+AWS_ACCESS_KEY_ID=your-key
+AWS_SECRET_ACCESS_KEY=your-secret
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=your-bucket
+AWS_URL=https://your-bucket.s3.amazonaws.com
+```
+
+For an S3-compatible service such as MinIO, set `AWS_ENDPOINT` to its URL and pass `use_path_style_endpoint=True` to `S3Config`.
 
 ## Basic Usage
 
-Everything starts with the `Storage` facade, so import it first:
+Import `Storage` from the storage package. Its methods run on the default disk:
 
 ```python
 from fastapi_startkit.storage import Storage
 ```
 
+The examples below were run on the `local` disk. Every method is synchronous.
+
 ### Writing Files
 
-To write a file, pass `put()` a path and its contents:
+`put()` writes contents to a path, creating any missing directories. Pass a `str` to write text or `bytes` to write binary data:
 
 ```python
-Storage.put("reports/summary.txt", "Report content here")
+Storage.put("reports/summary.txt", "Quarterly revenue: 42")
+Storage.put("images/logo.png", png_bytes)
 ```
 
 ### Reading Files
 
-To read it back, call `get()`:
+`get()` returns the contents of a file, or `None` when the file doesn't exist. Text that decodes as UTF-8 comes back as a `str`, and anything else comes back as `bytes`. Use `get_bytes()` when you always want `bytes`:
 
 ```python
-content = Storage.get("reports/summary.txt")
+Storage.get("reports/summary.txt")        # "Quarterly revenue: 42"
+Storage.get_bytes("images/logo.png")      # b"\x89PNG..."
+Storage.get("reports/missing.txt")        # None
 ```
 
 ### Checking Existence
 
-You can check whether a file is there with `exists()`, or whether it's absent with `missing()`:
+`exists()` tells you whether a file is there, and `missing()` tells you whether it isn't:
 
 ```python
 if Storage.exists("reports/summary.txt"):
@@ -142,99 +175,152 @@ if Storage.missing("reports/summary.txt"):
     ...
 ```
 
-### Deleting Files
-
-```python
-Storage.delete("reports/summary.txt")
-```
-
 ### Copying and Moving
 
-`copy()` and `move()` each take a source path and a destination path:
+`copy()` and `move()` take a source path and a destination path:
 
 ```python
 Storage.copy("reports/summary.txt", "archive/summary.txt")
-Storage.move("reports/summary.txt", "archive/summary.txt")
+Storage.move("archive/summary.txt", "archive/2026/summary.txt")
 ```
 
 ### Appending and Prepending
 
-To add content to the end or the start of an existing file, use `append()` or `prepend()`:
+`append()` adds text to the end of a file, and `prepend()` adds it to the start. `prepend()` needs the file to exist:
 
 ```python
-Storage.append("logs/app.log", "\nNew log entry")
-Storage.prepend("logs/app.log", "Log start\n")
+Storage.put("logs/orders.log", "order 1 created\n")
+Storage.append("logs/orders.log", "order 2 created\n")
+Storage.prepend("logs/orders.log", "# orders\n")
+
+Storage.get("logs/orders.log")
+# "# orders\norder 1 created\norder 2 created\n"
+```
+
+### Deleting Files
+
+`delete()` removes a file. On the local disk, deleting a file that doesn't exist raises `FileNotFoundError`, so check first when the file may already be gone:
+
+```python
+if Storage.exists("reports/summary.txt"):
+    Storage.delete("reports/summary.txt")
 ```
 
 ## Using a Specific Disk
 
-The methods above all work on the default disk. To use a different one, call `disk()` first:
+To work with a disk other than the default, call `disk()` with its name. It returns the driver for that disk, with the same methods:
 
 ```python
-Storage.disk("s3").put("uploads/photo.jpg", file_bytes)
-Storage.disk("public").get("images/banner.png")
+Storage.disk("public").put("avatars/1.png", avatar_bytes)
+Storage.disk("s3").get("invoices/2026-001.pdf")
 ```
 
 ## Storing Uploaded Files
 
-Saving uploads is one of the most common things you'll do with storage. `store()` writes a `File` to the disk. The second argument is the file name without its extension; the extension comes from the original file name. It returns the absolute path of the stored file:
+`store()` writes an uploaded file to the disk. Wrap the contents and the original file name in a `File`, and pass the name to store it under. On the local disk, the extension of the original file name is added to that name, and `store()` returns the absolute path it wrote:
 
 ```python
+# routes/web.py
 from fastapi import UploadFile
+
+from fastapi_startkit.fastapi import Router
 from fastapi_startkit.storage import Storage
 from fastapi_startkit.storage.file import File
 
-async def upload(file: UploadFile):
-    path = Storage.store(File(await file.read(), file.filename), "avatar")
+router = Router()
+
+
+async def update_avatar(avatar: UploadFile):
+    path = Storage.store(File(await avatar.read(), avatar.filename), "avatar")
     return {"path": path}
+
+
+router.post("/avatar", update_avatar)
 ```
 
-If you leave out the name, the file is stored under a SHA-1 hash of its original name.
+Uploading `me.png` stores it as `storage/avatar.png`. If you leave out the name, the file is stored under the SHA-1 hash of its original name, such as `9c9b5e4595a25b7290488ab9d614cf9fe13d76e0.png`.
+
+On the `s3` disk, `store()` uses the name exactly as you pass it, without adding an extension, and returns that key.
 
 ## Public URLs
 
-When your application uses `FastAPIProvider`, `StorageProvider` serves the `public` disk at `/storage/{path}`. So a file written to `images/avatar.png` on the public disk is available at `/storage/images/avatar.png`:
+`StorageProvider` serves the `public` disk at `/storage/{path}`, so a file written to `avatars/1.png` on that disk is available at `/storage/avatars/1.png`:
 
 ```python
-Storage.disk("public").put("images/avatar.png", image_bytes)
-# GET /storage/images/avatar.png
+Storage.disk("public").put("avatars/1.png", avatar_bytes)
+# GET /storage/avatars/1.png
 ```
 
-For files on S3, the `s3` disk has a `url()` method that joins `AWS_URL` and the path:
+The response has a content type guessed from the file name, and a missing file returns `404`.
+
+On the `s3` disk, `url()` joins `AWS_URL` and the path:
 
 ```python
-Storage.disk("s3").url("images/avatar.png")
-# → {AWS_URL}/images/avatar.png
+Storage.disk("s3").url("avatars/1.png")
+# "https://your-bucket.s3.amazonaws.com/avatars/1.png"
 ```
+
+The local driver has no `url()` method.
+
+## Downloading Files
+
+`download()` returns a response you can return from a route. Pass the file name the browser should save it as:
+
+```python
+# routes/web.py
+async def download_report():
+    return Storage.download("reports/summary.txt", "summary.txt")
+
+
+router.get("/reports/summary", download_report)
+```
+
+On the local disk this is a `FileResponse` with a `Content-Disposition: attachment` header. On the `s3` disk it's a redirect to a pre-signed URL that is valid for one hour.
 
 ## Testing with Fake Storage
 
-You don't want tests writing real files into your storage directory. `Storage.fake()` replaces a disk with a driver that writes to a temporary directory instead. When you're done, call `cleanup()` to remove the directory, or use the fake as a context manager. The fake has the same methods as the local driver, plus a handful of assertions:
+`Storage.fake()` replaces a disk with a driver that writes to a new temporary directory, so your tests never touch real files. It returns the fake, which has the usual methods plus assertions. Call `cleanup()` to remove the directory when you're done:
 
 ```python
-fake = Storage.fake("local")
+# tests/test_reports.py
+from fastapi_startkit.storage import Storage
 
-Storage.put("reports/test.txt", "hello")
 
-fake.assert_exists("reports/test.txt")
-fake.assert_exists("reports/test.txt", content="hello")
-fake.assert_missing("reports/not-there.txt")
-fake.assert_count(1, "reports")
+def test_report_is_written():
+    fake = Storage.fake("local")
 
-fake.cleanup()
+    Storage.put("reports/test.txt", "hello")
+
+    fake.assert_exists("reports/test.txt")
+    fake.assert_exists("reports/test.txt", content="hello")
+    fake.assert_missing("reports/not-there.txt")
+    fake.assert_count(1, "reports")
+
+    fake.cleanup()
 ```
 
-`assert_exists()` and `assert_missing()` also accept a list of paths. `assert_directory_empty(directory)` checks that a directory has no files.
+You can also use the fake as a context manager, which cleans up on exit. Called without a name, `fake()` replaces the default disk:
+
+```python
+with Storage.fake() as fake:
+    Storage.put("reports/test.txt", "hello")
+    fake.assert_exists(["reports/test.txt"])
+```
+
+`assert_exists()` and `assert_missing()` accept a path or a list of paths. `assert_directory_empty(directory)` checks that a directory has no files.
+
+The fake replaces the driver, not only the disk you name, so every disk that uses the same driver writes to the fake too. Faking `local` also fakes `public`.
 
 ## Adding a Custom Driver
 
-If local files and S3 don't cover your needs, you can add your own driver. A driver is a plain class. There's no base class to extend: the storage manager calls the methods the `Storage` facade exposes, so a driver only needs to implement the ones you use. The built-in `local` and `s3` drivers are registered the same way.
+When the `local` and `s3` drivers don't fit, you can add your own. A driver is a plain class with the methods you call on it.
 
-### 1. Write the Driver
+### Writing the Driver
 
-The manager keeps one driver instance per driver name and calls `set_options()` with the disk's configuration every time the disk is resolved. Your driver should store the options and return `self`:
+The storage manager keeps one instance per driver name and calls `set_options()` with the disk's config each time the disk is resolved. Store the options and return `self`:
 
 ```python
+# app/storage/memory_driver.py
 class MemoryDriver:
     def __init__(self, application):
         self.application = application
@@ -265,41 +351,43 @@ class MemoryDriver:
         self.files.pop(self.key(file_path), None)
 ```
 
-The facade methods are `put`, `get`, `exists`, `missing`, `stream`, `copy`, `move`, `prepend`, `append`, `delete`, `store`, `download` and `url`. Calling one the driver does not define raises `AttributeError`. For a full reference, see `LocalDriver` and `S3Driver` in `fastapi_startkit.storage.drivers`.
+`Storage` forwards `put`, `get`, `get_bytes`, `exists`, `missing`, `stream`, `copy`, `move`, `prepend`, `append`, `delete`, `store`, `download` and `url` to the driver. Calling one your driver doesn't define raises `AttributeError`.
 
-### 2. Describe the Disk
+Because disks that share a driver name share one instance, read `self.options` inside each method rather than copying values out of it in `set_options()`.
 
-Next, describe the disk. A disk's `driver` value names the driver you register in the next step, and its other fields are passed to `set_options()`:
+### Describing the Disk
+
+A disk config is a dataclass whose `driver` names your driver. Its other fields are passed to `set_options()`:
 
 ```python
-from fastapi_startkit.configuration import Config
-
-
+# config/storage.py
+@dataclass
 class MemoryDiskConfig(Config):
     driver: str = "memory"
     prefix: str = ""
 ```
 
-Config subclasses do not need `@dataclass` when their fields use `env()` or simple defaults such as `str`, `int`, `bool` or `None`. For `dict` or `list` defaults, use `field(default_factory=...)` or `@dataclass`.
-
-Add it to the `disks` of your `StorageConfig`, and point `default` at it if you want it to be the default disk:
+Add the disk to `disks` in your `StorageConfig`, and set `default` to its name if it should be the default disk:
 
 ```python
 # config/storage.py
 disks: dict[str, Config] = field(
     default_factory=lambda: {
-        # ... local, public and s3
+        # local, public and s3 ...
         "memory": MemoryDiskConfig(prefix="app/"),
     }
 )
 ```
 
-### 3. Register the Driver
+### Registering the Driver
 
-Finally, register the driver on the storage manager in a provider's `boot()` method. Every provider's `register()` runs before any `boot()`, so the manager is already bound and your provider can sit anywhere in the list:
+Register the driver on the storage manager in a provider's `boot()` method:
 
 ```python
+# providers/memory_storage_provider.py
 from fastapi_startkit.support import Provider
+
+from app.storage.memory_driver import MemoryDriver
 
 
 class MemoryStorageProvider(Provider):
@@ -308,26 +396,21 @@ class MemoryStorageProvider(Provider):
 ```
 
 ```python
+# bootstrap/application.py
 app = Application(
-    base_path=...,
+    base_path=Path(__file__).resolve().parent.parent,
     providers=[
         (StorageProvider, StorageConfig),
         MemoryStorageProvider,
-    ]
+    ],
 )
 ```
 
-### 4. Use the Disk
-
-That's it. Your new disk works like any other:
+The new disk works like any other:
 
 ```python
 Storage.disk("memory").put("notes.txt", "hello")
 Storage.disk("memory").get("notes.txt")  # "hello"
 ```
 
-With `default` set to `"memory"`, `Storage.put()` and the other facade methods use it too.
-
-One thing to watch for: disks that share a driver name share one driver instance, so read `self.options` when each method runs instead of caching values when the driver is created.
-
-Faking works for custom disks as well. `Storage.fake("memory")` replaces the driver registered under the disk's driver name with a temporary local one.
+`Storage.fake("memory")` replaces it with a temporary local driver, the same as the built-in disks.
