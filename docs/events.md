@@ -7,8 +7,6 @@ keywords: events, listeners, event dispatcher, event facade, event service provi
 
 # Events
 
-## Introduction
-
 Events let one part of your application announce that something happened, and let other parts react to it without the two knowing about each other. For example, when an order ships, you might email the customer and write an audit log entry. Instead of calling both from your shipping code, you dispatch an `OrderShipped` event and register a listener for each task.
 
 The event dispatcher is always available; the application registers it before your own providers. You talk to it through the `Event` facade.
@@ -183,7 +181,9 @@ from app.events.order_shipped import OrderShipped
 
 
 async def ship_order(order_id: int, email: str, tracking_number: str):
-    ...
+    if not tracking_number:
+        raise ValueError("A shipped order needs a tracking number.")
+
     await Event.dispatch(OrderShipped(order_id, email, tracking_number))
 ```
 
@@ -265,8 +265,11 @@ async def test_shipping_an_order_dispatches_order_shipped(events):
     events.assert_dispatched_times(OrderShipped, 1)
 
 
-async def test_nothing_is_dispatched_before_shipping(events):
-    events.assert_nothing_dispatched()
+async def test_an_order_without_a_tracking_number_is_not_shipped(events):
+    with pytest.raises(ValueError):
+        await ship_order(7, "ann@example.com", "")
+
+    events.assert_not_dispatched(OrderShipped)
 ```
 
 The fake has these methods:

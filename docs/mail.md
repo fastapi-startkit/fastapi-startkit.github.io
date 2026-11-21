@@ -7,8 +7,6 @@ keywords: mail, email, smtp, mailable, mail facade, attachments, fastapi, fastap
 
 # Mail
 
-## Introduction
-
 The framework sends email through a `Mailable` class with a fluent builder and a `Mail` facade that delivers it through one of your configured mailers. You describe a message once, and the mailer decides whether it goes to an SMTP server, to your logs or into memory for your tests.
 
 Three drivers are available:
@@ -283,7 +281,4 @@ async def test_order_shipped_mail():
 
 See [FastAPI Testing](/docs/testing/fastapi) for the pytest settings these tests use.
 
-## See Also
-
-- [Notifications](/docs/notifications): send a message over mail and other channels from one class
-- [Logging](/docs/logging): where the `log` mailer's output ends up
+See [Notifications](/docs/notifications) to send a message over mail and other channels from one class, and [Logging](/docs/logging) for where the `log` mailer's output ends up.

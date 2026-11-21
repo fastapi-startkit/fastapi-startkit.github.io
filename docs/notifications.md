@@ -7,8 +7,6 @@ keywords: notifications, notifiable, mail notifications, database notifications,
 
 # Notifications
 
-## Introduction
-
 Notifications are short messages that tell your users something happened in your application, such as an invoice being paid or a password being changed. You describe a notification once in a class, and the framework delivers it over each channel the notification asks for:
 
 | Channel | What it does |
@@ -361,8 +359,4 @@ async def test_paying_an_invoice_notifies_the_user():
 
 See [Mail](/docs/mail#testing) for booting the application in tests and [Database Testing](/docs/testing/database) for resetting the database between tests.
 
-## See Also
-
-- [Mail](/docs/mail): mailers, mailables and the `array` mailer for tests
-- [Broadcasting](/docs/broadcasting): Reverb, private channels and channel authorization
-- [Migrations](/docs/database/migrations): running the notifications migration
+See [Mail](/docs/mail) for mailers and mailables, [Broadcasting](/docs/broadcasting) for private channels and channel authorization, and [Migrations](/docs/database/migrations) for running the notifications migration.

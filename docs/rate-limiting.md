@@ -43,13 +43,16 @@ The `RateLimiter` facade resolves the limiter the provider binds.
 
 ### Choosing the Cache Store
 
-By default, the limiter uses your cache's default store. To keep rate limit counts in a different store, set `RATE_LIMITER_STORE` to the name of a store in `config/cache.py`:
+By default, the limiter uses your cache's default store, which is `database`. For local development without a database, keep the counts in the `file` store instead:
 
 ```ini
-RATE_LIMITER_STORE=redis
+# .env
+RATE_LIMITER_STORE=file
 ```
 
-Use a store that every worker shares, such as `redis` or `database`. The `array` store lives in one process, so each worker would count on its own.
+`RATE_LIMITER_STORE` accepts the name of any store in your cache config. To use the `database` store, register `DatabaseProvider` as well and run the `caches` table migration. See [Cache configuration](/docs/cache#configuration) for both.
+
+In production, use a store that every worker shares, such as `redis` or `database`. The `array` store lives in one process, so each worker would count on its own.
 
 If you register `RateLimiterProvider` without `CacheProvider`, the limiter counts in a private in-memory store. Setting `RATE_LIMITER_STORE` without `CacheProvider` raises a `RuntimeError` the first time the limiter is used.
 
@@ -118,18 +121,22 @@ Here each client IP address can upload 10 times a minute. `by()` accepts any val
 A callback can return a list of limits. A request must pass every limit in the list, and a rejected request is not counted against any of them:
 
 ```python
+from fastapi import Request
+
+
 async def login(request: Request) -> list[Limit]:
     form = await request.form()
+    email = form.get("email") or request.client.host
     return [
         Limit.per_minute(500),
-        Limit.per_minute(3).by(form.get("email")),
+        Limit.per_minute(3).by(email),
     ]
 
 
 RateLimiter.for_("login", login)
 ```
 
-This allows 500 login attempts a minute across the application, and three a minute for each email address.
+This allows 500 login attempts a minute across the application, and three a minute for each email address. A request without an email is counted by its IP address.
 
 Limits in one list that have the same window and the same `by()` key share a counter, so give each one a unique key or a different window.
 
@@ -188,7 +195,7 @@ api = Router(dependencies=[Depends(throttle(max_attempts=30, decay_minutes=1))])
 
 ### Rate Limit Headers
 
-Every request that passes a limiter gets two headers on its response:
+A request that passes a limiter gets two headers on its response. A limiter that returns `Limit.none()` sets neither of them:
 
 | Header | Value |
 |---|---|
@@ -250,7 +257,7 @@ if not executed:
     return {"message": "Too many messages sent!"}
 ```
 
-When the limit is reached, `attempt()` returns `False` without running the callback. Otherwise it returns the callback's result, or `True` if the callback returned nothing. The callback may be an `async` function.
+When the limit is reached, `attempt()` returns `False` without running the callback. Otherwise it returns the callback's result, or `True` when that result is falsy, such as `None`, `0` or an empty string. The callback may be an `async` function.
 
 ### Checking and Hitting Keys
 
@@ -268,7 +275,7 @@ await RateLimiter.hit(key)
 await send_message(user)
 ```
 
-`hit()` returns the new count. It uses a 60 second window unless you pass another, for example `await RateLimiter.hit(key, decay_seconds=3600)`. `increment(key, decay_seconds=60, amount=1)` and `decrement()` change the count by more than one.
+`hit()` returns the new count. It uses a 60 second window unless you pass another, for example `await RateLimiter.hit(key, decay_seconds=3600)`. To change the count by a different amount, `increment(key, decay_seconds=60, amount=1)` raises it and `decrement(key, decay_seconds=60, amount=1)` lowers it.
 
 Use `remaining()` to see how many attempts a key has left:
 

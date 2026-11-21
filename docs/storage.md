@@ -100,6 +100,8 @@ class StorageConfig(Config):
     )
 ```
 
+The `public` disk's `url` (`FILESYSTEM_PUBLIC_DISK_URL`) is currently unused. Public files are always served at `/storage`, as described in [Public URLs](#public-urls).
+
 Then pass the class along with the provider:
 
 ```python
