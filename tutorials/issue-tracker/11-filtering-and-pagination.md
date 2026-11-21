@@ -7,9 +7,9 @@ duration: 10
 
 # Filtering and pagination
 
-**Goal:** ask for "my in-progress issues" or "anything urgent" with a query string, one page at a time.
+The issue list takes filters in its query string, so a client can ask for "my in-progress issues" or "anything urgent". Results come back one page at a time.
 
-## 1. Seed some issues
+## 1. Seed Some Issues
 
 Filters are easier to try with a board full of issues. Create a seeder:
 
@@ -74,7 +74,7 @@ uv run python artisan db:migrate:fresh
 uv run python artisan db:seed
 ```
 
-## 2. Describe the filters
+## 2. Describe the Filters
 
 `Validated` works on `GET` requests too. There it reads the query string, so filters get the same rules and `422` errors as a request body. Add a request to `app/http/requests/issue.py`:
 
@@ -93,7 +93,7 @@ class IssueFilters(FormRequest): # [!code ++]
 - `in_()` limits `sort` to the columns you mean to sort by. A leading `-` means newest first, which is also the default.
 - Every field has a default, so a plain `GET` with no query string still works.
 
-## 3. Build the query
+## 3. Build the Query
 
 Paginated results need the total and page numbers along with the issues. Add a page resource to `app/http/resources/issue.py`:
 

@@ -7,9 +7,9 @@ duration: 6
 
 # A tour of the project
 
-**Goal:** know where things live and read a setting from `.env`.
+A new project has a fixed layout, so you always know where routes, config and models go. This lesson walks through it and adds your first setting to `.env`.
 
-## 1. The folders
+## 1. The Folders
 
 Open the project in your editor. These are the parts you'll touch in this course:
 
@@ -27,7 +27,7 @@ Open the project in your editor. These are the parts you'll touch in this course
 | `tests/` | Your tests. |
 | `.env` | Settings for your machine. It's not committed to git. |
 
-## 2. The application
+## 2. The Application
 
 Open `bootstrap/application.py`:
 
@@ -47,7 +47,7 @@ app = Application(
 
 Each entry in `providers` turns on one feature. When a provider needs settings, it's paired with its config class, like `(DatabaseProvider, DatabaseConfig)`. The application loads `.env` first, so every config class sees your settings.
 
-## 3. Add a config value
+## 3. Add a Config Value
 
 A project's issue list will come back a page at a time. Make the page size a setting, so you can change it without touching code.
 
