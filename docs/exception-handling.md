@@ -25,7 +25,7 @@ When you register `FastAPIProvider`, every exception raised during a request is 
 
 - An `HTTPException` from FastAPI or Starlette, or one of the framework's [HTTP exceptions](#built-in-exception-types), becomes a JSON response with its status code, its headers and a `detail` message. For example, `await User.find_or_fail(7)` with no matching row returns status `404` and `{"detail": "User with primary key 7 not found."}`.
 - Exceptions with a status below `500` aren't reported. A `404` or a `403` is a normal outcome, not something to log.
-- Validation errors return a `422` response with a `{"message": ..., "errors": {...}}` body when the request's `Accept` or `Content-Type` header is JSON. Inertia requests and other requests are redirected back to the previous page with a `303` and the errors in the session. See [Validation](/docs/validation).
+- Validation errors on an Inertia request redirect back to the previous page with a `303` and the errors in the session, whatever its headers. Other requests get a `422` response with a `{"message": ..., "errors": {...}}` body when their `Accept` or `Content-Type` header is JSON, and are otherwise redirected back to the previous page with a `303` and the errors in the session. See [Validation](/docs/validation).
 - Any other exception is reported and returns a `500` response.
 
 Reporting writes the exception to the `Log` facade at the `error` level when `LogProvider` is registered, and prints it to stderr otherwise. See [Logging](/docs/logging) to choose where those messages go.
@@ -185,7 +185,7 @@ The framework raises these exceptions itself, and you can raise them from your o
 | Exception | Status | Raised by | Default message |
 |---|---|---|---|
 | `ModelNotFoundException` | 404 | `find_or_fail()` and `first_or_fail()` on a model | `User with primary key 7 not found.` or `User not found.`; `Model Not Found` when you raise it without a message |
-| `RouteNotFoundException` | 404 | Your code | `Route Not Found` |
+| `RouteNotFoundException` | 404 | Your code | Takes a required message; `Route Not Found` when it is `None` or empty |
 | `AuthorizationException` | 403 | A form request whose `authorize()` check fails | `This action is unauthorized.` from a form request; `Action not authorized` when you raise it without a message |
 | `MethodNotAllowedException` | 405 | Your code | `<METHOD> method not allowed for this route. Supported methods are: <methods>.` |
 | `ValidationException` | 422 | A form request whose rules fail | The validation messages |

@@ -497,7 +497,7 @@ user.name = "Jane Doe"
 await user.save()
 ```
 
-`update()` sets several attributes and saves them in one call, and `touch()` only refreshes `updated_at`. `update()`, `fill()`, and `update_or_create()` set only the attributes annotated on the model and skip other keys without an error. `create()` and `first_or_create()` write every key you pass:
+`update()` sets several attributes and saves them in one call, and `touch()` only refreshes `updated_at`. `update()` and `fill()` set only the attributes annotated on the model and skip other keys without an error, and so does `update_or_create()` when it finds an existing row. `create()`, `first_or_create()`, and `update_or_create()` when no row matches write every key you pass:
 
 ```python
 await user.update({"name": "Jane Smith", "role": "editor"})

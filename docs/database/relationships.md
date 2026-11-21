@@ -768,7 +768,7 @@ class Video(Model):
     images = MorphMany("Image", morph_key="imageable_type", morph_id="imageable_id")
 ```
 
-`Post` declares the same `images = MorphMany(...)` attribute. `MorphMany` takes the child model's name, and `MorphTo` takes the name of the model it is declared on. Load `MorphMany` with `with_()`, and load `MorphTo` on a single image, with `with_()` and `first()` or with `load()`:
+`Post` declares the same `images = MorphMany(...)` attribute and, like every parent of a `MorphTo`, sets `__table__` explicitly, because `MorphTo` reads the parent's table name from that attribute. `MorphMany` takes the child model's name, and `MorphTo` takes the name of the model it is declared on. Load `MorphMany` with `with_()`, and load `MorphTo` on a single image, with `with_()` and `first()` or with `load()`:
 
 ```python
 videos = await Video.with_("images").get()
