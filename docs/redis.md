@@ -56,7 +56,6 @@ This writes `config/redis.py`:
 
 ```python
 # config/redis.py
-import os
 import re
 from dataclasses import dataclass, field
 
@@ -65,13 +64,13 @@ from fastapi_startkit.environment import env
 
 
 def default_prefix() -> str:
-    app_name = os.getenv("APP_NAME") or "fastapi"
+    app_name = env("APP_NAME", "fastapi")
     return re.sub(r"[^a-z0-9]+", "_", app_name.lower()).strip("_") + "_database_"
 
 
 @dataclass
 class RedisOptions(Config):
-    prefix: str = field(default_factory=lambda: os.getenv("REDIS_PREFIX") or default_prefix())
+    prefix: str = field(default_factory=lambda: env("REDIS_PREFIX", default_prefix()))
 
 
 @dataclass
@@ -188,7 +187,7 @@ class RedisConfig(Config):
     )
 ```
 
-`env()` only works as a field default or as an argument to a `Config` class, such as `RedisConnectionConfig(database=env("REDIS_CACHE_DB", 1))`. Inside a plain dict, use `os.getenv()` or a literal.
+Use `env()` for any setting that comes from the environment, such as `RedisConnectionConfig(database=env("REDIS_CACHE_DB", 1))`.
 
 Each connection accepts these keys:
 

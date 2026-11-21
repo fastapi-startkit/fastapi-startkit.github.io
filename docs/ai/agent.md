@@ -85,7 +85,6 @@ The settings live in an `AIConfig` dataclass. To change them, subclass it in `co
 
 ```python
 # config/ai.py
-import os
 from dataclasses import dataclass, field
 
 from fastapi_startkit.ai import AIConfig as BaseAIConfig
@@ -112,13 +111,13 @@ class AIConfig(BaseAIConfig):
         "anthropic": AnthropicConfig(models={"default": "claude-sonnet-5-5"}),
         "elevenlabs": ElevenLabsConfig(),
         "bedrock": BedrockConfig(models={
-            "default": os.getenv("AWS_BEDROCK_MODEL") or "global.anthropic.claude-sonnet-5-5",
+            "default": env("AWS_BEDROCK_MODEL", "global.anthropic.claude-sonnet-5-5"),
             "default_embeddings": "amazon.titan-embed-text-v2:0",
         }),
     })
 ```
 
-This example sets every provider's models explicitly. Framework releases can ship older default models than the ones in these docs, so set the models you rely on here. A `models` map replaces the provider's whole default map, so list every key you use. Use `env()` only as a dataclass field default. Inside a dict such as `models`, write plain strings or call `os.getenv`. Then pass the class to `AIProvider`:
+This example sets every provider's models explicitly. Framework releases can ship older default models than the ones in these docs, so set the models you rely on here. A `models` map replaces the provider's whole default map, so list every key you use. Use `env()` for any value that comes from the environment, including entries in a dict such as `models`. Then pass the class to `AIProvider`:
 
 ```python
 # bootstrap/application.py
@@ -154,7 +153,6 @@ Use `OpenAICompatibleConfig` for a self-hosted server and `OllamaConfig` for Oll
 
 ```python
 # config/ai.py
-import os
 from dataclasses import dataclass, field
 
 from fastapi_startkit.ai import AIConfig as BaseAIConfig
@@ -174,8 +172,8 @@ class AIConfig(BaseAIConfig):
         }),
         "anthropic": AnthropicConfig(models={"default": "claude-sonnet-5-5"}),
         "local": OpenAICompatibleConfig(
-            url=os.getenv("LOCAL_AI_URL", "http://localhost:1234/v1"),
-            key=os.getenv("LOCAL_AI_API_KEY", ""),
+            url=env("LOCAL_AI_URL", "http://localhost:1234/v1"),
+            key=env("LOCAL_AI_API_KEY", ""),
             models={"default": "qwen2.5-7b-instruct", "default_embeddings": "nomic-embed-text"},
         ),
         "ollama": OllamaConfig(models={"default": "llama3.1", "default_embeddings": "nomic-embed-text"}),

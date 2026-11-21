@@ -149,8 +149,7 @@ Override `authorize()` to refuse a call before any input is validated. It can be
 
 ```python
 # app/mcp/tools/delete_post_tool.py
-import os
-
+from fastapi_startkit.environment import env
 from fastapi_startkit.mcp import Response, Tool
 
 
@@ -159,7 +158,7 @@ class DeletePostTool(Tool):
     description = "Delete a post."
 
     def authorize(self) -> bool:
-        return os.getenv("ALLOW_POST_DELETES") == "true"
+        return env("ALLOW_POST_DELETES", "false") == "true"
 
     async def handle(self, arguments: dict) -> Response:
         return Response.text("Deleted.")
@@ -277,8 +276,7 @@ Override `should_register()` to hide a prompt, for example behind a feature flag
 
 ```python
 # app/mcp/prompts/beta_prompt.py
-import os
-
+from fastapi_startkit.environment import env
 from fastapi_startkit.mcp import Prompt, Response
 
 
@@ -287,7 +285,7 @@ class BetaPrompt(Prompt):
     description = "Only available when the beta flag is on."
 
     def should_register(self) -> bool:
-        return os.getenv("BETA_FEATURES") == "true"
+        return env("BETA_FEATURES", "false") == "true"
 
     async def handle(self, arguments: dict) -> Response:
         return Response.text("Beta feature output.")

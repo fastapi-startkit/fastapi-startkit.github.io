@@ -82,7 +82,6 @@ You can also embed through a provider you define yourself, such as a local serve
 
 ```python
 # config/ai.py
-import os
 from dataclasses import dataclass, field
 
 from fastapi_startkit.ai import AIConfig as BaseAIConfig
@@ -98,7 +97,7 @@ class AIConfig(BaseAIConfig):
     providers: dict[str, Config] = field(default_factory=lambda: {
         "openai": OpenAIConfig(),
         "local": OpenAICompatibleConfig(
-            url=os.getenv("LOCAL_AI_URL", "http://localhost:1234/v1"),
+            url=env("LOCAL_AI_URL", "http://localhost:1234/v1"),
             models={"default_embeddings": "nomic-embed-text"},
         ),
     })
