@@ -7,7 +7,19 @@ keywords: orm, relationships, database, foreign keys, eager loading, polymorphic
 
 # Relationships
 
-Database tables are rarely islands. A post has an author, a user writes many posts, and a post can carry many tags. Relationships let you describe those connections once, on the model, and then load related records without writing joins by hand.
+Database tables are usually related to one another. A post has an author, a user writes many posts, and a post can carry many tags. Relationships let you describe those connections once, on the model, and then load and query related records without writing joins by hand.
+
+- [Defining Relationships](#defining-relationships)
+- [One to One](#one-to-one)
+- [One to Many](#one-to-many)
+- [Has One of Many](#has-one-of-many)
+- [Many to Many](#many-to-many)
+- [Has One Through](#has-one-through)
+- [Has Many Through](#has-many-through)
+- [Polymorphic Relationships](#polymorphic-relationships)
+- [Eager Loading](#eager-loading)
+- [Querying Relationship Existence](#querying-relationship-existence)
+- [Full Model Reference](#full-model-reference)
 
 ## Defining Relationships
 
@@ -27,7 +39,7 @@ class Post(Model):
     comments = HasMany["Comment"](foreign_key="post_id", local_key="id")
 ```
 
-The name in brackets is a string, so the related model doesn't need to be imported when the module loads. Models register themselves by class name and the ORM resolves the string the first time the relationship is used. The bracket also gives type checkers the related model, so `post.author` is typed as `User | None` and `post.comments` as `Collection[Comment]`. If you want those hints to resolve in your editor, import the related models under `TYPE_CHECKING`:
+The name in brackets is a string, so the related model doesn't need to be imported when the module loads. Models register themselves by class name, and the ORM resolves the string the first time the relationship is used. The bracket also tells type checkers the related model, so `post.author` is typed as `User | None` and `post.comments` as `Collection[Comment]`. For those hints to resolve in your editor, import the related models under `TYPE_CHECKING`:
 
 ```python
 from typing import TYPE_CHECKING
@@ -39,11 +51,11 @@ if TYPE_CHECKING:
 
 All relationship classes can be imported from `fastapi_startkit.masoniteorm` or from `fastapi_startkit.masoniteorm.relationships`.
 
-Pass the keys as keyword arguments, because the first positional argument is read as the related model.
+Always pass the keys as keyword arguments. A positional first argument is read as the related model, using the older `BelongsTo("User", local_key="user_id")` form. That form still works but raises a `DeprecationWarning`; write `BelongsTo["User"](local_key="user_id")` instead.
 
 ### Default Keys
 
-If your columns follow the usual naming convention, you can leave the keys out. A missing key is filled in, Laravel style, from the model **class names** and their `__primary_key__`. A model's foreign key name is its snake_cased class name followed by its primary key, so `User` gives `user_id`, `BlogPost` gives `blog_post_id`, and a model with `__primary_key__ = "uuid"` gives `..._uuid`:
+If your columns follow the usual naming convention, you can leave the keys out. A missing key is filled in from the model **class names** and their `__primary_key__`. A model's foreign key name is its snake_cased class name followed by its primary key, so `User` gives `user_id`, `BlogPost` gives `blog_post_id`, and a model with `__primary_key__ = "uuid"` gives `..._uuid`:
 
 | Relationship | Default keys |
 |---|---|
@@ -64,25 +76,8 @@ A few things to keep in mind:
 - The names come from the class, never from `__table__`. A `Label` model with `__table__ = "blog_labels"` still gives `label_id`, and its pivot with `Essay` is `essay_label`.
 - Class names aren't singularized or pluralized. `Media` gives `media_id`, and its pivot with `Label` is `label_media`.
 - A relationship inherited by a subclass takes its keys from the subclass. If `Invoice` extends `BaseItem`, an inherited `HasMany` uses `invoice_id`.
-- Only the relationships in the table above have default keys. `HasManyThrough` and the morph relationships still need every key passed explicitly.
+- Only the relationships in the table above infer their keys. Pass every key to `HasManyThrough`, and pass the column names to the morph relationships unless they're `record_type` and `record_id`.
 - Any key you pass explicitly wins. When your columns don't follow the convention, pass every key, as the examples on this page do.
-
-::: warning Upgrading to v0.75.0
-Before v0.75.0, some defaults were different. If you relied on one of them, pass the old name explicitly:
-
-- `HasOne` and `HasMany` used `{attribute}_id` as the foreign key (`posts_id`). They now use the owner's foreign key name (`user_id`).
-- A `BelongsToMany` without `table=` built the pivot name from the tables. For `CpItemModel` (`__table__ = "cp_items"`) and `CpShopModel` (`__table__ = "cp_shops"`), that gave `cp_item_cp_shop`. It now comes from the class names, so the pivot is `cp_item_model_cp_shop_model`. Pass `table="cp_item_cp_shop"` to keep the old one.
-- Irregular plurals used to be singularized (`medium_tag`). The class name is now used as is (`media_tag`).
-- A subclass that shares its parent's table and inherits a `BelongsToMany` now gets a pivot name based on the subclass. Set `table=` on the parent to keep the old one.
-
-The pivot foreign keys follow the same class-name rule. Pass `local_foreign_key=` and `other_foreign_key=` to keep the old ones.
-:::
-
-::: warning Deprecated: model name as the first argument
-The older form, `BelongsTo("User", local_key="user_id")`, still works but raises a `DeprecationWarning` and will be removed in 1.x. Write `BelongsTo["User"](local_key="user_id")` instead.
-:::
-
-Declare the model's columns as annotations, as in the `Post` model above. The ORM only fills annotated columns, and helpers like `attach()` set the foreign key through that fill.
 
 ## One to One
 
@@ -97,7 +92,7 @@ HasOne["RelatedModel"](foreign_key=..., local_key=...)
 | Parameter | Description |
 |---|---|
 | `foreign_key` | Column on the related model that references this model |
-| `local_key` | Column on this model that the foreign key points at. Defaults to `"id"`. |
+| `local_key` | Column on this model that the foreign key points at. Defaults to this model's primary key. |
 
 #### Table Structure
 
@@ -221,9 +216,9 @@ HasMany["RelatedModel"](foreign_key=..., local_key=...)
 | Parameter | Description |
 |---|---|
 | `foreign_key` | Column on the related model that references this model |
-| `local_key` | Column on this model that the foreign key points at. Defaults to `"id"`. |
+| `local_key` | Column on this model that the foreign key points at. Defaults to this model's primary key. |
 
-#### Table Structure
+### Table Structure
 
 ```text
 users
@@ -238,7 +233,7 @@ posts
 
 `posts.user_id` references `users.id`, so a user has many posts and each post belongs to one user.
 
-#### Model Structure
+### Model Structure
 
 ```python
 # app/models/user.py
@@ -284,7 +279,7 @@ Sometimes you want a single row out of a `HasMany`, such as a post's latest comm
 | `oldest_of_many(column="created_at")` | The lowest `column` value |
 | `of_many(column=None, aggregate="max")` | The `"max"` or `"min"` value of `column`. With no column, the primary key is used. |
 
-#### Table Structure
+### Table Structure
 
 ```text
 posts
@@ -301,7 +296,7 @@ comments
 
 `comments.post_id` references `posts.id`, so a post has many comments, and one of them is the latest, the oldest, or the most voted.
 
-#### Model Structure
+### Model Structure
 
 ```python
 # app/models/post.py
@@ -346,7 +341,12 @@ post = await Post.with_("latest_comment", "top_comment").where("id", 1).first()
 print(post.latest_comment.body, post.top_comment.votes)
 ```
 
-Rows where the column is `NULL` are skipped, and ties are broken by the primary key. The result behaves like a `HasOne`, so you can eager load it and use it with `where_has()`, and it is `None` when there are no rows. The method must return a new relationship derived from another one. `@relationship` also works on top of a `@classmethod`, in which case you write `cls.comments` instead of `self.comments`.
+A few rules apply:
+
+- Rows where the column is `NULL` are skipped. When rows tie, the one with the highest primary key wins for `"max"`, and the lowest for `"min"`.
+- The result behaves like a `HasOne`. You can eager load it and use it with `where_has()`, and it is `None` when the post has no comments.
+- The method must return a new relationship derived from another one, as `latest_of_many()` does. Returning `self.comments` itself raises a `TypeError`.
+- `@relationship` also works on top of a `@classmethod`. Write `cls.comments` instead of `self.comments`.
 
 ## Many to Many
 
@@ -365,14 +365,14 @@ BelongsToMany["RelatedModel"](
 | `local_foreign_key` | Pivot column that references this model |
 | `other_foreign_key` | Pivot column that references the related model |
 | `table` | Name of the pivot table |
-| `local_owner_key` | Column on this model that the pivot references. Defaults to `"id"`. |
-| `other_owner_key` | Column on the related model that the pivot references. Defaults to `"id"`. |
+| `local_owner_key` | Column on this model that the pivot references. Defaults to this model's primary key. |
+| `other_owner_key` | Column on the related model that the pivot references. Defaults to the related model's primary key. |
 | `with_timestamps` | Read and write `created_at` / `updated_at` on the pivot table. Defaults to `False`. |
 | `pivot_id` | Primary key column of the pivot table. Defaults to `"id"`. Set it to `None` if the pivot table has no id column. |
 | `attribute` | Name of the attribute that holds the pivot row on each related model. Defaults to `"pivot"`. |
 | `with_fields` | Extra pivot columns to load onto the pivot attribute, as a list |
 
-#### Table Structure
+### Table Structure
 
 ```text
 posts
@@ -391,7 +391,7 @@ post_tag
 
 Each `post_tag` row links one post to one tag: `post_tag.post_id` references `posts.id` and `post_tag.tag_id` references `tags.id`.
 
-#### Model Structure
+### Model Structure
 
 ```python
 # app/models/post.py
@@ -535,12 +535,14 @@ HasOneThrough["DistantModel"](
 | Parameter | Description |
 |---|---|
 | `["DistantModel", "IntermediateModel"]` | String names of the distant and intermediate models |
-| `local_foreign_key` | Foreign key on this model that references the intermediate model |
-| `other_foreign_key` | Foreign key on the intermediate model that references the distant model |
-| `local_owner_key` | Primary key on the intermediate model |
-| `other_owner_key` | Primary key on the distant model |
+| `local_foreign_key` | Column on this model that is matched against the intermediate model. Defaults to this model's primary key. |
+| `other_foreign_key` | Column on the intermediate model that is matched against the distant model. Defaults to the intermediate model's primary key. |
+| `local_owner_key` | Column on the intermediate model that matches `local_foreign_key`. Defaults to this model's foreign key name. |
+| `other_owner_key` | Column on the distant model that matches `other_foreign_key`. Defaults to the intermediate model's foreign key name. |
 
-#### Table Structure
+With the defaults, the intermediate table holds this model's foreign key and the distant table holds the intermediate model's foreign key, as described in [Default Keys](#default-keys). The example below has the keys the other way around, so it passes all four.
+
+### Table Structure
 
 ```text
 incoming_shipments
@@ -560,7 +562,7 @@ countries
 
 A shipment comes from one port (`incoming_shipments.from_port_id` → `ports.port_id`), and a port is in one country (`ports.port_country_id` → `countries.country_id`). So a shipment has one country through its port.
 
-#### Model Structure
+### Model Structure
 
 ```python
 # app/models/incoming_shipment.py
@@ -576,10 +578,10 @@ class IncomingShipment(Model):
 
     from_country = HasOneThrough["Country"](
         ["Country", "Port"],
-        "from_port_id",     # FK on IncomingShipment → Port
-        "port_country_id",  # FK on Port → Country
-        "port_id",          # PK on Port
-        "country_id",       # PK on Country
+        "from_port_id",     # incoming_shipments.from_port_id
+        "port_country_id",  # ports.port_country_id
+        "port_id",          # ports.port_id = incoming_shipments.from_port_id
+        "country_id",       # countries.country_id = ports.port_country_id
     )
 ```
 
@@ -638,7 +640,7 @@ HasManyThrough["DistantModel"](
 | `local_owner_key` | Primary key on this model |
 | `other_owner_key` | Primary key on the distant model |
 
-#### Table Structure
+### Table Structure
 
 ```text
 courses
@@ -657,7 +659,7 @@ students
 
 Each enrolment links a course (`enrolments.in_course_id` → `courses.course_id`) to a student (`enrolments.active_student_id` → `students.student_id`). So a course has many students through its enrolments.
 
-#### Model Structure
+### Model Structure
 
 ```python
 # app/models/course.py
@@ -714,7 +716,7 @@ for course in courses:
 
 A polymorphic relationship lets one model belong to more than one kind of parent through a single pair of columns. For example, an `Image` can belong to a `Post` or a `Video`.
 
-#### Table Structure
+### Table Structure
 
 ```text
 posts
@@ -732,21 +734,11 @@ images
     url - string
 ```
 
-`images.imageable_type` stores which kind of parent the image belongs to (`"post"` or `"video"`), and `images.imageable_id` stores that parent's id.
+`images.imageable_type` stores which kind of parent the image belongs to, and `images.imageable_id` stores that parent's id.
 
-#### Model Structure
+### Model Structure
 
-First, register a morph map so the ORM knows which model each stored type name stands for:
-
-```python
-from fastapi_startkit.masoniteorm.models.registry import Registry
-
-Registry.morph_map({"post": Post, "video": Video})
-```
-
-Put this somewhere that runs once at startup, such as a service provider's `boot()` method.
-
-Then declare `MorphTo` on the child and `MorphMany` on each parent. Both take the type column as `morph_key` and the id column as `morph_id`, which default to `record_type` and `record_id`:
+Declare `MorphTo` on the child and `MorphMany` on each parent. Both take the type column as `morph_key` and the id column as `morph_id`, which default to `record_type` and `record_id`:
 
 ```python
 # app/models/image.py
@@ -776,7 +768,7 @@ class Video(Model):
     images = MorphMany("Image", morph_key="imageable_type", morph_id="imageable_id")
 ```
 
-`Post` declares the same `images = MorphMany(...)` attribute. `MorphMany` takes the child model's name. `MorphTo` takes the name of the model it is declared on, and resolves each parent from the morph map. Both are eager loaded with `with_()`:
+`Post` declares the same `images = MorphMany(...)` attribute. `MorphMany` takes the child model's name, and `MorphTo` takes the name of the model it is declared on. Both are eager loaded with `with_()`:
 
 ```python
 images = await Image.with_("imageable").get()
@@ -786,9 +778,21 @@ for image in images:
 videos = await Video.with_("images").get()
 ```
 
+### Custom Morph Types
+
+By default, the type column stores the parent's class name, such as `"Post"` or `"Video"`. To store a different name, register a morph map:
+
+```python
+from fastapi_startkit.masoniteorm.models.registry import Registry
+
+Registry.morph_map({"post": Post, "video": Video})
+```
+
+`MorphTo` then resolves `"post"` to `Post`, and `MorphMany` looks for `"post"` in the type column. Register the map once at startup, such as in a service provider's `boot()` method, before any rows are written. Rows that already store the class name aren't found by `MorphMany` once the map is registered.
+
 ## Eager Loading
 
-Relationships are never loaded behind your back. Reading a relationship that hasn't been loaded raises `LazyLoadingViolation`, which keeps N+1 queries out of your app:
+The ORM doesn't load relationships lazily. Reading a relationship that hasn't been loaded raises `LazyLoadingViolation` (from `fastapi_startkit.masoniteorm.exceptions`), which keeps N+1 queries out of your app:
 
 ```python
 post = await Post.where("id", 1).first()
