@@ -84,7 +84,9 @@ uv run python artisan digest:send taylor@example.com --dry-run --limit=5
 - `argument(name, description=..., optional=False, multiple=False, default=None)` declares a positional argument. Read it with `self.argument("email")`.
 - `option(long_name, short_name=None, description=..., flag=True, value_required=True, multiple=False, default=None)` declares an `--option`. With `flag=True` the option is a switch that reads as `True` or `False`. With `flag=False` it takes a value, such as `--limit=5`. Read it with `self.option("limit")`.
 
-Option values are strings, so convert them yourself, as `int(self.option("limit"))` does above. Running a command without a required argument prints an error such as `Not enough arguments (missing: "email")`.
+Option values are strings, so convert them yourself, as `int(self.option("limit"))` does above. Running a command without a required argument prints a traceback that ends with `Not enough arguments (missing: "email")`.
+
+Every command also accepts `-C/--config`, which the framework doesn't read. Leave it unset.
 
 ### Writing Output and Asking Questions
 
@@ -113,7 +115,7 @@ import asyncio
 
 from fastapi_startkit.console import Command
 
-from app.models.post import Post
+from app.models.Post import Post
 
 
 class PruneDraftsCommand(Command):
@@ -135,7 +137,7 @@ class PruneDraftsCommand(Command):
         return count
 ```
 
-This example needs `DatabaseProvider` registered. See [Database](/docs/database/).
+This example needs a database connection. See [Database](/docs/database/).
 
 ## Registering Commands
 
@@ -164,16 +166,22 @@ Then add the provider to your application:
 from pathlib import Path
 
 from fastapi_startkit import Application
+from fastapi_startkit.logging import LogProvider
+from fastapi_startkit.masoniteorm import DatabaseProvider
 
 from app.providers.console_service_provider import ConsoleServiceProvider
 
 app = Application(
     base_path=Path(__file__).parent.parent,
     providers=[
+        LogProvider,
+        DatabaseProvider,
         ConsoleServiceProvider,
     ],
 )
 ```
+
+`LogProvider` backs the `Log` calls in `digest:send`, and `DatabaseProvider` backs the `Post` queries in `posts:prune-drafts`.
 
 ### The `artisan` Script
 
@@ -249,7 +257,7 @@ The file contains an async method for each model event, such as `creating`, `upd
 
 Two database commands aren't registered by `DatabaseProvider`:
 
-- `shell` opens your database's own command-line client (`sqlite3`, `psql`, `mysql` or `sqlcmd`) using the connection settings from your config. `--connection` picks a connection other than the default. The client must be installed and on your `PATH`.
+- `shell` opens your database's own command-line client (`sqlite3`, `psql`, `mysql` or `sqlcmd`) using the connection settings from your config. `--connection` picks a connection other than the default, and `--show=1` prints the client command, with the password hidden, before running it. `--show` needs a value. The client must be installed and on your `PATH`.
 - `db:migrate:reset` rolls back every migration without running them again.
 
 To use them, import them from `fastapi_startkit.masoniteorm.commands` and register them in your own provider:

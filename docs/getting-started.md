@@ -61,9 +61,15 @@ cd example-project
 uv run python artisan serve
 ```
 
-Open http://127.0.0.1:8000 for the welcome response and http://127.0.0.1:8000/health for the health check. Run the generated tests with `uv run pytest`.
+With PostgreSQL or MySQL, set the credentials in `.env` and start the database server, then run `uv run python artisan db:migrate`.
 
-With PostgreSQL or MySQL, set the credentials in `.env` and start the database server, then run `uv run python artisan db:migrate`. With React or Vue, install Node.js 22.12 or newer and run `npm install && npm run dev` in a second terminal.
+With React or Vue, install Node.js 22.12 or newer and start Vite in a second terminal before you open the home page. Until Vite has run, `/` returns a 500 error because the Vite manifest is missing:
+
+```bash
+npm install && npm run dev
+```
+
+Open http://127.0.0.1:8000 for the home page and http://127.0.0.1:8000/health for the health check, which returns `{"status": "ok"}`. An API-only project returns a JSON welcome response on `/`, and a React or Vue project renders its Inertia page. Run the generated tests with `uv run pytest`.
 
 ### Installer Options
 
@@ -171,7 +177,7 @@ pip install "fastapi-startkit[fastapi]"
 
 If you don't have Python yet, `uv python install 3.12` installs it.
 
-The application reads `APP_ENV` when it boots and raises a `ValueError` if it can't find it. Create a `.env` file in the project root:
+The application reads `APP_ENV` when it boots. Without a `.env` file it raises `ValueError: Unable to determine environment.`, and with a `.env` file that doesn't set `APP_ENV` it raises `ValueError: APP_ENV not set after loading .env`. Create a `.env` file in the project root:
 
 ```ini
 # .env

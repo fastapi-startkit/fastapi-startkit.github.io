@@ -7,7 +7,7 @@ keywords: logging, monitoring, debugging, fastapi
 
 # Logging
 
-Logs tell you what your application did and what went wrong. The framework writes log messages to files, the terminal, Slack or syslog, and you choose where each message goes in configuration rather than in your code.
+Logs tell you what your application did and what went wrong. The framework writes log messages to files, the terminal or Slack, and you choose where each message goes in configuration rather than in your code.
 
 Logging is organised into channels. Each channel writes messages somewhere, such as a daily file or the terminal, and drops messages below its minimum level.
 
@@ -96,7 +96,7 @@ The configuration has three keys:
 | Key | Environment variable | Description |
 |---|---|---|
 | `default` | `LOG_CHANNEL` | The channel the `Log` facade writes to. Defaults to `stack`. |
-| `level` | `LOG_LEVEL` | The minimum level for messages from Python's `logging` module. Defaults to `info`. See [Forwarding Standard Library Logs](#forwarding-standard-library-logs). |
+| `level` | `LOG_LEVEL` | The level of Python's root logger, which decides which standard library records are forwarded. Defaults to `info`. See [Forwarding Standard Library Logs](#forwarding-standard-library-logs). |
 | `channels` | | The settings for each channel, keyed by channel name. See [Available Channels](#available-channels). |
 
 ### Inline Configuration
@@ -145,7 +145,7 @@ When the level is only known at runtime, pass it to `Log.log()`:
 Log.log("warning", "Payment retry scheduled")
 ```
 
-Each message records the file and line it came from, so you can trace it back to your code:
+Each message you write with `Log` records the file and line it came from, so you can trace it back to your code:
 
 ```text
 2026-11-21 06:04:28 - ERROR - /srv/shop/app/http/controllers/checkout_controller.py:42 - Payment failed for order 1042
@@ -163,7 +163,7 @@ A channel with `level="warning"` writes `warning`, `error`, `critical`, `alert` 
 
 ## Available Channels
 
-Each entry in `channels` configures one channel. The channel names are fixed: `single`, `daily`, `terminal`, `stack`, `slack` and `syslog`. Each name has a config class in `fastapi_startkit.logging.config`.
+Each entry in `channels` configures one channel. The channel names are fixed: `single`, `daily`, `terminal`, `stack` and `slack`. Each name has a config class in `fastapi_startkit.logging.config`.
 
 ::: warning
 Use these exact names as keys. A `default` channel with any other name raises `ValueError: Logging channel '...' is not registered.`, and a `stack` silently skips names it doesn't know.
@@ -172,11 +172,10 @@ Use these exact names as keys. A `default` channel with any other name raises `V
 | Channel | Config class | Writes to |
 |---|---|---|
 | `single` | `SingleChannel` | One log file |
-| `daily` | `DailyChannel` | One log file per day |
+| `daily` | `DailyChannel` | One log file named after the start date |
 | `terminal` | `TerminalChannel` | Standard output |
 | `stack` | `StackChannel` | Several other channels |
 | `slack` | `SlackChannel` | A Slack channel |
-| `syslog` | `SyslogChannel` | The system logger |
 
 Relative paths are resolved from the directory you start the application in.
 
@@ -191,7 +190,7 @@ The `single` channel appends every message to one file.
 
 ### Daily
 
-The `daily` channel writes to a new file each day, named after the date, such as `storage/logs/2026-11-21.log`.
+The `daily` channel writes to a file named after the date the application started, such as `storage/logs/2026-11-21.log`. The name is fixed for the life of the process, so a process that runs past midnight keeps writing to the same file. Restart the application to start a new file.
 
 | Option | Default | Description |
 |---|---|---|
@@ -265,18 +264,26 @@ Slack log driver: token is not configured, message skipped
 
 When Slack answers `429 Too Many Requests`, the channel drops messages until the `Retry-After` period has passed, or for 30 seconds when the header is missing.
 
-### Syslog
-
-The `syslog` channel sends messages to the system logger.
-
-| Option | Default | Description |
-|---|---|---|
-| `path` | `/var/run/syslog` | The syslog socket. On Linux it's usually `/dev/log`. |
-| `level` | `debug` | The minimum level. |
-
 ## Forwarding Standard Library Logs
 
-`LogProvider` also forwards records from Python's standard `logging` module to your default channel, so messages from libraries such as HTTPX end up in the same place as your own:
+`LogProvider` also forwards records from Python's standard `logging` module to your default channel, so messages from libraries such as HTTPX end up in the same place as your own. Forwarding works when `default` is `terminal`:
+
+```python
+# bootstrap/application.py
+app = Application(
+    base_path=Path(__file__).parent.parent,
+    providers=[
+        (LogProvider, {
+            "default": "terminal",
+            "channels": {
+                "terminal": {"driver": "terminal", "level": "info"},
+            },
+        }),
+    ],
+)
+```
+
+A record logged through the standard library now appears in the terminal:
 
 ```python
 import logging
@@ -284,7 +291,28 @@ import logging
 logging.getLogger("billing").warning("Invoice 1042 is overdue")
 ```
 
-The top-level `level` key, set with `LOG_LEVEL`, decides which of these records are forwarded. With the default of `info`, `debug` records from libraries are dropped. It doesn't affect messages you write with the `Log` facade.
+```text
+2026-11-21 06:28:47 - WARNING - /srv/shop/.venv/lib/python3.12/site-packages/fastapi_startkit/logging/handler.py:11 - Invoice 1042 is overdue
+```
+
+Forwarded records always show `fastapi_startkit/logging/handler.py:11` as their source, not the line that logged them.
+
+::: warning
+Forwarding only works when `default` is `terminal`. With `stack`, `daily` or `single` as the default, including the published config, the first forwarded record is written to the log file twice, and records logged after your first `Log` call are no longer forwarded: they skip the other channels and go straight to the log file, labelled with the level of your last `Log` call.
+:::
+
+A forwarded record passes two level checks. The top-level `level` key, set with `LOG_LEVEL`, sets the level of Python's root logger, and records below it are never forwarded. The record then goes through the default channel's own `level`. To forward `debug` records, set both to `debug`:
+
+```python
+# bootstrap/application.py
+(LogProvider, {
+    "default": "terminal",
+    "level": "debug",
+    "channels": {
+        "terminal": {"driver": "terminal", "level": "debug"},
+    },
+}),
+```
 
 ## Changing the Timezone
 

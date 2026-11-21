@@ -23,7 +23,7 @@ Factories live in `databases/factories/`. A factory extends `Factory`, sets `mod
 # databases/factories/user_factory.py
 from fastapi_startkit.masoniteorm.factory import Factory
 
-from app.models.user import User
+from app.models.User import User
 
 
 class UserFactory(Factory):
@@ -34,7 +34,7 @@ class UserFactory(Factory):
             "name": self.fake.name(),
             "email": self.fake.unique.email(),
             "password": "secret",
-            "status": "active",
+            "is_active": True,
         }
 ```
 
@@ -91,11 +91,11 @@ class UserFactory(Factory):
         ...
 
     def suspended(self):
-        return self.state(lambda attributes: {"status": "suspended"})
+        return self.state(lambda attributes: {"is_active": False})
 
     def admin(self):
         return self.state(lambda attributes: {
-            "is_admin": True,
+            "role": "admin",
             "email": f"admin.{attributes['email']}",
         })
 ```
@@ -104,7 +104,7 @@ Call the state before `create()` or `make()`. States chain with each other and w
 
 ```python
 user = await UserFactory.new().suspended().create()
-user.status  # "suspended"
+user.is_active  # False
 
 admins = await UserFactory.new().suspended().admin().count(3).create()
 ```
@@ -113,11 +113,11 @@ Keyword arguments passed to `create()` or `make()` are applied last, so they win
 
 ## Factory Callbacks
 
-To run code after a factory builds or saves a model, register callbacks in a `configure()` method. `new()` calls `configure()` for you:
+To run code after a factory saves a model, register an `after_creating` callback in a `configure()` method. `new()` calls `configure()` for you:
 
 ```python
 # databases/factories/user_factory.py
-from app.models.post import Post
+from app.models.Post import Post
 
 
 class UserFactory(Factory):
@@ -127,16 +127,17 @@ class UserFactory(Factory):
         ...
 
     def configure(self):
-        return self.after_making(self.normalize_email).after_creating(self.create_welcome_post)
-
-    def normalize_email(self, user):
-        user.email = user.email.lower()
+        return self.after_creating(self.create_welcome_post)
 
     async def create_welcome_post(self, user):
-        await Post.create({"user_id": user.id, "title": f"Welcome, {user.name}"})
+        await Post.create({
+            "user_id": user.id,
+            "title": f"Welcome, {user.name}",
+            "content": "Thanks for joining.",
+        })
 ```
 
-`after_making` callbacks run after each `make()`, and `after_creating` callbacks run after each `create()`. Each callback receives the model and can be a regular or an async function.
+`after_creating` callbacks run after each `create()`. `after_making` registers a callback the same way, but it runs only after `make()`, never after `create()`. Each callback receives the model and can be a regular or an async function.
 
 ## Factory Relationships
 

@@ -30,7 +30,7 @@ Before you start, configure a database connection as described in [Database: Get
 To define a model, extend `Model` and annotate the table's columns with Python types:
 
 ```python
-# app/models/user.py
+# app/models/User.py
 from fastapi_startkit.masoniteorm import Model
 
 
@@ -38,9 +38,11 @@ class User(Model):
     name: str
     email: str
     password: str
+    role: str
+    is_active: bool
 ```
 
-The annotations also decide how each value is converted when it's read and written. See [Casts](./casts) for the supported types.
+The annotations also decide how each value is converted when it's read and written, and which attributes `update()` and `fill()` may set. See [Casts](./casts) for the supported types. This `User` matches the `users` table in [A Complete Example](./migrations#a-complete-example).
 
 ### Table Names
 
@@ -81,7 +83,7 @@ class Report(Model):
 
 ## Generating a Model
 
-`db:make:model` writes a model class into `app/models/`, creating the directory if needed:
+Run `db:make:model` from the project root. It writes a model class into `app/models/` under the current directory, creating the directory if needed:
 
 ```bash
 uv run python artisan db:make:model Post -m
@@ -146,18 +148,18 @@ user = await User.where("email", "admin@example.com").first_or_fail()
 
 ### Or and Raw Conditions
 
-Chain `or_where` for an `OR` condition, and `where_null`, `where_not_null`, `where_in`, or their `or_` variants for the matching checks:
+Chain `or_where` for an `OR` condition. `where_null`, `where_not_null`, and `where_in` add the matching checks, and `or_where_null` and `or_where_not_null` add them with `OR`:
 
 ```python
 users = await User.where("role", "admin").or_where("role", "moderator").get()
 
-users = await User.where("name", "Alice").or_where_null("deleted_at").get()
+users = await User.where("name", "Alice").or_where_null("role").get()
 ```
 
 For a condition the builder can't express, use `where_raw` or `or_where_raw`. Pass values as a tuple of bindings:
 
 ```python
-users = await User.where_raw("votes >= ?", (100,)).get()
+users = await User.where_raw("length(name) > ?", (20,)).get()
 
 users = await User.where("is_active", True).or_where_raw("role = 'superadmin'").get()
 ```
@@ -192,9 +194,9 @@ The paginator also has `current_page`, `next_page`, and `previous_page`. When yo
 Loading a large table with `all()` or `get()` can run your process out of memory. The chunk methods fetch one batch at a time and return async iterators, so you loop over them with `async for`:
 
 ```python
-async for projects in Project.where("is_active", True).chunk(100):
-    for project in projects:
-        await project.archive()
+async for users in User.where("is_active", True).chunk(100):
+    for user in users:
+        print(user.email)
 ```
 
 `chunk(size)` pages with `limit` and `offset`, and stops when a batch is empty or smaller than `size`.
@@ -216,7 +218,7 @@ async for users in User.chunk_by_id(500):
 - A `limit` caps the total, so `.limit(250)` chunked by 100 gives batches of 100, 100, and 50.
 - Pass `column` to page by another increasing column, and `alias` when that column is selected under another name. A row without the `alias` column raises `RuntimeError`.
 
-All chunk methods raise `ValueError` if the size isn't a positive integer.
+All chunk methods raise `ValueError` if the size is zero or negative.
 
 ## Querying JSON Columns
 
@@ -346,7 +348,7 @@ user_ids = await (
 )
 ```
 
-On PostgreSQL, the first query compiles to:
+On PostgreSQL, the query compiles to:
 
 ```sql
 (SELECT "review_logs"."user_id" FROM "review_logs" WHERE "review_logs"."created_at" > ?) UNION ALL (SELECT "plays"."user_id" FROM "plays" WHERE "plays"."created_at" > ?)
@@ -495,7 +497,7 @@ user.name = "Jane Doe"
 await user.save()
 ```
 
-`update()` sets several attributes and saves them in one call, and `touch()` only refreshes `updated_at`:
+`update()` sets several attributes and saves them in one call, and `touch()` only refreshes `updated_at`. `update()`, `fill()`, and `update_or_create()` set only the attributes annotated on the model and skip other keys without an error. `create()` and `first_or_create()` write every key you pass:
 
 ```python
 await user.update({"name": "Jane Smith", "role": "editor"})

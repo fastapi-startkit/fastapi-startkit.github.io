@@ -112,7 +112,7 @@ router.resource("posts", posts_controller)
 | `/posts/{post}` | PUT | `update` | `posts.update` |
 | `/posts/{post}` | DELETE | `destroy` | `posts.destroy` |
 
-A route is registered only when the controller has the matching method. The path parameter is the resource name without its trailing `s`, so `posts` gets `{post}`.
+A route is registered only when the controller has the matching method. The path parameter is the resource name with every trailing `s` removed, so `posts` gets `{post}`. For names where that gives the wrong word, such as `addresses`, which gets `{addresse}`, set the parameter yourself with `parameters=` (see [Renaming Routes and Parameters](#renaming-routes-and-parameters)).
 
 ### Writing Controllers
 

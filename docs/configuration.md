@@ -34,16 +34,27 @@ DB_CONNECTION=sqlite
 .env.testing      loaded on top when the environment is testing
 ```
 
-If `APP_ENV` is set nowhere, creating the application raises `ValueError: Unable to determine environment.` Under pytest the environment is always `testing`.
+Values in these files overwrite variables that are already set in the process environment. For example, if your shell exports `DB_HOST=db.internal` and `.env` contains `DB_HOST=127.0.0.1`, the application sees `127.0.0.1`. Leave a variable out of `.env` when you want the process environment to provide it.
+
+Creating the application fails when it can't find an environment name:
+
+- With no `APP_ENV` in the process environment and no `.env` file, it raises `ValueError: Unable to determine environment.`
+- With a `.env` file that doesn't set `APP_ENV`, it raises `ValueError: APP_ENV not set after loading .env`.
+
+Under pytest the environment is always `testing`.
 
 ### Choosing the Environment via the CLI
 
-Pass `--env` to any command to choose the environment. It takes priority over `APP_ENV` and is removed before the command runs:
+Pass `--env` to any command to choose the environment. The option sets `app.env`, picks which `.env.<environment>` file is loaded, and is removed before the command runs:
 
 ```bash
 uv run python artisan serve --env=production   # .env, then .env.production
 uv run python artisan db:migrate --env testing # .env, then .env.testing
 ```
+
+::: warning
+`--env`, or an `APP_ENV` exported in your shell, does not change the `APP_ENV` variable that your config classes read. After `.env` is loaded, `APP_ENV` and `AppConfig.env` hold the value from `.env`. Read the active environment from `app.env`, or set `APP_ENV` again in the matching file, for example `APP_ENV=production` in `.env.production`.
+:::
 
 ### Checking the Current Environment
 
@@ -242,6 +253,8 @@ app = Application(base_path=Path(__file__).resolve().parent.parent, config=AppCo
 app.config.region   # 'eu'
 ```
 
+`AppConfig.env` reads `APP_ENV` after the `.env` files are loaded, so it can differ from `app.env` when you pass `--env`. See [Choosing the Environment via the CLI](#choosing-the-environment-via-the-cli).
+
 ### Database Config
 
 `fastapi_startkit.masoniteorm.config.database.DatabaseSettings` requires three read-only members:
@@ -250,7 +263,7 @@ app.config.region   # 'eu'
 |---|---|
 | `default` | `str`, the name of the default connection |
 | `connections` | `Mapping[str, DBConfig]`, connection configs such as `SQLiteConfig` or `PostgresConfig` |
-| `migrations` | `Mapping[str, str]`; the migration commands read its `directory` key |
+| `migrations` | `Mapping[str, str]` with `table` and `directory` keys |
 
 Extra dataclass fields are kept and readable through `Config`:
 
@@ -283,13 +296,19 @@ Config.get("database.migrations.directory")  # 'databases/migrations'
 If your config has no `migrations` attribute, `DatabaseProvider` uses `{"table": "migrations", "directory": "databases/migrations"}`:
 
 ```python
+# bootstrap/application.py
+from pathlib import Path
 from types import SimpleNamespace
 
+from fastapi_startkit import Application
 from fastapi_startkit.masoniteorm import DatabaseProvider, SQLiteConfig
 
 settings = SimpleNamespace(default="sqlite", connections={"sqlite": SQLiteConfig()})
 
-app = Application(base_path=base_path, providers=[(DatabaseProvider, settings)])
+app = Application(
+    base_path=Path(__file__).resolve().parent.parent,
+    providers=[(DatabaseProvider, settings)],
+)
 ```
 
 The provider checks the object when it registers. A missing member or a connection that isn't a connection config raises `TypeError`:
