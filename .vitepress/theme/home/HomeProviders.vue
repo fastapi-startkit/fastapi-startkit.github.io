@@ -4,7 +4,7 @@
     import CodeCard from "./CodeCard.vue"
 
     const providers = [
-        { id: "logging", name: "Logging", detail: "terminal · daily · syslog · slack", icon: ScrollText, classes: ["LogProvider"], module: "fastapi_startkit.logging" },
+        { id: "logging", name: "Logging", detail: "terminal · daily · slack", icon: ScrollText, classes: ["LogProvider"], module: "fastapi_startkit.logging" },
         { id: "database", name: "Database & ORM", detail: "models · migrations · seeders", icon: Database, classes: ["DatabaseProvider"], module: "fastapi_startkit.masoniteorm" },
         { id: "http", name: "HTTP API", detail: "FastAPI · routers · resources", icon: Globe, classes: ["FastAPIProvider"], module: "fastapi_startkit.fastapi" },
         { id: "redis", name: "Redis", detail: "connections · key prefix · urls", icon: Zap, classes: ["RedisProvider"], module: "fastapi_startkit.redis" },
