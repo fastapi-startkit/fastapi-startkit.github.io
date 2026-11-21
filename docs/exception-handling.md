@@ -179,7 +179,7 @@ The framework raises these exceptions itself, and you can raise them from your o
 | `AuthorizationException` | 403 | A form request whose `authorize()` check fails | `This action is unauthorized.` from a form request; `Action not authorized` when you raise it without a message |
 | `MethodNotAllowedException` | 405 | Your code | `<METHOD> method not allowed for this route. Supported methods are: <methods>.` |
 | `ValidationException` | 422 | A form request whose rules fail | The validation messages |
-| `ThrottleRequestsException` | 429 | The `throttle()` dependency | `Too many attempts` |
+| [`ThrottleRequestsException`](/docs/rate-limiting) | 429 | The `throttle()` dependency | `Too many attempts` |
 | `HttpResponseException` | The wrapped response's status | Your code | The wrapped response |
 
 `ThrottleRequestsException` returns a `429` response with the message `Too many attempts` and the `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers when a client exceeds a rate limit.

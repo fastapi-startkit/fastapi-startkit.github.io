@@ -1,13 +1,13 @@
 ---
 outline: deep
 title: Validation
-description: Validate request bodies, query strings and file uploads with form requests — chainable field rules, custom messages, async and database rules, after() hooks, Laravel-style 422 responses, and testing.
+description: Validate request bodies, query strings and file uploads with form requests — chainable field rules, custom messages, async and database rules, after() hooks, 422 error responses, and testing.
 keywords: validation, form request, fastapi validation, validation rules, custom validation rule, unique rule, exists rule, file upload, multipart, csrf, 422, validated, fastapi startkit
 ---
 
 # Validation
 
-Pydantic already checks that the data your API receives has the right types. Most apps need more than that: a title has to be present, a password needs at least 8 characters, an email can't already be taken. FastAPI Startkit's validation is modelled on Laravel's form requests. You declare a `FormRequest` with rules on its fields, take it as a `Validated[...]` parameter in your endpoint, and the framework validates the request before your code runs. Rules can be async, so a rule that queries the database works just like one that checks a string's length.
+Pydantic checks that the data your API receives has the right types. Most apps need more than that: a title has to be present, a password needs at least 8 characters, an email can't already be taken. You declare a `FormRequest` with rules on its fields, take it as a `Validated[...]` parameter in your endpoint, and the framework validates the request before your code runs. Rules can be async, so a rule that queries the database is written the same way as one that checks a string's length.
 
 ## Installation
 
@@ -228,6 +228,7 @@ Each rule is a method on `Field` and returns the field, so rules chain. Every ru
 | `regex(pattern)` | A string where `pattern` matches (`re.search`). | The :attribute field format is invalid. |
 | `in_(values)` | The value is in `values`. | The selected :attribute is invalid. |
 | `not_in(values)` | The value isn't in `values`. | The selected :attribute is invalid. |
+| `enum(enum, only=None, except_=None)` | The value is one of the enum's allowed cases. See [Enum Rules](#enum-rules). | The selected :attribute is invalid. |
 | `same_as(other)` | The value equals the `other` field's value. | The :attribute field must match :other. |
 | `confirmed()` | The value equals the `<field>_confirmation` field's value. | The :attribute field confirmation does not match. |
 | `file()` | The value is an uploaded file. See [File Uploads](#file-uploads). | The :attribute field must be a file. |
@@ -281,6 +282,114 @@ class Order(FormRequest):
 
 Validating `{"shipping": true}` reports `{"address": ["The address field is required when shipping is true."]}`.
 
+### Enum Rules
+
+`enum()` checks that the value is one of an `Enum`'s cases. The value can be a member or a member's value:
+
+```python
+# app/enums.py
+from enum import IntEnum, StrEnum
+
+
+class PostStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
+class Priority(IntEnum):
+    LOW = 1
+    NORMAL = 2
+    HIGH = 3
+```
+
+```python
+# app/http/requests/update_post.py
+from typing import Annotated
+
+from fastapi_startkit.validation import Field, FormRequest
+
+from app.enums import PostStatus, Priority
+
+
+class UpdatePost(FormRequest):
+    status: Annotated[str, Field().required().enum(PostStatus, except_=PostStatus.ARCHIVED)]
+    priority: Annotated[int, Field().enum(Priority)] = Priority.NORMAL
+```
+
+```python
+# routes/api.py
+@app.fastapi.patch("/posts/{post_id}")
+async def update_post(post_id: int, data: Validated[UpdatePost]):
+    return {"id": post_id, "status": data.status, "priority": data.priority}
+```
+
+```bash
+curl -X PATCH http://localhost:8000/posts/1 -H 'Content-Type: application/json' \
+  -d '{"status": "published", "priority": 3}'
+# {"id":1,"status":"published","priority":3}
+
+curl -X PATCH http://localhost:8000/posts/1 -H 'Content-Type: application/json' \
+  -d '{"status": "archived", "priority": 5}'
+# {"message":"The selected status is invalid. (and 1 more error)","errors":{"status":["The selected status is invalid."],"priority":["The selected priority is invalid."]}}
+```
+
+The value has to match a member's value with the same type: `"3"` isn't a `Priority`, and `1` isn't a `PostStatus`. Rules see the value after the type pass, so annotate the field with the type of the enum's values. The `int` annotation above turns `"3"` from a JSON body or `?priority=3` from a query string into `3` before `enum()` checks it.
+
+`only` and `except_` narrow the allowed cases. Each takes a single case or a list, given as members or as values. When you pass both, a value must be in `only` and not in `except_`:
+
+```python
+class SearchPosts(FormRequest):
+    priority: Annotated[int | None, Field().enum(Priority, only=[Priority.NORMAL, Priority.HIGH])] = None
+```
+
+A case that isn't part of the enum raises `ValueError` when the class is defined, for example `ValueError: 'deleted' is not a valid PostStatus`.
+
+To receive an enum member instead of a plain value, annotate the field with the enum itself. The type pass then rejects unknown values with Pydantic's message, such as `Input should be 'draft', 'published' or 'archived'`, and `enum()` applies `only` and `except_`:
+
+```python
+class PublishPost(FormRequest):
+    status: Annotated[PostStatus, Field().required().enum(PostStatus, except_=PostStatus.ARCHIVED)]
+```
+
+#### Conditional Cases
+
+When the allowed cases depend on other input, build an `EnumRule` and attach it with `add()`. `when(condition, callback, default=None)` calls `callback` with the rule when `condition` is true, and `default` when it's false. The condition is a bool, or a callable that receives the validation data:
+
+```python
+# app/http/requests/store_order.py
+from enum import StrEnum
+from typing import Annotated
+
+from fastapi_startkit.validation import EnumRule, Field, FormRequest
+
+
+class ShippingMethod(StrEnum):
+    PICKUP = "pickup"
+    STANDARD = "standard"
+    EXPRESS = "express"
+
+
+class StoreOrder(FormRequest):
+    international: bool = False
+    shipping: Annotated[
+        str,
+        Field()
+        .required()
+        .add(
+            EnumRule(ShippingMethod).when(
+                lambda data: data["international"],
+                lambda rule: rule.except_(ShippingMethod.PICKUP),
+            )
+        )
+        .msg("Choose one of: :values."),
+    ]
+```
+
+Validating `{"shipping": "pickup"}` passes. Validating `{"international": true, "shipping": "pickup"}` reports `{"shipping": ["Choose one of: standard, express."]}`. The `:values` placeholder lists the cases allowed for that input.
+
+The callback works on a copy of the rule, so a restriction applied for one request doesn't carry over to the next. `EnumRule(enum, only=None, except_=None, message=None)` takes the same arguments as `Field().enum()`, and its `only()` and `except_()` methods return the rule so you can chain them.
+
 ### Database Rules
 
 `unique` and `exists` check a table with the [query builder](/docs/database/). Pass a table name or a model class. The column defaults to the field's name:
@@ -312,7 +421,7 @@ curl -X PUT http://localhost:8000/accounts/2 -H 'Content-Type: application/json'
 
 ## Custom Error Messages
 
-Every rule method takes a `msg` argument, and `.msg()` replaces the message of the rule just before it:
+Every rule method takes a `msg` argument, and `.msg()` replaces the message of the rule chained before it:
 
 ```python
 class Signup(FormRequest):
@@ -336,7 +445,7 @@ A message is either a string or a callable that takes `(attribute, value, data)`
 | `:min`, `:max` | The bounds of `min`, `max` and `between`. |
 | `:other` | The other field of `required_if` and `same_as`. |
 | `:value` | The expected value of `required_if`. |
-| `:values` | The allowed extensions of `extensions`, comma-separated. |
+| `:values` | The allowed extensions of `extensions`, or the allowed values of `enum`, comma-separated. |
 
 Calling `.msg()` before any rule raises `ValueError: msg() needs a rule before it.`
 
@@ -574,7 +683,7 @@ When a browser form leaves an optional file input empty, the field holds an `Upl
 
 ### What a Form Request With Files Accepts
 
-- **`multipart/form-data`** is read as described above, on a route whose only body parameter is that one form request. A route with [several form requests](#multiple-form-requests) or other body parameters expects an embedded JSON body, so a multipart request to it fails with `Field required` under each embed key.
+- **`multipart/form-data`** is read as described above. Send it to a route whose only body parameter is that form request: the route's other body parameters, such as a [second form request](#multiple-form-requests) without a file field or a `Body()` parameter, are still read from JSON, so a multipart request reports `Field required` for them.
 - **JSON** still works on the same route. A JSON body has no file, so `{"title": "Q3 report"}` reports `The document field is required.`
 - **`application/x-www-form-urlencoded`** is never read, because it can't carry a file. It fails with the same `""` error as on a [JSON-only](#json-only-bodies) request.
 
@@ -582,7 +691,7 @@ A form request without a file field stays JSON-only, whatever its route.
 
 On failure, a browser form gets the usual redirect back with the errors in the session. An API client sending multipart has no JSON `Content-Type`, so it has to send `Accept: application/json` to get the [422 response](#error-responses).
 
-In the OpenAPI schema the route is still documented with a JSON request body, and a required `UploadFile` field is shown as `{"type": "string", "format": "binary"}`.
+In the OpenAPI schema the route is still documented with a JSON request body.
 
 ### Protecting Upload Routes From Cross-Site Requests
 
