@@ -81,7 +81,7 @@ class TestTeams(RefreshDatabase, HttpTestCase):
 
 Both tests create a team called Phoenix Suns. They don't clash, because each test's rows are rolled back before the next test starts. Seeders don't run, so every test starts with empty tables.
 
-The mixins run from the setup and teardown of the framework's `TestCase`, which `HttpTestCase` extends. A test class that doesn't extend one of them, such as a plain pytest class, doesn't get the reset.
+The mixins run from the setup and teardown of the framework's `TestCase`, which `HttpTestCase` extends. A test class that doesn't extend `TestCase` or `HttpTestCase`, such as a plain pytest class, doesn't get the reset.
 
 ::: tip Browser tests
 A live server writes through its own connections, so a rollback can't undo what happens during a browser test. Use `DatabaseTruncation` there. See [Resetting the Database](/docs/testing/browser#resetting-the-database) in the browser testing docs.

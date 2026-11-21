@@ -5,7 +5,7 @@
         { label: "03 / core", title: "Async core", text: "Built on FastAPI, Starlette and Pydantic, with OpenAPI docs and type-hinted requests.", code: "user = await User.find_or_fail(1)", href: "/docs/fastapi" },
         { label: "04 / data", title: "ORM & migrations", text: "Active-record models, a chainable query builder, migrations, seeders and factories.", code: "await Order.where(\"status\", \"paid\").get()", href: "/docs/database/" },
         { label: "05 / logs", title: "Logging channels", text: "Send logs to the terminal, daily files, syslog or Slack from your config.", code: "Log.info(\"Order paid\")", href: "/docs/logging" },
-        { label: "06 / evals", title: "Agent evals", text: "Fake or record agents, assert on tool calls and trajectories, and grade answers with an LLM judge.", code: "agent.assert_tool_called(\"lookup_order\")", href: "/docs/ai/agent#testing", wide: true },
+        { label: "06 / testing", title: "Agent testing", text: "Fake or record agents, assert on tool calls and trajectories, and grade answers with an LLM judge.", code: "agent.assert_tool_called(\"lookup_order\")", href: "/docs/ai/agent#testing", wide: true },
     ]
 </script>
 

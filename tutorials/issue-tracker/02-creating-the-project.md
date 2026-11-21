@@ -55,10 +55,12 @@ Application: web; database: sqlite; frontend: vue
   create routes/api.py
   create tests/test_application.py
   create vite.config.ts
-Dependency: fastapi-startkit[database,fastapi,inertia,sqlite,vite]==0.78.0
+Dependency: fastapi-startkit[database,fastapi,inertia,sqlite,vite]==X.Y.Z
 ...
 Your application is ready.
 ```
+
+`X.Y.Z` is the latest release when you run the installer.
 
 Choosing SQLite gave you three things:
 

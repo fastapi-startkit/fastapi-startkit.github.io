@@ -7,7 +7,7 @@ duration: 5
 
 # What are we building?
 
-Issue Tracker is a small Jira-style app that you'll build over the next thirteen lessons. This lesson shows what it does, how its data fits together and the three ideas you'll use in every lesson.
+Issue Tracker is a small Jira-style app that you'll build in lessons 2 to 13. This lesson shows what it does, how its data fits together and the three ideas you'll use in every lesson.
 
 ## Issue Tracker
 
