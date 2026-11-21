@@ -24,7 +24,7 @@ Then install the integration package for each provider you use:
 | Anthropic | `"anthropic"` | `claude-sonnet-5-5` | `uv add langchain-anthropic` |
 | OpenAI | `"openai"` | `gpt-6.2-astra` | `uv add langchain-openai` |
 | Google Gemini | `"google"` | `gemini-3.8-flash` | `uv add langchain-google-genai` |
-| Amazon Bedrock | `"bedrock"` | `AWS_BEDROCK_MODEL`, or `anthropic.claude-sonnet-5-5` | `uv add "fastapi-startkit[bedrock]"` |
+| Amazon Bedrock | `"bedrock"` | `AWS_BEDROCK_MODEL`, or an inference profile ID, such as `global.anthropic.claude-sonnet-5-5` | `uv add "fastapi-startkit[bedrock]"` |
 | Ollama | `"ollama"` | `llama3.1` | `uv add "fastapi-startkit[ollama]"` |
 | Any OpenAI-compatible server | your own name | your own | `uv add langchain-openai` |
 
@@ -72,7 +72,7 @@ GEMINI_API_KEY=AIza...
 | `OPENAI_API_KEY` | `""` | API key for OpenAI |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL, used for chat, images and audio |
 | `GEMINI_API_KEY` | `""` | API key for Google Gemini. `GOOGLE_API_KEY` is also accepted |
-| `AWS_BEDROCK_MODEL` | the framework's built-in model | Bedrock text model, such as `anthropic.claude-sonnet-5-5` |
+| `AWS_BEDROCK_MODEL` | the framework's built-in model | Bedrock text model: an inference profile ID, such as `global.anthropic.claude-sonnet-5-5`. A geo prefix (`us.`, `eu.`, `ca.`, `au.`) also works |
 | `AWS_REGION` | `""` | Bedrock region. `AWS_DEFAULT_REGION` is also accepted |
 | `AWS_BEARER_TOKEN_BEDROCK` | `""` | Bedrock API key. You may use `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` or `AWS_PROFILE` instead |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
@@ -112,7 +112,7 @@ class AIConfig(BaseAIConfig):
         "anthropic": AnthropicConfig(models={"default": "claude-sonnet-5-5"}),
         "elevenlabs": ElevenLabsConfig(),
         "bedrock": BedrockConfig(models={
-            "default": os.getenv("AWS_BEDROCK_MODEL") or "anthropic.claude-sonnet-5-5",
+            "default": os.getenv("AWS_BEDROCK_MODEL") or "global.anthropic.claude-sonnet-5-5",
             "default_embeddings": "amazon.titan-embed-text-v2:0",
         }),
     })
