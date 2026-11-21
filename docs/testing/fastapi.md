@@ -95,11 +95,11 @@ response = await self.get("/api/teams", params={"sport": "basketball"}, headers=
 
 Every helper returns a `TestResponse`. It adds the assertion methods on this page and passes everything else through to the `httpx.Response`, so `response.status_code`, `response.json()`, `response.headers` and `response.text` work as usual. `response.response` returns the `httpx.Response` itself.
 
-For other methods, such as `OPTIONS` or `HEAD`, use `self.client`, the underlying `httpx.AsyncClient`. It returns a plain `httpx.Response` without the assertion methods:
+For other methods, such as `OPTIONS` or `HEAD`, use `self.client`, the underlying `httpx.AsyncClient`. It returns a plain `httpx.Response` without the assertion methods. Here `/health` only defines `GET`, so an `OPTIONS` request gets a `405 Method Not Allowed`:
 
 ```python
-async def test_head_request(self):
-    response = await self.client.head("/health")
+async def test_health_rejects_options(self):
+    response = await self.client.options("/health")
 
     assert response.status_code == 405
 ```
@@ -179,7 +179,10 @@ json.where_type("tags", ["array", "null"])
 
 | Method | Asserts |
 |---|---|
-| `has(key, length=None, callback=None)` | `key` exists, optionally with `length` items, optionally scoping into it |
+| `has(key)` | `key` exists |
+| `has(key, length)` | `key` exists and has `length` items |
+| `has(key, callback)` | `key` exists, and the callback runs scoped into it |
+| `has(key, length, callback)` | Both of the above |
 | `has_all(*keys)` | Every key exists |
 | `has_any(*keys)` | At least one key exists |
 | `missing(key)` | `key` doesn't exist |
