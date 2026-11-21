@@ -185,15 +185,15 @@ The framework describes application and database settings with structural protoc
 ```python
 # config/app.py
 from dataclasses import dataclass
-from fastapi_startkit import environment
+from fastapi_startkit.environment import env
 
 @dataclass
 class AppConfig:
-    name: str = environment.env('APP_NAME', 'startkit')
-    env: str = environment.env('APP_ENV', 'local')
-    debug: bool = environment.env('APP_DEBUG', False)
-    timezone: str = environment.env('APP_TIMEZONE', 'UTC')
-    region: str = environment.env('APP_REGION', 'eu')
+    name: str = env('APP_NAME', 'startkit')
+    debug: bool = env('APP_DEBUG', False)
+    timezone: str = env('APP_TIMEZONE', 'UTC')
+    region: str = env('APP_REGION', 'eu')
+    env: str = env('APP_ENV', 'local')
 ```
 
 ```python
@@ -203,7 +203,7 @@ app = Application(base_path=Path(__file__).parent.parent, config=AppConfig)
 app.config.region   # 'eu'
 ```
 
-The example calls `environment.env()` because a field named `env` would shadow an imported `env()` helper for the fields below it.
+Keep the `env` field last: once it is defined, `env` in the class body refers to that field, so any `env()` call below it raises `TypeError`.
 
 ### Database Settings
 
