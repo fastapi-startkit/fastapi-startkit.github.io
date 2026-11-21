@@ -217,7 +217,11 @@ When `AuthConfig.passwords` is set, `AuthProvider` mounts two routes:
 | `POST /password/email` | `{"email": ...}` | `{"status": "If that account exists, a reset link has been sent."}`, for known and unknown emails alike |
 | `POST /password/reset` | `{"email": ..., "token": ..., "password": ...}` | `{"status": "password reset"}`, or `400 invalid_grant` |
 
-The token reaches the user only through `password_reset_notifier`. It is left out of the response unless `debug_expose_reset_token` is set. Reset tokens are kept in process memory, so a token is valid only on the worker that issued it and is lost on restart.
+The token reaches the user only through `password_reset_notifier`. It is left out of the response unless `debug_expose_reset_token` is set.
+
+::: warning
+Reset tokens are kept in process memory, even when the other stores use `"database"`. A token is lost when the application restarts and is not shared across workers, so it works only on the worker that issued it.
+:::
 
 ## Logging Users In
 
