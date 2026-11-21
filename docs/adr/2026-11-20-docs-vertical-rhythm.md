@@ -29,13 +29,3 @@ In `.vitepress/theme/custom.css`, after the `.vp-doc` base rule:
 
 - `npm run docs:build` passes.
 - Headless Chrome screenshots before and after at 1440px and 390px, light and dark, of `/docs/redis` (lists), `/docs/validation` (code blocks), a temporary fixture page (nested lists, loose lists, tip/warning containers with lists, a table and a code block; not committed) and `/`. The home page is pixel-identical apart from its animated marquee; code blocks, tables, containers, sidebar and nav are unchanged.
-
-## Screenshots
-
-| Page | Before | After |
-|---|---|---|
-| Fixture, desktop light | ![](assets/2026-11-20-docs-vertical-rhythm/before/fixture-desktop-light.png) | ![](assets/2026-11-20-docs-vertical-rhythm/after/fixture-desktop-light.png) |
-| Fixture, mobile dark | ![](assets/2026-11-20-docs-vertical-rhythm/before/fixture-mobile-dark.png) | ![](assets/2026-11-20-docs-vertical-rhythm/after/fixture-mobile-dark.png) |
-| `/docs/redis`, desktop light | ![](assets/2026-11-20-docs-vertical-rhythm/before/lists-redis-desktop-light.png) | ![](assets/2026-11-20-docs-vertical-rhythm/after/lists-redis-desktop-light.png) |
-| `/docs/redis`, mobile dark | ![](assets/2026-11-20-docs-vertical-rhythm/before/lists-redis-mobile-dark.png) | ![](assets/2026-11-20-docs-vertical-rhythm/after/lists-redis-mobile-dark.png) |
-| Home, desktop light | ![](assets/2026-11-20-docs-vertical-rhythm/before/home-desktop-light.png) | ![](assets/2026-11-20-docs-vertical-rhythm/after/home-desktop-light.png) |
