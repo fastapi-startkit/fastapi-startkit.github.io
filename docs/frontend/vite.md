@@ -9,17 +9,6 @@ keywords: vite, frontend, assets, fastapi, bundling
 
 [Vite](https://vitejs.dev) builds your JavaScript, CSS and other frontend assets. `ViteProvider` connects it to your application: while you develop, your pages load assets from the Vite dev server with hot module replacement (HMR), and in production they load the fingerprinted files from the build. Your templates call one helper, `vite()`, in both cases.
 
-- [Installing Vite](#setup)
-- [Configuring Vite](#configuration)
-- [Loading Assets in a Template](#loading-a-page-with-js-and-css)
-- [Running the Dev Server](#development-mode-hmr)
-- [Building for Production](#production-mode)
-- [Template Helpers](#template-helpers)
-- [Adding a CSP Nonce](#csp-nonce)
-- [Serving Assets From a CDN](#custom-asset-url-resolver)
-- [Adding Tag Attributes](#adding-tag-attributes)
-- [Subresource Integrity](#sri-integrity)
-
 ## Installing Vite {#setup}
 
 Install the `fastapi` and `vite` extras:

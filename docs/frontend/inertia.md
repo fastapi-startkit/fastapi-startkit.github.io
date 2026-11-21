@@ -11,21 +11,6 @@ keywords: inertia, spa, frontend, fastapi, monolithic
 
 `InertiaProvider` adds Inertia to your application. It registers `InertiaMiddleware` and adds the <code v-pre>{{ inertia(page) }}</code> and <code v-pre>{{ inertia_head(page) }}</code> helpers to your Jinja2 templates.
 
-- [Setup](#setup)
-- [Passing Props](#passing-props)
-- [Shared Data](#shared-data)
-- [Partial Reloads](#partial-reloads)
-- [Prop Types](#prop-types)
-- [Redirects](#redirects)
-- [Flash Data](#flash-data)
-- [Validation Errors](#validation-errors)
-- [History Encryption](#history-encryption)
-- [Asset Versioning](#asset-versioning)
-- [Root View](#root-view)
-- [Server-Side Rendering](#server-side-rendering)
-- [Middleware](#middleware)
-- [Testing](#testing)
-
 ## Setup
 
 When you create a project with `uvx fastapi-startkit@latest init` and pick React or Vue, the installer does this setup for you. See [Getting Started](/docs/getting-started#creating-a-project). To add Inertia to an existing project, follow the steps below.

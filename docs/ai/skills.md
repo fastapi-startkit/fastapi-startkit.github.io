@@ -9,12 +9,6 @@ keywords: AI skills, Claude Code, Gemini CLI, artisan, fastapi-startkit
 
 AI coding assistants write better code when they know the framework you're building on. The `ai:skills` command copies a `SKILL.md` file for each framework provider your application registers into [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli), so your assistant learns how to work with those parts of the framework.
 
-- [Registration](#registration)
-- [Commands](#commands)
-- [Output Locations](#output-locations)
-- [Built-in Skills](#built-in-skills)
-- [Customizing Skills](#custom-skills)
-
 ## Registration
 
 Add `AISkillProvider` to your application's providers. It registers the `ai:skills` command:

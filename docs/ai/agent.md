@@ -9,21 +9,6 @@ keywords: AI agents, classification, Decisions API, Anthropic, OpenAI, Google Ge
 
 An agent is a Python class that describes how to talk to a language model: its instructions, the tools it may call, and the shape of the answer you want back. You call `await agent.prompt(...)` for a full reply or iterate `agent.stream(...)` to show it as it's generated. The provider is configuration, so you can move an agent between Anthropic, OpenAI, Google, Bedrock or a local model without changing its code, and you can test it offline with fakes and recorded cassettes.
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Creating Agents](#creating-agents)
-- [Prompting Agents](#prompting-agents)
-- [Streaming Responses](#streaming-responses)
-- [Tools](#tools)
-- [Documents](#documents)
-- [Structured Output](#structured-output)
-- [Classification](#classification)
-- [Middleware](#middleware-pipeline)
-- [Provider Options](#provider-options)
-- [Using Multiple Providers](#using-multiple-providers)
-- [Testing](#testing)
-- [Complete Example](#complete-example)
-
 ## Installation
 
 Install the `ai` extra:

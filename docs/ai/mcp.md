@@ -11,18 +11,6 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) is a JSON-R
 
 You define a server and its tools, prompts, and resources as Python classes, then mount the server on your application as a router.
 
-- [Getting Started](#getting-started)
-- [Creating a Server](#creating-a-server)
-- [Mounting the Router](#mounting-the-router-on-fastapi)
-- [Defining Tools](#defining-tools)
-- [Rendering Exceptions](#rendering-exceptions)
-- [Defining Prompts](#defining-prompts)
-- [Defining Resources](#defining-resources)
-- [Building Responses](#response)
-- [Supported Methods](#json-rpc-methods)
-- [Handling Malformed Requests](#handling-malformed-requests)
-- [Complete Example](#complete-example)
-
 ## Getting Started
 
 Register `McpProvider` next to `FastAPIProvider`:
