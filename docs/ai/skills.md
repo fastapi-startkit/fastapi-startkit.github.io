@@ -7,67 +7,111 @@ keywords: AI skills, Claude Code, Gemini CLI, artisan, fastapi-startkit
 
 # Skills
 
-AI coding assistants do their best work when they understand the framework you're building on. FastAPI Startkit helps with that through the `ai:skills` command, which copies the `SKILL.md` files your registered providers declare into [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli). Once synced, those tools know how to work with the framework.
+AI coding assistants write better code when they know the framework you're building on. The `ai:skills` command copies a `SKILL.md` file for each framework provider your application registers into [Claude Code](https://claude.ai/code) and [Gemini CLI](https://github.com/google-gemini/gemini-cli), so your assistant learns how to work with those parts of the framework.
+
+- [Registration](#registration)
+- [Commands](#commands)
+- [Output Locations](#output-locations)
+- [Built-in Skills](#built-in-skills)
+- [Customizing Skills](#custom-skills)
 
 ## Registration
 
-To get started, register `AISkillProvider` in your application:
+Add `AISkillProvider` to your application's providers. It registers the `ai:skills` command:
 
 ```python
+# bootstrap/application.py
+from pathlib import Path
+
 from fastapi_startkit import Application
+from fastapi_startkit.fastapi import FastAPIProvider
 from fastapi_startkit.skills import AISkillProvider
 
-app = Application(providers=[..., AISkillProvider])
+app = Application(
+    base_path=Path(__file__).resolve().parent.parent,
+    providers=[FastAPIProvider, AISkillProvider],
+)
 ```
 
 ## Commands
 
-Running the command on its own lists the providers that declare skills. Add `--sync` when you're ready to write them out:
+Run the command on its own to see which of your registered providers ship a skill:
 
 ```bash
-# List providers that declare skills (default)
-artisan ai:skills
-
-# Publish stubs and sync to AI agents
-artisan ai:skills --sync
+uv run python artisan ai:skills
 ```
 
-| Flag | Short | Description |
-|---|---|---|
-| `--list` | `-l` | List providers with skills |
-| `--sync` | `-s` | Publish stubs and sync to AI agents |
-| `--target=<agent>` | `-t` | `claude`, `gemini`, or `all` (prompted if omitted) |
-| `--prune` | | Remove skill files no longer declared by any provider |
-| `--force` | `-f` | Overwrite existing files without prompting |
+```text
+Skill(s) found for the following provider(s):
+1. fastapi
+```
 
-## Output locations
+When you're ready to write the files, add `--sync`. Without `--target`, the command asks which assistant to publish for:
+
+```bash
+uv run python artisan ai:skills --sync --target=claude
+```
+
+```text
+  Published .ai/fastapi-startkit/fastapi/SKILL.md
+  Syncing 1 skill(s) to: claude…
+  [claude] Published .claude/skills/fastapi-startkit/SKILL.md
+```
+
+The command accepts these options:
+
+| Option | Short | Description |
+|---|---|---|
+| `--list` | `-l` | List providers that ship a skill. This is the default. |
+| `--sync` | `-s` | Publish the skills and sync them to your assistants. |
+| `--target=<agent>` | `-t` | `claude`, `gemini`, or `all`. You're prompted when it's omitted. |
+| `--prune` | | Remove synced skills that no registered provider declares. |
+| `--force` | `-f` | Overwrite existing files without asking. |
+
+Passing `--target` or `--prune` also turns on `--sync`.
+
+::: warning
+With `--target=claude`, `--prune` deletes every directory under `.claude/skills/` that isn't a framework skill, including skills you wrote yourself.
+:::
+
+## Output Locations
 
 Each target writes its skills to a different place:
 
 | Target | Output |
 |---|---|
-| `claude` | `.claude/skills/<name>/SKILL.md` |
-| `gemini` | `GEMINI.md` between `<!-- skills:start -->` and `<!-- skills:end -->` markers |
+| `claude` | `.claude/skills/<name>/SKILL.md`, where `<name>` is the skill's `name` |
+| `gemini` | `GEMINI.md`, between `<!-- skills:start -->` and `<!-- skills:end -->` |
 
-When a Claude skill file already exists, the command asks before overwriting it; pass `--force` if you'd like to skip the prompt. The Gemini block between the markers, on the other hand, is always rewritten.
+When a Claude skill file already exists, the command asks before it overwrites it. Pass `--force` to skip the question. In `GEMINI.md`, the block between the markers is always rewritten and the rest of the file is left alone. If the file has no markers yet, the block is appended to the end.
 
-## Built-in skills
+## Built-in Skills
 
-The framework ships stubs for the `fastapi`, `database`, and `inertia` providers, and a stub is only synced when its provider is registered. When you run `--sync`, the stubs are first copied into `.ai/fastapi-startkit/` in your project, then rendered to the AI agent files.
+The framework ships a skill for three providers. A skill is synced only when its provider is registered:
 
-## SKILL.md format
+| Provider key | Provider |
+|---|---|
+| `fastapi` | `FastAPIProvider` |
+| `database` | `DatabaseProvider` |
+| `inertia` | `InertiaProvider` |
 
-A skill file is ordinary Markdown with a small frontmatter block. Only `name` and `description` are read from it:
+On `--sync`, each skill is first copied into `.ai/fastapi-startkit/<key>/SKILL.md` in your project, and then rendered to the assistant files. A copy that already exists in `.ai/` is kept unless you confirm the overwrite or pass `--force`.
+
+<a id="skill-md-format"></a>
+
+## Custom Skills
+
+To change what your assistant is told, edit the project copy at `.ai/fastapi-startkit/<key>/SKILL.md` and run `--sync` again. The command reads your project copy first and falls back to the framework's version when there isn't one. Only the three keys above are read. Files under any other key are ignored.
+
+A skill file is Markdown with a short frontmatter block:
 
 ```markdown
 ---
-name: my-skill
-description: One-line description.
+name: fastapi-startkit
+description: Build routes, controllers and providers with FastAPI Startkit.
 ---
 
-Body content (markdown).
+Use `Router` from `fastapi_startkit.fastapi` to define routes...
 ```
 
-## Custom skills
-
-If a bundled stub doesn't quite fit your project, you can override it. Edit or create `.ai/fastapi-startkit/<key>/SKILL.md` in your project root, where `<key>` is `fastapi`, `database`, or `inertia`. The registry reads your project copy first and falls back to the bundled stub. Files under any other key are not picked up.
+The `name` sets the Claude directory and the Gemini heading. When it's missing, the name of the file's directory is used. The `description` and the body are written to both assistants.
