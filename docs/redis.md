@@ -11,15 +11,6 @@ keywords: redis, pipeline, transaction, pub/sub, redis.asyncio, fastapi startkit
 
 To cache values in Redis, use the `redis` store described in [Cache](/docs/cache#redis). This page covers the connections that store uses.
 
-- [Installation](#installation)
-- [Registering the Provider](#registering-the-provider)
-- [Configuration](#configuration)
-- [Interacting With Redis](#interacting-with-redis)
-- [Pub / Sub](#pub-sub)
-- [Managing Connections](#managing-connections)
-- [Shutdown and Lifespan](#shutdown-and-lifespan)
-- [Known Limitations](#known-limitations)
-
 ## Installation
 
 Install the `redis` extra, which adds [redis-py](https://github.com/redis/redis-py) 5.0.1 or newer:

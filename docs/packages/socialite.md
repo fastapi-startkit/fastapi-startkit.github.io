@@ -11,16 +11,6 @@ Socialite signs users in with an OAuth 2.0 provider such as Google. It sends the
 
 Google is the built-in driver. You can add other providers with `extend()`.
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Routing](#routing)
-- [Handling Errors](#handling-errors)
-- [Retrieving User Details](#retrieving-user-details)
-- [Scopes and Parameters](#scopes-and-parameters)
-- [Stateless Authentication](#stateless-authentication)
-- [Custom Drivers](#custom-drivers)
-- [Testing](#testing)
-
 ## Installation
 
 Install the `socialite` extra, which brings in FastAPI, `httpx` and `itsdangerous`:

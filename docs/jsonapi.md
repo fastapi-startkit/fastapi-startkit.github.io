@@ -8,20 +8,6 @@ description: Return JSON:API documents from FastAPI endpoints with JsonResource,
 
 A JSON:API response wraps every model in the same document structure: a `type`, an `id`, an `attributes` object, and optional `relationships`, `included`, `links`, and `meta` keys. A `JsonResource` turns one of your models into that document. It derives the resource type from the class name, serializes the model's attributes, and applies the `include` and sparse fieldset options from the request or from your code. A collection of resources also carries pagination meta.
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Auto-Type Derivation](#auto-type-derivation)
-- [Auto-Serialization](#auto-serialization)
-- [Collections](#collections)
-- [Relationships](#relationships)
-- [Fluent Chain API](#fluent-chain-api)
-- [Sparse Fieldsets](#sparse-fieldsets)
-- [Links, Meta, and Extra Keys](#links-meta-and-extra-keys)
-- [Returning a Different Status Code](#returning-a-different-status-code)
-- [Overridable Hooks](#overridable-hooks)
-- [Query-Param Helpers](#query-param-helpers)
-- [Full Example](#full-example)
-
 ## Installation
 
 The JSON:API module ships with the core package. Resources serialize [models](/docs/database/models), so install the `database` extra too:

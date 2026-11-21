@@ -9,17 +9,6 @@ keywords: authentication, fastapi auth, sessions, csrf, api tokens, oauth2, oaut
 
 The [`fastapi-startkit-auth`](https://github.com/fastapi-startkit/fastapi-startkit-auth) package authenticates requests in three ways, which you can combine: cookie sessions for server-rendered pages and same-site SPAs, opaque API tokens for mobile apps, CLIs and scripts, and an OAuth 2.1 authorization server for third-party clients. It works in a framework `Application` and on a plain FastAPI app.
 
-- [Installation](#installation)
-- [Registering the Providers](#registering-the-providers)
-- [Configuration](#configuration)
-- [Logging Users In](#logging-users-in)
-- [Protecting Routes](#protecting-routes)
-- [Sessions](#sessions)
-- [API Tokens](#api-tokens)
-- [OAuth 2.1 Server](#oauth-2-1-server)
-- [Stores and Migrations](#stores-and-migrations)
-- [Errors](#errors)
-
 ## Installation
 
 Install the package with uv or pip:

@@ -9,16 +9,6 @@ keywords: broadcasting, websockets, reverb, pusher, real-time, fastapi, events, 
 
 Broadcasting sends server-side events to the browser over WebSockets, so a page can update the moment an order ships or a comment arrives instead of polling for changes. The framework ships with Reverb, a WebSocket server that speaks the [Pusher protocol](https://pusher.com/docs/channels/library_auth_reference/pusher-websockets-protocol/) and runs inside your FastAPI application. The `pusher-js` client connects to it directly, with no hosted service to sign up for.
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Defining Broadcast Events](#defining-broadcast-events)
-- [Broadcasting Events](#broadcasting-events)
-- [Choosing a Channel Type](#choosing-a-channel-type)
-- [Authorizing Channels](#authorizing-channels)
-- [Listening in the Browser](#listening-in-the-browser)
-- [Serving Reverb Under a Sub-Path](#serving-reverb-under-a-sub-path)
-- [Logging Broadcasts in Development](#logging-broadcasts-in-development)
-
 ## Installation
 
 Broadcasting needs the framework's `fastapi` extra. Register `ReverbProvider` alongside `FastAPIProvider` in `bootstrap/application.py`:

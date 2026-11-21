@@ -9,16 +9,6 @@ keywords: storage, file, local, s3, disk, upload, fastapi startkit
 
 The framework gives you one API for working with files, whether they live on the local filesystem or in Amazon S3. You configure named disks, and the `Storage` class reads and writes the default one. Because each disk has the same methods, you can keep files on the local disk in development and move them to S3 in production by changing `FILESYSTEM_DISK`.
 
-- [Registering the Provider](#registering-the-provider)
-- [Configuration](#configuration)
-- [Basic Usage](#basic-usage)
-- [Using a Specific Disk](#using-a-specific-disk)
-- [Storing Uploaded Files](#storing-uploaded-files)
-- [Public URLs](#public-urls)
-- [Downloading Files](#downloading-files)
-- [Testing with Fake Storage](#testing-with-fake-storage)
-- [Adding a Custom Driver](#adding-a-custom-driver)
-
 ## Registering the Provider
 
 Add `StorageProvider` to the providers in `bootstrap/application.py`:

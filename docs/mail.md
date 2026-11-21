@@ -17,12 +17,6 @@ Three drivers are available:
 | `log` | Writes a readable summary of each message to a Python logger instead of sending it |
 | `array` | Keeps each message in memory so your tests can inspect it |
 
-- [Configuration](#configuration)
-- [Writing Mailables](#writing-mailables)
-- [Sending Mail](#sending-mail)
-- [Custom Drivers](#custom-drivers)
-- [Testing](#testing)
-
 ## Configuration
 
 Register `MailProvider` in `bootstrap/application.py`:

@@ -9,21 +9,6 @@ keywords: validation, form request, fastapi validation, validation rules, custom
 
 Pydantic checks that the data your API receives has the right types. Most apps need more than that: a title has to be present, a password needs at least 8 characters, an email can't already be taken. You declare a `FormRequest` with rules on its fields, take it as a `Validated[...]` parameter in your endpoint, and the framework validates the request before your code runs. Rules can be async, so a rule that queries the database is written the same way as one that checks a string's length.
 
-- [Installation](#installation)
-- [Quickstart](#quickstart)
-- [Writing the Validation Rules](#writing-the-validation-rules)
-- [Available Validation Rules](#available-validation-rules)
-- [Custom Error Messages](#custom-error-messages)
-- [Custom Validation Rules](#custom-validation-rules)
-- [Form Request Hooks](#form-request-hooks)
-- [The Validator](#the-validator)
-- [Multiple Form Requests](#multiple-form-requests)
-- [File Uploads](#file-uploads)
-- [Validating Outside a Request](#validating-outside-a-request)
-- [Error Responses](#error-responses)
-- [Working With Error Messages](#working-with-error-messages)
-- [Testing](#testing)
-
 ## Installation
 
 Validation ships with the core package. To use `Validated` in endpoints, install the `fastapi` extra and register `FastAPIProvider`:

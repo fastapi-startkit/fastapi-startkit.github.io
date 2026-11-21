@@ -9,14 +9,6 @@ keywords: taskiq, background tasks, queue, redis, worker, queue:work, fastapi, a
 
 Some work doesn't belong in a web request. Sending a welcome email or generating a report can take a while, and your users shouldn't wait for it. Queues let you hand that work to a background worker and respond right away. The framework's installer sets up queues with [TaskIQ](https://taskiq-python.github.io/) and a Redis broker, and gives you a `queue:work` command to process them.
 
-- [Creating a Queue Application](#creating-a-queue-application)
-- [Configuration](#configuration)
-- [Adding Queues to an Existing Application](#adding-queues-to-an-existing-application)
-- [Defining Tasks](#defining-tasks)
-- [Dispatching Tasks](#dispatching-tasks)
-- [Running the Worker](#running-the-worker)
-- [Testing Tasks](#testing-tasks)
-
 ## Creating a Queue Application
 
 The quickest way to get a queue is to let the installer generate one. Pass `--app=worker` for a worker-only application, or `--app=both` for an HTTP server and a worker in the same project:

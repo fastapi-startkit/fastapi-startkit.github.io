@@ -11,11 +11,6 @@ The rate limiter counts how many times something has happened within a window of
 
 Counts are kept in one of your [cache](/docs/cache) stores, so every worker that shares the store shares the same limits.
 
-- [Configuration](#configuration)
-- [Defining Rate Limiters](#defining-rate-limiters)
-- [Attaching Rate Limiters to Routes](#attaching-rate-limiters-to-routes)
-- [Manually Interacting With the Rate Limiter](#manually-interacting-with-the-rate-limiter)
-
 ## Configuration
 
 Add `RateLimiterProvider` to the providers in `bootstrap/application.py`. Register `CacheProvider` too, so the limiter can keep its counts in a shared cache store:

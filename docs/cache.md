@@ -9,16 +9,6 @@ keywords: cache, caching, remember, memoize, atomic locks, cache tags, redis cac
 
 Some work is slow or expensive to repeat on every request: a heavy query, a call to a third-party API, a rendered report. The cache lets you store the result once and read it back quickly on later requests. You configure named stores, and the `Cache` facade reads and writes the default one. Every cache operation is async.
 
-- [Installation](#installation)
-- [Registering the Provider](#registering-the-provider)
-- [Configuration](#configuration)
-- [Cache Stores](#cache-stores)
-- [Cache Usage](#cache-usage)
-- [Cache Memoization](#cache-memoization)
-- [Atomic Locks](#atomic-locks)
-- [Cache Tags](#cache-tags)
-- [Custom Stores](#custom-stores)
-
 ## Installation
 
 The cache ships with the core package. The `array` and `file` stores need nothing else. The `database` and `redis` stores need an extra:

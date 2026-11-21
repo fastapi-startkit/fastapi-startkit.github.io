@@ -17,15 +17,6 @@ Notifications are short messages that tell your users something happened in your
 
 You can add your own channels, such as SMS or Slack, with [`extend()`](#custom-channels).
 
-- [Configuration](#configuration)
-- [Creating Notifications](#creating-notifications)
-- [Sending Notifications](#sending-notifications)
-- [Mail Notifications](#mail-notifications)
-- [Database Notifications](#database-notifications)
-- [Broadcast Notifications](#broadcast-notifications)
-- [Custom Channels](#custom-channels)
-- [Testing Notifications](#testing-notifications)
-
 ## Configuration
 
 Register `NotificationProvider` in `bootstrap/application.py`, along with the provider each of your channels needs: [`MailProvider`](/docs/mail) for `mail`, [`DatabaseProvider`](/docs/database/) for `database`, and [`ReverbProvider`](/docs/broadcasting) for `broadcast`:

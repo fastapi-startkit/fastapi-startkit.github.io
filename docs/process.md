@@ -9,15 +9,6 @@ keywords: process, subprocess, shell, commands, async, pipes, pools, testing, fa
 
 The `Process` class runs shell commands from your application: a build step, a `git` command or a backup script. You can `await` a command inside a route, run one synchronously from a script, stream the output of a long-running process, build pipelines and run several commands at once. In tests, you can fake every command so nothing actually runs.
 
-- [Running Processes](#running-processes)
-- [Process Options](#process-options)
-- [Running Processes Synchronously](#running-processes-synchronously)
-- [Piping Processes](#piping-processes)
-- [Running Processes in the Background](#running-processes-in-the-background)
-- [Running Processes Concurrently](#running-processes-concurrently)
-- [Handling Errors](#handling-errors)
-- [Testing](#testing)
-
 ## Running Processes
 
 To run a command, pass it to `Process.run()` and `await` the result. The command runs through the shell, so pipes, redirects and environment variables work as they do in a terminal:

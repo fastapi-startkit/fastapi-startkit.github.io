@@ -11,13 +11,6 @@ Events let one part of your application announce that something happened, and le
 
 The event dispatcher is always available; the application registers it before your own providers. You talk to it through the `Event` facade.
 
-- [Defining Events](#defining-events)
-- [Defining Listeners](#defining-listeners)
-- [Registering Events and Listeners](#registering-events-and-listeners)
-- [Dispatching Events](#dispatching-events)
-- [Framework Events](#framework-events)
-- [Faking Events in Tests](#faking-events-in-tests)
-
 ## Defining Events
 
 An event is a plain class that carries the data your listeners need. A dataclass works well:
