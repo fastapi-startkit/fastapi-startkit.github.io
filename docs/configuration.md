@@ -203,8 +203,6 @@ app = Application(base_path=Path(__file__).parent.parent, config=AppConfig)
 app.config.region   # 'eu'
 ```
 
-Keep the `env` field last: once it is defined, `env` in the class body refers to that field, so any `env()` call below it raises `TypeError`.
-
 ### Database Settings
 
 `fastapi_startkit.masoniteorm.config.database.DatabaseSettings` is a `runtime_checkable` `Protocol` with three read-only members:
