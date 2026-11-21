@@ -235,6 +235,35 @@ body {
     line-height: 1.25;
 }
 
+.vp-doc h2 {
+    margin-top: 56px;
+}
+
+.vp-doc h3 {
+    margin-top: 40px;
+}
+
+.vp-doc h4 {
+    margin-top: 32px;
+}
+
+/* Only top-level flow: custom containers, blockquotes and loose list items keep their tighter defaults */
+.vp-doc > div > p,
+.vp-doc > div > ul,
+.vp-doc > div > ol {
+    margin: 20px 0;
+}
+
+.vp-doc li {
+    line-height: 1.75;
+}
+
+.vp-doc li + li,
+.vp-doc li > ul,
+.vp-doc li > ol {
+    margin-top: 10px;
+}
+
 .vp-doc a {
     text-decoration: underline;
     text-decoration-thickness: 1.5px;
