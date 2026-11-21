@@ -29,7 +29,7 @@ app = Application(
 )
 ```
 
-Then create a server, list its tools, and mount it. The rest of this page covers each piece.
+Then create a server, list its tools, and mount it.
 
 ## Creating a Server
 

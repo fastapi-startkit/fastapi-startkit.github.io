@@ -65,7 +65,7 @@ The command accepts these options:
 Passing `--target` or `--prune` also turns on `--sync`.
 
 ::: warning
-With `--target=claude`, `--prune` deletes every directory under `.claude/skills/` that isn't a framework skill, including skills you wrote yourself.
+With `--target=claude` or `--target=all`, `--prune` deletes every directory under `.claude/skills/` that isn't a framework skill, including skills you wrote yourself.
 :::
 
 ## Output Locations
@@ -90,8 +90,6 @@ The framework ships a skill for three providers. A skill is synced only when its
 | `inertia` | `InertiaProvider` |
 
 On `--sync`, each skill is first copied into `.ai/fastapi-startkit/<key>/SKILL.md` in your project, and then rendered to the assistant files. A copy that already exists in `.ai/` is kept unless you confirm the overwrite or pass `--force`.
-
-<a id="skill-md-format"></a>
 
 ## Custom Skills
 

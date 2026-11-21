@@ -13,13 +13,6 @@ The `Audio` builder turns text into speech. You pass the text, pick a voice, and
 
 Speech is generated with OpenAI's text-to-speech models.
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Generating Audio](#generating-audio)
-- [Storing Audio](#the-audioresponse-object)
-- [Testing](#testing)
-- [Full Example](#full-example)
-
 ## Installation
 
 Install the `ai` extra together with the OpenAI SDK:
@@ -61,7 +54,7 @@ filename = await audio.store()
 `generate()` returns an `AudioResponse` that holds the audio bytes. See [Storing Audio](#the-audioresponse-object) for the ways to save it.
 
 ::: warning
-OpenAI has deprecated every model its speech endpoint serves, `gpt-4o-mini-tts` included, and shuts them down on January 6, 2027.
+OpenAI has deprecated every model its speech endpoint serves, `gpt-4o-mini-tts` included, and shuts them down on January 6, 2027. There is no like-for-like replacement yet: `gpt-realtime-2.1-mini` is a realtime voice model, not a text-to-speech model for this endpoint.
 :::
 
 ### Voices
@@ -92,11 +85,11 @@ audio = await (
 
 | Method | Default | Values |
 |---|---|---|
-| `model(name)` | an older built-in model | `gpt-4o-mini-tts` |
+| `model(name)` | an older built-in model | `gpt-4o-mini-tts`, which shuts down on January 6, 2027 |
 | `speed(value)` | `1.0` | `0.25` to `4.0` |
 | `format(fmt)` | `mp3` | `mp3`, `opus`, `aac` or `flac` |
 
-`Audio` doesn't read `config/ai.py`, so call `model("gpt-4o-mini-tts")` on each request to use the current model.
+`Audio` doesn't read a model from `config/ai.py`, so call `model("gpt-4o-mini-tts")` on each request. It is OpenAI's last speech-endpoint model, and has no like-for-like replacement yet.
 
 ## Storing Audio {#the-audioresponse-object}
 

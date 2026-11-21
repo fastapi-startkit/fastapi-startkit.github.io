@@ -13,14 +13,6 @@ The `Image` builder turns a text prompt into an image, or edits an image you alr
 
 Image requests are sent to OpenAI: DALL-E 3 for new images and DALL-E 2 for edits.
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Generating an Image](#generating-an-image)
-- [Editing Images](#editing-images)
-- [Storing Images](#the-imageresponse-object)
-- [Testing](#testing)
-- [Full Example](#full-example)
-
 ## Installation
 
 Install the `ai` extra together with the OpenAI SDK:

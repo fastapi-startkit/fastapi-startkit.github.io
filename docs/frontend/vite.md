@@ -91,7 +91,7 @@ When you register `ViteProvider` on its own, it uses the defaults below. You may
 | `asset_url` | `""` | Prefix for built asset URLs, such as a CDN origin. |
 | `static_url` | `"/build"` | URL path where the build directory is served. |
 | `mount_static` | `True` | Serve the build directory at `static_url` when it exists. |
-| `template` | `True` | Bind Jinja2 templates to the container as `templates`. |
+| `template` | `True` | Bind a `Jinja2Templates` instance for `templates_directory` to the container as `templates`, unless a `templates` binding already exists. |
 | `templates_directory` | `"resources/templates"` | Template directory, relative to your application's `base_path`. |
 
 `public_path` is resolved from the current working directory, not from `base_path`, so start your server from the project root.
@@ -242,36 +242,59 @@ class ViteConfig(Config):
     templates_directory: str = "resources/templates"
 ```
 
-To build the URLs yourself, pass a function to `create_asset_paths_using()`, for example in a provider's `boot()` method. It receives the path relative to `public_path`, such as `build/assets/logo-0c1d2e.png`:
+To build the URLs yourself, pass a function to `create_asset_paths_using()` in a provider's `boot()` method. It receives the path relative to `public_path`, such as `build/assets/logo-0c1d2e.png`:
 
 ```python
-vite = self.app.make("vite")
-vite.create_asset_paths_using(lambda path: f"https://cdn.example.com/{path}")
+# app/providers/app_provider.py
+from fastapi_startkit.support import Provider
+
+
+class AppProvider(Provider):
+    def boot(self):
+        vite = self.app.make("vite")
+        vite.create_asset_paths_using(lambda path: f"https://cdn.example.com/{path}")
 ```
 
 Pass `None` to go back to the default URLs.
 
 ## Adding Tag Attributes
 
-You can add attributes to the tags `vite()` outputs. Each method takes a dict, or a function that receives the source path, the URL, the manifest chunk and the manifest, and returns a dict:
+You can add attributes to the tags `vite()` outputs, in a provider's `boot()` method. Each method takes a dict, or a function that receives the source path, the URL, the manifest chunk and the manifest, and returns a dict:
 
 ```python
-vite = self.app.make("vite")
-vite.use_script_tag_attributes(lambda src, url, chunk, manifest: {"data-entry": src})
-vite.use_style_tag_attributes({"data-turbo-track": "reload"})
-vite.use_preload_tag_attributes({"data-preload": True})
-# <script type="module" src="/build/assets/app-4ed993c7.js" data-entry="resources/js/app.ts"></script>
+# app/providers/app_provider.py
+from fastapi_startkit.support import Provider
+
+
+class AppProvider(Provider):
+    def boot(self):
+        vite = self.app.make("vite")
+        vite.use_script_tag_attributes(lambda src, url, chunk, manifest: {"data-entry": src})
+        vite.use_style_tag_attributes({"data-turbo-track": "reload"})
+        vite.use_preload_tag_attributes({"data-preload": True})
+```
+
+The script tag then reads:
+
+```html
+<script type="module" src="/build/assets/app-4ed993c7.js" data-entry="resources/js/app.ts"></script>
 ```
 
 An attribute set to `True` is output without a value. To leave out the preload tags, call `use_preload_tag_attributes(False)`.
 
 ## Subresource Integrity {#sri-integrity}
 
-When a manifest chunk has an `integrity` key, `vite()` adds it to the tag as the `integrity` attribute. To read a different key, or to turn this off:
+When a manifest chunk has an `integrity` key, `vite()` adds it to the tag as the `integrity` attribute. To read a different key, or to turn this off, call `use_integrity_key()` in a provider's `boot()` method:
 
 ```python
-vite.use_integrity_key("sri")
-vite.use_integrity_key(False)
+# app/providers/app_provider.py
+from fastapi_startkit.support import Provider
+
+
+class AppProvider(Provider):
+    def boot(self):
+        vite = self.app.make("vite")
+        vite.use_integrity_key("sri")  # or False to turn it off
 ```
 
 Related pages: [Inertia](/docs/frontend/inertia) builds on this setup.

@@ -375,19 +375,25 @@ return Inertia.render("Posts/Index", {
 For a dict, choose which nested lists to merge with `append_at()` and `prepend_at()`:
 
 ```python
-"feed": Inertia.merge({"data": items, "meta": meta}).append_at("data").prepend_at("meta.items"),
+return Inertia.render("Feed/Index", {
+    "feed": Inertia.merge({"data": items, "meta": meta}).append_at("data").prepend_at("meta.items"),
+})
 ```
 
 `match_on()` names the key that identifies an item, so the client updates items it already has instead of adding them twice:
 
 ```python
-"posts": Inertia.merge(posts).match_on("id"),
+return Inertia.render("Posts/Index", {
+    "posts": Inertia.merge(posts).match_on("id"),
+})
 ```
 
 To merge a nested structure recursively, use `deep_merge()`:
 
 ```python
-"settings": Inertia.deep_merge({"notifications": {"email": True}}).match_on("items.id"),
+return Inertia.render("Settings/Edit", {
+    "settings": Inertia.deep_merge({"notifications": {"email": True}}).match_on("items.id"),
+})
 ```
 
 You can combine merging with deferral, as in `Inertia.defer(load_posts).merge()`. When the client resets a prop with `router.reload({ reset: ['posts'] })`, the server sends it without merge metadata, so the client replaces it.
@@ -548,7 +554,7 @@ async def store(request: Request):
     return Inertia.redirect("/users")
 ```
 
-When you register `FastAPIProvider`, you don't need to catch request validation errors yourself. If a route's request model fails validation on an Inertia request, the response is a `303` back to the previous page with the errors queued. Other requests still get a `422` JSON response. See [Validation](/docs/validation) for the rules.
+When you register `FastAPIProvider`, you don't need to catch request validation errors yourself. If a route's request model fails validation on an Inertia request, the response is a `303` back to the previous page with the errors queued. A request that sends or accepts JSON gets a `422` JSON response. Any other request, such as a plain browser form post, gets a `303` back to the previous page, with the errors stored in the session under `errors`. See [Validation](/docs/validation) for the rules.
 
 To build errors yourself, use `ValidationErrors`:
 

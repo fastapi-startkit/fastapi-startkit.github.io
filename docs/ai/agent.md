@@ -19,7 +19,7 @@ uv add "fastapi-startkit[ai]"
 
 Then install the integration package for each provider you use:
 
-| Provider | `@provider` name | Default text model | Install |
+| Provider | `@provider` name | Recommended text model | Install |
 |---|---|---|---|
 | Anthropic | `"anthropic"` | `claude-sonnet-5-5` | `uv add langchain-anthropic` |
 | OpenAI | `"openai"` | `gpt-6.2-astra` | `uv add langchain-openai` |
@@ -72,7 +72,7 @@ GEMINI_API_KEY=AIza...
 | `OPENAI_API_KEY` | `""` | API key for OpenAI |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | OpenAI API base URL, used for chat, images and audio |
 | `GEMINI_API_KEY` | `""` | API key for Google Gemini. `GOOGLE_API_KEY` is also accepted |
-| `AWS_BEDROCK_MODEL` | `anthropic.claude-sonnet-5-5` | Bedrock text model |
+| `AWS_BEDROCK_MODEL` | the framework's built-in model | Bedrock text model, such as `anthropic.claude-sonnet-5-5` |
 | `AWS_REGION` | `""` | Bedrock region. `AWS_DEFAULT_REGION` is also accepted |
 | `AWS_BEARER_TOKEN_BEDROCK` | `""` | Bedrock API key. You may use `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` or `AWS_PROFILE` instead |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
@@ -206,9 +206,9 @@ The default `AIConfig` already registers `ollama`, so `AI_PROVIDER=ollama` works
 
 ### Provider Models
 
-Each provider config has a `models` map with the default model for each feature. A `model` you pass to an agent, `Embeddings` or `classify()` overrides it.
+Each provider config has a `models` map with the default model for each feature. The framework's built-in defaults can be older than the models recommended below. A `model` you pass to an agent, `Embeddings` or `classify()` overrides it.
 
-| Key | Used by | `google` | `openai` | `anthropic` |
+| Key | Used by | Recommended for `google` | Recommended for `openai` | Recommended for `anthropic` |
 |---|---|---|---|---|
 | `default` | Agents, and classification on non-Google providers | `gemini-3.8-flash` | `gpt-6.2-astra` | `claude-sonnet-5-5` |
 | `default_embeddings` | [Embeddings](./embeddings) | `gemini-embedding-2` | `text-embedding-3-small` | |

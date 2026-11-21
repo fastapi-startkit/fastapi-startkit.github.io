@@ -11,13 +11,6 @@ keywords: embeddings, vector search, semantic search, pgvector, OpenAI embedding
 
 Embeddings turn text into a list of numbers, so that texts with similar meaning end up close to each other. You use them for semantic search, recommendations and retrieval for your agents. The `Embeddings` builder generates them through the provider you configure, and the ORM can store the vectors in PostgreSQL and query them by similarity.
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Generating Embeddings](#generating-embeddings)
-- [Storing Vectors with pgvector](#storing-vectors-with-pgvector)
-- [Querying Vectors](#querying-vectors)
-- [Testing](#testing)
-
 ## Installation
 
 Install the `ai` extra together with the integration for your provider:
@@ -72,9 +65,9 @@ OPENAI_API_KEY=sk-...
 # OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-Each provider has a default embeddings model, which you can override per call. Set these models explicitly in `config/ai.py`, as shown in [Config File](./agent#config-file):
+Each provider has a default embeddings model, which you can override per call. The framework's built-in defaults can be older than the models recommended below, so set these models explicitly in `config/ai.py`, as shown in [Config File](./agent#config-file):
 
-| Provider | Default model | Credentials |
+| Provider | Recommended model | Credentials |
 |---|---|---|
 | `openai` | `text-embedding-3-small` | `OPENAI_API_KEY` |
 | `google` | `gemini-embedding-2` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` |
