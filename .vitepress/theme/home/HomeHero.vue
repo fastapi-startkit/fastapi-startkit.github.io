@@ -15,7 +15,7 @@
         activeFile.value = 0
     }
 
-    const highlights = ["Free & open source", "Async from the ground up", "Use one module or all"]
+    const highlights = ["Free & open source", "Async throughout", "Install only the extras you need"]
 </script>
 
 <template>
@@ -33,8 +33,8 @@
                     <em>Ready for agents.</em>
                 </h1>
                 <p class="hero__lead">
-                    A Python framework with service providers, an Artisan CLI, an ORM with migrations,
-                    logging channels, MCP servers, and agent evals, all in one container.
+                    A Python framework on FastAPI, with service providers, an Artisan CLI, an async ORM with migrations,
+                    logging channels, MCP servers and agent testing in one container.
                 </p>
                 <InstallPill/>
                 <ul class="hero__checks">

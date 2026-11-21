@@ -7,9 +7,9 @@ duration: 6
 
 # Routes and controllers
 
-**Goal:** a `GET /api/projects` endpoint, served by a controller.
+Controllers hold the code that handles requests, and routers map URLs to them. In this lesson you add a `GET /api/projects` endpoint served by a controller.
 
-## 1. Write a controller
+## 1. Write a Controller
 
 A controller is a class whose methods handle requests. Create `app/http/controllers/project_controller.py`:
 
@@ -24,7 +24,7 @@ class ProjectController:
 
 The list is made up for now. You'll read real projects from the database in lesson 6.
 
-## 2. Add the routes
+## 2. Add the Routes
 
 Open `routes/api.py`. The installer already made a `router` for `/` and `/health`. Add a second router for your API:
 
@@ -54,9 +54,11 @@ api.resource("projects", ProjectController, only=["index"]) # [!code ++]
 | PUT | `/api/projects/{project}` | `update` |
 | DELETE | `/api/projects/{project}` | `destroy` |
 
-`only=["index"]` keeps just the first one until the other methods exist. In lesson 6 you'll add `store` and `show` to the list.
+For a controller with `create` and `edit` methods, it also adds `GET /api/projects/create` and `GET /api/projects/{project}/edit`. A route is only added when the controller has its method.
 
-## 3. Connect the router to FastAPI
+`only=["index"]` keeps the first one until the other methods exist. In lesson 6 you'll add `store` and `show` to the list.
+
+## 3. Connect the Router to FastAPI
 
 A router does nothing until it's added to FastAPI. That happens in `providers/fastapi_provider.py`:
 
@@ -74,7 +76,7 @@ class FastapiProvider(FastAPIProvider):
         self.app.fastapi.include_router(api.router) # [!code ++]
 ```
 
-`boot()` runs after every provider has registered, so everything your controllers need is ready by then. The import sits inside `boot()` for the same reason.
+`boot()` runs after every provider has registered, so everything your controllers need is ready when the routes are imported.
 
 ## Check
 

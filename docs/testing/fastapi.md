@@ -7,39 +7,79 @@ keywords: testing, fastapi, integration tests, pytest
 
 # FastAPI Testing
 
-The best way to know your API works is to call it. FastAPI Startkit's `HttpTestCase` lets you do exactly that from your tests, sending HTTP requests to your FastAPI application in memory through an `httpx` ASGI transport. There's no server to start, yet your tests exercise the same routes, middleware, and providers as production. On top of that, you get a set of fluent assertions that make checking status codes and JSON bodies a pleasure.
+`HttpTestCase` sends HTTP requests to your application from your tests, without starting a server. Requests go through the same routes, middleware and providers as they do in production, and each response comes back with assertions for status codes, JSON bodies and streamed output.
+
+- [Installation](#installation)
+- [Writing Tests](#writing-tests)
+- [Making Requests](#making-requests)
+- [Status Assertions](#status-assertions)
+- [Fluent JSON Assertions](#fluent-json-assertions)
+- [Asserting JSON Structure](#asserting-json-structure)
+- [Asserting Response Content](#asserting-response-content)
+- [Testing Streamed Responses](#testing-streamed-responses)
 
 ## Installation
 
-The testing helpers come with the `fastapi` extra:
+The testing helpers ship with the `fastapi` extra. Add pytest and pytest-asyncio as dev dependencies:
 
 ```bash
-uv add fastapi-startkit --extra fastapi
-uv add --dev pytest pytest-asyncio httpx
+uv add "fastapi-startkit[fastapi]"
+uv add --dev pytest pytest-asyncio
 ```
 
-## The `HttpTestCase` Class
+Then configure pytest in `pyproject.toml`:
 
-Before each test, `HttpTestCase` opens an `httpx.AsyncClient` against your FastAPI instance, and it closes the client again once the test finishes.
+```toml
+# pyproject.toml
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+```
+
+`pythonpath = ["."]` puts the project root on the import path, so your tests can import `bootstrap.application`. Projects created with `fastapi-startkit init` already have these settings.
+
+## Writing Tests
+
+Create a test class that extends `HttpTestCase` and returns your application from `get_application()`. Each test is an `async` method whose name starts with `test_`:
 
 ```python
+# tests/test_teams.py
 from fastapi_startkit.fastapi.testing import HttpTestCase
-```
 
-To use it, subclass it and implement `get_application()` to return your booted `Application`:
 
-```python
-class TestRegister(HttpTestCase):
+class TestTeams(HttpTestCase):
     def get_application(self):
         from bootstrap.application import app
+
         return app
+
+    async def test_it_creates_a_team(self):
+        response = await self.post("/api/teams", json={"name": "Phoenix Suns", "sport": "basketball"})
+
+        response.assert_created().assert_json(lambda json: (
+            json.where("name", "Phoenix Suns")
+                .where("sport", "basketball")
+                .etc()
+        ))
+
+    async def test_it_requires_a_name(self):
+        response = await self.post("/api/teams", json={"sport": "basketball"})
+
+        response.assert_status(422)
 ```
 
-Since `get_application()` is called for every test, return the same `app` singleton each time so providers aren't registered again.
+Run the suite with pytest:
 
-## HTTP Helpers
+```bash
+uv run pytest
+```
 
-`HttpTestCase` gives you a helper for each common HTTP method. Each helper is async and passes its keyword arguments straight to the matching `httpx.AsyncClient` method:
+When a test also writes to the database, add `RefreshDatabase` so each test starts with empty tables. See [Database Testing](/docs/testing/database).
+
+## Making Requests
+
+`HttpTestCase` has an async helper for each common HTTP method. Each one passes its keyword arguments to the matching `httpx.AsyncClient` method, so you send a JSON body with `json=`, form data with `data=`, query parameters with `params=` and headers with `headers=`:
 
 | Method | Signature |
 |---|---|
@@ -49,144 +89,46 @@ Since `get_application()` is called for every test, return the same `app` single
 | `patch` | `await self.patch(url, **kwargs)` |
 | `delete` | `await self.delete(url, **kwargs)` |
 
-That means you send a JSON body with `json=`, form data with `data=`, and headers with `headers=`, just as you would with `httpx`.
-
-Every helper returns a `TestResponse`, which wraps the `httpx.Response` and adds assertion methods such as `assert_status`, `assert_ok`, and `assert_json`. See [Fluent JSON Assertions](#fluent-json-assertions).
-
-## Writing Tests
-
-Write your tests as async methods whose names start with `test_`. With `asyncio_mode = "auto"`, pytest-asyncio picks them up and runs them:
-
-```toml
-# pyproject.toml
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-asyncio_default_test_loop_scope = "function"
-pythonpath = ["."]
+```python
+response = await self.get("/api/teams", params={"sport": "basketball"}, headers={"Accept": "application/json"})
 ```
 
-The two loop-scope settings silence deprecation warnings from pytest-asyncio 0.23. `pythonpath = ["."]` puts the project root on `sys.path`, so `from bootstrap.application import app` resolves.
+Every helper returns a `TestResponse`. It adds the assertion methods on this page and passes everything else through to the `httpx.Response`, so `response.status_code`, `response.json()`, `response.headers` and `response.text` work as usual. `response.response` returns the `httpx.Response` itself.
 
-### Example — Registration Endpoint
+For other methods, such as `OPTIONS` or `HEAD`, use `self.client`, the underlying `httpx.AsyncClient`. It returns a plain `httpx.Response` without the assertion methods. Here `/health` only defines `GET`, so an `OPTIONS` request gets a `405 Method Not Allowed`:
 
 ```python
-from fastapi_startkit.fastapi.testing import HttpTestCase
+async def test_health_rejects_options(self):
+    response = await self.client.options("/health")
 
-
-class TestRegister(HttpTestCase):
-    def get_application(self):
-        from bootstrap.application import app
-        return app
-
-    async def test_user_can_register(self):
-        response = await self.post("/students/register", json={
-            "name": "John Doe",
-            "email": "john@example.com",
-            "password": "password123",
-        })
-
-        assert response.status_code == 200
-        assert response.json()["message"] == "Student registered successfully"
-        assert "user_id" in response.json()
-
-    async def test_user_cannot_register_with_invalid_data(self):
-        # missing required fields
-        response = await self.post("/students/register", json={})
-        assert response.status_code == 422
-
-        # password too short
-        response = await self.post("/students/register", json={
-            "name": "John Doe",
-            "email": "john@example.com",
-            "password": "short",
-        })
-        assert response.status_code == 422
-
-        # invalid email
-        response = await self.post("/students/register", json={
-            "name": "John Doe",
-            "email": "not-an-email",
-            "password": "password123",
-        })
-        assert response.status_code == 422
-
-        # name too short
-        response = await self.post("/students/register", json={
-            "name": "J",
-            "email": "john@example.com",
-            "password": "password123",
-        })
-        assert response.status_code == 422
-
-    async def test_user_cannot_register_with_duplicate_email(self):
-        payload = {
-            "name": "Jane Doe",
-            "email": "jane@example.com",
-            "password": "password123",
-        }
-
-        await self.post("/students/register", json=payload)
-
-        response = await self.post("/students/register", json=payload)
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Email already registered"
+    assert response.status_code == 405
 ```
 
-## Accessing the Raw Client
+## Status Assertions
 
-When the helpers aren't enough, you can reach for `self.client`, the underlying `httpx.AsyncClient`. Use it for anything the helpers don't cover, such as `OPTIONS` or `HEAD` requests, custom auth headers on every request, or streaming. Keep in mind that it returns a plain `httpx.Response`, so the `TestResponse` assertions aren't available.
+Each status assertion returns the `TestResponse`, so you can chain another assertion after it:
+
+| Method | Asserts |
+|---|---|
+| `assert_status(code)` | The status equals `code` |
+| `assert_ok()` | The status is `200` |
+| `assert_created()` | The status is `201` |
+| `assert_no_content()` | The status is `204` |
 
 ```python
-async def test_preflight(self):
-    response = await self.client.options("/profile")
-    assert response.status_code == 204
+response.assert_status(422)
+response.assert_created().assert_json(lambda json: json.where("name", "Phoenix Suns").etc())
+```
+
+A failure shows the expected code, the actual code and the response body:
+
+```text
+AssertionError: Expected status code [201] but received [422]. Body: {"message":"The name field is required.",...}
 ```
 
 ## Fluent JSON Assertions
 
-Checking a response by hand quickly turns into a wall of `assert` statements. `TestResponse` gives you assertion methods instead, including an `AssertableJson` API for checking JSON bodies:
-
-```python
-response = await self.post("/teams", json=payload)
-
-response.assert_created().assert_json(lambda json: (
-    json.where("id", 1)
-        .where("name", "Phoenix Suns")
-        .etc()
-))
-```
-
-You don't lose anything by using it, either. Any attribute that `TestResponse` doesn't define is read from the `httpx.Response`, so `response.status_code`, `response.json()`, `response.headers`, and `response.text` work as before.
-
-### Status Assertions
-
-Each of these methods returns the `TestResponse`, so you can chain calls.
-
-| Method | Asserts |
-|---|---|
-| `assert_status(code)` | the response status equals `code` |
-| `assert_ok()` | status is `200` |
-| `assert_created()` | status is `201` |
-| `assert_no_content()` | status is `204` |
-
-```python
-response.assert_status(422)
-response.assert_ok()
-response.assert_created().assert_json(...)
-```
-
-When the status doesn't match, the failure message shows the expected code, the actual code, and the response body, so you can see what went wrong right away:
-
-```
-AssertionError: Expected status code [200] but received [422]. Body: {"detail":[...]}
-```
-
-### JSON Body Assertions
-
-#### `assert_json(callback=None, *, exact=None)`
-
-The callback receives an `AssertableJson` scoped to the root of the decoded body:
+`assert_json()` passes the decoded body to your callback as an `AssertableJson`. Each of its methods returns the same instance, so you chain the checks you need:
 
 ```python
 response.assert_json(lambda json: (
@@ -196,15 +138,127 @@ response.assert_json(lambda json: (
 ))
 ```
 
-If you'd rather compare the whole body to a dict, pass `exact=`:
+To compare the whole body with a value, pass `exact=` instead:
 
 ```python
-response.assert_json(exact={"id": 1, "name": "Phoenix Suns"})
+response.assert_json(exact={"teams": [{"name": "Phoenix Suns", "sport": "basketball"}]})
 ```
 
-#### `assert_json_structure(structure)`
+Keys are dot paths. `"coach.name"` reaches into a nested object and `"teams.0.name"` reads the first item of a list.
 
-Sometimes you only care about the shape of the response. This method checks that keys exist and ignores their values. Use a list of key names for an object and nested dicts for deeper levels. The `"*"` key applies a structure to every element of a list.
+### Matching Values
+
+| Method | Asserts |
+|---|---|
+| `where(key, expected)` | `key` equals `expected`, or passes `expected` when it is a callable |
+| `where_not(key, expected)` | `key` doesn't equal `expected`, or fails it when it is a callable |
+| `where_all(bindings)` | `where()` for each `{key: expected}` pair |
+| `where_type(key, type)` | `key` has one of the given JSON types |
+| `where_all_type(bindings)` | `where_type()` for each `{key: type}` pair |
+
+```python
+json.where("name", "Phoenix Suns")
+json.where("id", lambda value: value > 0)
+json.where_not("sport", "hockey")
+json.where_all({"name": "Phoenix Suns", "sport": "basketball"})
+```
+
+A callable receives the value and passes when it returns something truthy.
+
+The type names for `where_type()` are `string`, `integer`, `double`, `number`, `boolean`, `array`, `object` and `null`. Pass a pipe-separated string or a list to allow more than one:
+
+```python
+json.where_type("name", "string")
+json.where_type("coach", "object|null")
+json.where_type("tags", ["array", "null"])
+```
+
+`True` and `False` match `boolean`, not `integer`.
+
+### Asserting Presence
+
+| Method | Asserts |
+|---|---|
+| `has(key)` | `key` exists |
+| `has(key, length)` | `key` exists and has `length` items |
+| `has(key, callback)` | `key` exists, and the callback runs scoped into it |
+| `has(key, length, callback)` | Both of the above |
+| `has_all(*keys)` | Every key exists |
+| `has_any(*keys)` | At least one key exists |
+| `missing(key)` | `key` doesn't exist |
+| `missing_all(*keys)` | None of the keys exist |
+| `count(key, length)` | The list or object at `key` has exactly `length` items |
+
+```python
+json.has("teams")
+json.has("teams", 3)
+json.has_all("id", "name", "sport")
+json.has_any("phone", "email")
+json.missing("password")
+json.count("teams", 3)
+```
+
+### Scoping Into Nested Data
+
+Pass a callback to `has()` to run assertions inside a nested object. The callback receives a new `AssertableJson` for that key:
+
+```python
+response.assert_json(lambda json: (
+    json.where("name", "Phoenix Suns")
+        .has("coach", lambda coach: coach.where("name", "Mike Budenholzer").etc())
+        .etc()
+))
+```
+
+`has("teams", 3, callback)` checks the length and scopes in at the same time. A dot path scopes into a single list item:
+
+```python
+json.has("teams.0", lambda team: team.where("name", "Phoenix Suns").etc())
+```
+
+### Iterating Collections
+
+`first()` runs a callback on the first item of the current scope, and `each()` runs it on every item:
+
+```python
+response.assert_json(lambda json: (
+    json.has("teams", lambda teams: teams.first(lambda team: team.where("name", "Phoenix Suns").etc()))
+))
+
+response.assert_json(lambda json: (
+    json.has("teams", lambda teams: teams.each(lambda team: team.where_all_type({"name": "string", "sport": "string"})))
+))
+```
+
+### The Strict Interaction Model
+
+`AssertableJson` records every key you check. When a scope closes, at the end of `assert_json()` or of a `has()`, `first()` or `each()` callback, it fails if the object has keys you didn't check. For example, a `password` field that slipped into a response fails the test.
+
+Call `etc()` to accept the keys you didn't check:
+
+```python
+# Body: {"id": 1, "name": "Phoenix Suns", "sport": "basketball", "coach": {...}}
+
+response.assert_json(lambda json: json.where("id", 1))        # fails
+response.assert_json(lambda json: json.where("id", 1).etc())  # passes
+```
+
+The failure lists the keys you missed:
+
+```text
+AssertionError: Unexpected properties were found at [root]: ['coach', 'name', 'sport']. Interact with them or call .etc().
+```
+
+Every failure names the full dot path of the key:
+
+```text
+AssertionError: Property [teams.0.sport] does not exist.
+AssertionError: Property [name] does not match. Expected ['Phoenix Suns'], got ['Chicago Bulls'].
+```
+
+## Asserting JSON Structure
+
+`assert_json_structure()` checks that keys exist without checking their values. Use a list of key names for an object, a nested dict for a deeper level, and `"*"` to apply a structure to every item of a list:
 
 ```python
 response.assert_json_structure({
@@ -214,204 +268,52 @@ response.assert_json_structure({
 })
 ```
 
-In dict form, map a key to `None` to check only that it exists:
+Map a key to `None` to check only that it exists:
 
 ```python
-response.assert_json_structure({"meta": None, "data": ["id", "name"]})
+response.assert_json_structure({"coach": None, "name": None})
 ```
 
-### The `AssertableJson` API
+## Asserting Response Content
 
-Your `assert_json` callback receives an `AssertableJson`. Each of its methods returns the same instance, so you can chain them.
-
-Keys are dot-paths. `"profile.email"` reaches a nested value and `"teams.0.name"` indexes into a list. Wherever a value is expected, you can pass a callable instead. Every key of an object must be asserted, unless you call `etc()` to accept the rest. See [The strict interaction model](#the-strict-interaction-model).
-
-#### Matching values
-
-| Method | Description |
-|---|---|
-| `where(key, expected)` | assert `key` equals `expected`, or passes `expected` if it is callable |
-| `where_not(key, expected)` | assert `key` does not equal `expected`, or fails the predicate |
-| `where_all(bindings)` | call `where` for each `{key: expected}` pair |
-| `where_type(key, type)` | assert `key` has one of the given JSON types |
-| `where_all_type(bindings)` | call `where_type` for each `{key: type}` pair |
+`assert_contents()` checks that the response body contains each of the given strings. Use it for HTML and other responses that aren't JSON:
 
 ```python
-json.where("name", "Phoenix Suns")
-json.where("score", lambda v: v > 100)
-json.where_not("status", "banned")
-json.where_all({"id": 1, "active": True})
+async def test_team_page(self):
+    response = await self.get("/teams")
+
+    response.assert_ok().assert_contents("<h1>Phoenix Suns</h1>", "Basketball")
 ```
 
-##### Predicate matchers
+## Testing Streamed Responses
 
-A callable receives the actual value, and the assertion passes when it returns something truthy:
+For a Server-Sent Events response, with a `text/event-stream` content type, `TestResponse` reads the `data:` lines of the body. Take this endpoint:
 
 ```python
-json.where("email", lambda v: v.endswith("@example.com"))
-json.where("tags", lambda v: "featured" in v)
+# app/http/controllers/team_controller.py
+from fastapi.responses import StreamingResponse
+
+
+class TeamController:
+    async def scores(self):
+        async def events():
+            for score in ["98", "101", "104"]:
+                yield f"data: {score}\n\n"
+
+        return StreamingResponse(events(), media_type="text/event-stream")
 ```
 
-##### Types with `where_type`
-
-The type names are `string`, `integer`, `double`, `number`, `boolean`, `array`, `object`, and `null`. To allow several types, pass a pipe-separated string or a list:
+`assert_stream()` with one string compares it with all the chunks joined together. With several strings, it compares the exact list of chunks. `assert_stream_contains()` checks that the joined content contains each string:
 
 ```python
-json.where_type("name", "string")
-json.where_type("deleted_at", "string|null")
-json.where_type("tags", ["array", "null"])
+async def test_scores_stream(self):
+    response = await self.get("/api/teams/scores")
+
+    response.assert_stream("98101104")
+    response.assert_stream("98", "101", "104")
+    response.assert_stream_contains("101")
 ```
 
-`True` and `False` match `boolean` but not `integer`, although Python's `bool` is a subclass of `int`.
+To read the stream yourself, `stream_chunks()` returns the list of chunks, `stream_content()` returns them joined, and `is_stream()` tells you whether the response is a stream. The stream assertions fail on a response that isn't `text/event-stream`. Use `assert_contents()` for those.
 
-#### Asserting presence
-
-| Method | Description |
-|---|---|
-| `has(key, length?, callback?)` | assert `key` exists, and optionally check its length or scope into it |
-| `has_all(*keys)` | assert every key exists |
-| `has_any(*keys)` | assert at least one key exists |
-| `missing(key)` | assert `key` is absent |
-| `missing_all(*keys)` | assert none of the keys exist |
-| `count(key, n)` | assert the collection at `key` has exactly `n` items |
-
-`has` accepts a few different forms:
-
-```python
-json.has("teams")
-json.has("teams", 3)
-json.has("profile", lambda p: ...)
-json.has("teams", 3, lambda t: ...)
-```
-
-```python
-json.has_all("id", "name", "email")
-json.has_any("phone", "mobile")
-json.missing("password")
-json.count("teams", 3)
-```
-
-#### Nested scoping
-
-When you pass a callback to `has`, it receives a new `AssertableJson` scoped to that key. The nested scope is checked on its own, so its keys must also be asserted or covered by `etc()`.
-
-```python
-response.assert_json(lambda json: (
-    json.has("profile", lambda profile: (
-        profile.where("email", "john@example.com")
-               .where("verified", True)
-               .etc()
-    )).etc()
-))
-```
-
-You can also use a dot-path to scope into a single list element:
-
-```python
-json.has("teams", 3)
-json.has("teams.0", lambda team: team.where("name", "Phoenix Suns").etc())
-```
-
-#### Iterating collections
-
-| Method | Description |
-|---|---|
-| `first(callback)` | run `callback` on the first child element |
-| `each(callback)` | run `callback` on every child element, each in its own scope |
-
-```python
-json.has("teams", lambda teams: teams.first(lambda team: (
-    team.where("name", "Phoenix Suns").etc()
-)))
-
-json.has("teams", lambda teams: teams.each(lambda team: (
-    team.where_all_type({"name": "string", "sport": "string"})
-)))
-```
-
-#### The strict interaction model
-
-`AssertableJson` records each key you touch. When a scope closes, at the end of `assert_json` or of a `has`, `first`, or `each` callback, it fails if any key of the object was not asserted. This is how you catch fields that should never be in the response, such as a `password` hash.
-
-When you don't care about the remaining keys, call `etc()` to accept them:
-
-```python
-# Body: {"id": 1, "name": "Phoenix Suns", "sport": "basketball"}
-
-# Fails: "name" and "sport" were never asserted
-response.assert_json(lambda json: json.where("id", 1))
-
-# Passes
-response.assert_json(lambda json: json.where("id", 1).etc())
-```
-
-If you forget, the failure lists the keys you missed:
-
-```
-AssertionError: Unexpected properties were found at [root]: ['name', 'sport'].
-Interact with them or call .etc().
-```
-
-#### Error messages
-
-Failures give you the full dot-path to the key, so you can find the problem quickly:
-
-```
-AssertionError: Property [teams.0.sport] does not exist.
-AssertionError: Property [profile.email] does not match. Expected ['a@b.com'], got ['x@y.com'].
-```
-
-### Complete Example
-
-Here's everything working together in one test:
-
-```python
-from fastapi_startkit.fastapi.testing import HttpTestCase
-
-
-class TestTeams(HttpTestCase):
-    def get_application(self):
-        from bootstrap.application import app
-        return app
-
-    async def test_create_team_returns_created_resource(self):
-        response = await self.post("/api/teams", json={
-            "name": "Phoenix Suns",
-            "sport": "basketball",
-        })
-
-        response.assert_status(201).assert_json(lambda json: (
-            json.where("id", lambda v: isinstance(v, int))
-                .where("name", "Phoenix Suns")
-                .where_type("sport", "string")
-                .has("coach", lambda coach: (
-                    coach.where("name", "Mike Budenholzer").etc()
-                ))
-                .missing("internal_notes")
-                .etc()
-        ))
-
-    async def test_list_arizona_teams(self):
-        response = await self.get("/api/teams/arizona")
-
-        response.assert_ok().assert_json_structure({
-            "teams": {"*": ["name", "sport"]},
-        })
-
-        response.assert_json(lambda json: (
-            json.has("teams", 3)
-                .has("teams.0", lambda team: (
-                    team.where("name", "Phoenix Suns")
-                        .where_all_type({"name": "string", "sport": "string"})
-                        .etc()
-                ))
-                .etc()
-        ))
-```
-
-### Not Yet Available
-
-These methods exist as placeholders for now and raise `NotImplementedError`:
-
-- `where_contains(key, expected)`
-- `count_between(key, min, max)`
+See [Database Testing](/docs/testing/database) to reset the database between tests, and [Browser Testing](/docs/testing/browser) to test pages in a real browser.

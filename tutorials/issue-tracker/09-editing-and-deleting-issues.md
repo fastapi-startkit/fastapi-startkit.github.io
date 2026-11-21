@@ -7,9 +7,9 @@ duration: 7
 
 # Editing and deleting issues
 
-**Goal:** rename an issue, hand it to someone, raise its priority and delete it when it's no longer needed.
+Issues change after they're created. In this lesson you rename an issue, hand it to someone, raise its priority and delete it when it's no longer needed.
 
-## 1. Describe the update
+## 1. Describe the Update
 
 Add a request to `app/http/requests/issue.py`, between the other two:
 
@@ -29,7 +29,7 @@ class UpdateIssueRequest(FormRequest): # [!code ++]
     assignee_id: Annotated[int | None, Field().nullable().exists("users", "id")] = None # [!code ++]
 ```
 
-Every field has a default, so a client can send just the fields it wants to change.
+Every field has a default, so a client can send only the fields it wants to change.
 
 Status isn't here on purpose. It only changes through `/transitions`, so the workflow can't be skipped with a `PATCH`.
 
@@ -39,7 +39,7 @@ A few rules are worth a closer look:
 - `assignee_id` is `nullable()`, so sending `null` is how you unassign an issue.
 - `priority` isn't nullable, so `"priority": null` is refused.
 
-## 2. Add the controller methods
+## 2. Add the Controller Methods
 
 In `app/http/controllers/issue_controller.py`:
 
@@ -66,7 +66,7 @@ class IssueController:
 
 `delete()` removes the row. `204` means it worked and there's nothing to send back.
 
-## 3. Add the routes
+## 3. Add the Routes
 
 `PATCH` is the method for changing part of a record, and `DELETE` removes one. In `routes/api.py`:
 
