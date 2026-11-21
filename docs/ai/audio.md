@@ -60,6 +60,10 @@ filename = await audio.store()
 
 `generate()` returns an `AudioResponse` that holds the audio bytes. See [Storing Audio](#the-audioresponse-object) for the ways to save it.
 
+::: warning
+OpenAI has deprecated every speech model the builder can use (`tts-1`, `tts-1-hd` and `gpt-4o-mini-tts`), and shuts them down on January 6, 2027.
+:::
+
 ### Voices
 
 The default voice is `alloy`. Use `female()` or `male()` for a preset, or name a voice with `voice()`:
@@ -79,7 +83,7 @@ You can also choose the model, the speaking speed and the output format:
 ```python
 audio = await (
     Audio.of("Chapter one. The storm had passed by morning.")
-    .model("tts-1-hd")
+    .model("gpt-4o-mini-tts")
     .speed(0.9)
     .format("opus")
     .generate()
@@ -88,7 +92,7 @@ audio = await (
 
 | Method | Default | Values |
 |---|---|---|
-| `model(name)` | `tts-1` | `tts-1`, or `tts-1-hd` for higher quality |
+| `model(name)` | `tts-1` | `tts-1`, `tts-1-hd` or `gpt-4o-mini-tts` |
 | `speed(value)` | `1.0` | `0.25` to `4.0` |
 | `format(fmt)` | `mp3` | `mp3`, `opus`, `aac` or `flac` |
 
@@ -160,7 +164,7 @@ router = APIRouter()
 
 @router.post("/announcements")
 async def announce(text: str):
-    audio = await Audio.of(text).female().model("tts-1-hd").generate()
+    audio = await Audio.of(text).female().model("gpt-4o-mini-tts").generate()
     filename = await audio.storePublicly()
 
     return {"url": f"/storage/{filename}"}

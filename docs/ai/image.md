@@ -61,6 +61,10 @@ filename = await image.store()
 
 `generate()` returns an `ImageResponse` that holds the PNG bytes. See [Storing Images](#the-imageresponse-object) for the ways to save it.
 
+::: warning
+OpenAI shut down `dall-e-2` and `dall-e-3` on May 12, 2026, and the builder can't yet call the GPT Image models that replace them: it always sends `response_format`, which those models reject. Until the builder supports GPT Image models, image requests to OpenAI fail.
+:::
+
 ### Sizes
 
 Images are square by default. Call `landscape()` or `portrait()` for a wide or a tall image:

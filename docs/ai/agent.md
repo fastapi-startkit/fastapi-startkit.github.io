@@ -98,8 +98,8 @@ class AIConfig(BaseAIConfig):
 
     providers: dict[str, Config] = field(default_factory=lambda: {
         "google": GoogleConfig(models={
-            "default": "gemini-2.5-flash",
-            "default_embeddings": "gemini-embedding-001",
+            "default": "gemini-3.8-flash",
+            "default_embeddings": "gemini-embedding-2",
             "default_decisions": "gemini-decision-1",
         }),
         "openai": OpenAIConfig(),
@@ -109,7 +109,7 @@ class AIConfig(BaseAIConfig):
     })
 ```
 
-This example keeps the framework defaults and changes Google's chat model to `gemini-2.5-flash`. Use `env()` only as a dataclass field default. Inside a dict such as `models`, write plain strings or call `os.getenv`. Then pass the class to `AIProvider`:
+This example keeps the framework defaults for the other providers and sets Google's chat and embeddings models to `gemini-3.8-flash` and `gemini-embedding-2`. Use `env()` only as a dataclass field default. Inside a dict such as `models`, write plain strings or call `os.getenv`. Then pass the class to `AIProvider`:
 
 ```python
 # bootstrap/application.py
@@ -222,7 +222,7 @@ from fastapi_startkit.ai import Agent, max_tokens, model, provider
 
 
 @provider("anthropic")
-@model("claude-sonnet-4-6")
+@model("claude-opus-5-5")
 @max_tokens(2048)
 class SupportAgent(Agent):
     def instructions(self) -> str:
@@ -249,7 +249,7 @@ Each decorator sets a class attribute on the agent:
 | Decorator | Default | Description |
 |---|---|---|
 | `@provider(name)` | `AI_PROVIDER` | Provider name from `ai.providers` |
-| `@model(name)` | the provider's `default` model | Model identifier, such as `"gpt-4o"` |
+| `@model(name)` | the provider's `default` model | Model identifier, such as `"gpt-6.2-astra"` |
 | `@max_tokens(n)` | `4096` | Maximum output tokens per response |
 | `@timeout(seconds)` | `30.0` | Request timeout in seconds |
 | `@top_p(value)` | `1.0` | Nucleus sampling parameter |
@@ -263,8 +263,8 @@ from fastapi_startkit.ai import Agent
 
 
 class AnalysisAgent(Agent):
-    provider = "openai"
-    model = "gpt-4o"
+    provider = "google"
+    model = "gemini-3.8-flash"
     max_tokens = 1024
     temperature = 0.2
     tool_choice = "auto"
@@ -683,11 +683,11 @@ The Decisions API scores each option instead of generating text.
 `classify()` uses `AI_PROVIDER`, like agents do. Pass `provider` and `model` to override them for one call:
 
 ```python
-await classification.classify(provider="openai", model="gpt-4.1-mini")
+await classification.classify(provider="openai", model="gpt-6-luna")
 await classification.classify(provider="google", model="gemini-decision-1")
 ```
 
-On Google, the model comes from `ai.providers.<name>.models.default_decisions`, and falls back to `gemini-decision-1` when that key isn't set. A `model` you pass on Google must be a Decisions model, not a chat model such as `gemini-2.5-flash`. The Google request needs `GEMINI_API_KEY` and nothing beyond the `ai` extra. Other providers need their integration package, as agents do.
+On Google, the model comes from `ai.providers.<name>.models.default_decisions`, and falls back to `gemini-decision-1` when that key isn't set. A `model` you pass on Google must be a Decisions model, not a chat model such as `gemini-3.8-flash`. The Google request needs `GEMINI_API_KEY` and nothing beyond the `ai` extra. Other providers need their integration package, as agents do.
 
 ### Questions
 
@@ -862,18 +862,19 @@ Awaiting `handler(model)` buffers the whole response before any token reaches th
 
 ## Provider Options
 
-Each provider has its own settings, such as Anthropic's `thinking`. Return them from `provider_options()`, keyed by provider name. The options for the agent's `@provider` are passed to the model:
+Each provider has its own settings, such as Anthropic's `output_config`, which sets the effort level. Return them from `provider_options()`, keyed by provider name. The options for the agent's `@provider` are passed to the model:
 
 ```python
 # app/agents/thinking_agent.py
-from fastapi_startkit.ai import Agent, provider
+from fastapi_startkit.ai import Agent, model, provider
 
 
 @provider("anthropic")
+@model("claude-opus-5-5")
 class ThinkingAgent(Agent):
     def provider_options(self):
         return {
-            "anthropic": {"thinking": {"type": "enabled", "budget_tokens": 1024}},
+            "anthropic": {"output_config": {"effort": "high"}},
             "openai": {"frequency_penalty": 0.5},
         }
 ```
@@ -883,7 +884,7 @@ To override them for a single call, pass `provider_options` to `prompt()` or `st
 ```python
 result = await ThinkingAgent().prompt(
     "Solve this hard maths problem.",
-    provider_options={"anthropic": {"thinking": {"type": "enabled", "budget_tokens": 2048}}},
+    provider_options={"anthropic": {"output_config": {"effort": "max"}}},
 )
 ```
 
